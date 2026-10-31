@@ -1,12 +1,12 @@
 // "Obiettivo": scegli la prossima avventura e vedi quanta Fitness serve, dove arrivi e come salire.
 
-import { h } from "../dom.js?v=202610311949";
-import { numero, durata, dataLunga } from "../formato.js?v=202610311949";
+import { h } from "../dom.js?v=202610312043";
+import { numero, durata, dataLunga } from "../formato.js?v=202610312043";
 import {
   SFIDE, SCARICO_GIORNI, fitnessAllaPartenza, salitaSettimanale, caricoSettimanaPer,
   puntiPerOra, giroPiuLungo, giorniTra, aggiungiGiorni,
-} from "../modello.js?v=202610311949";
-import { intestazione, bannerDemo } from "./comuni.js?v=202610311949";
+} from "../modello.js?v=202610312043";
+import { intestazione, bannerDemo } from "./comuni.js?v=202610312043";
 
 const PIU_LONTANO = 3 * 365; // giorni: oltre non ha senso pianificare
 

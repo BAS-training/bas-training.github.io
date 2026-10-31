@@ -1,14 +1,14 @@
 // Come sto: la regia della pagina. Tiene lo stato, decide quale pagina mostrare
 // e parla con intervals.icu. Le pagine vere e proprie stanno in js/viste/.
 
-import { creaClient, ErroreApi } from "./api.js?v=202610311949";
-import { costruisciModello, normalizzaGiorno, oggiLocale, oggiNelFuso, aggiungiGiorni, GIORNI_STORICO, GIORNI_USCITE } from "./modello.js?v=202610311949";
-import { generaDemo } from "./demo.js?v=202610311949";
-import { vistaOggi } from "./viste/oggi.js?v=202610311949";
-import { vistaAndamento } from "./viste/andamento.js?v=202610311949";
-import { vistaUscite } from "./viste/uscite.js?v=202610311949";
-import { vistaObiettivo } from "./viste/obiettivo.js?v=202610311949";
-import { vistaBenvenuto, vistaCollega, vistaGuida, vistaPrivacy, vistaCaricamento, vistaErrore } from "./viste/pagine.js?v=202610311949";
+import { creaClient, ErroreApi } from "./api.js?v=202610312043";
+import { costruisciModello, normalizzaGiorno, oggiLocale, oggiNelFuso, aggiungiGiorni, GIORNI_STORICO, GIORNI_USCITE } from "./modello.js?v=202610312043";
+import { generaDemo } from "./demo.js?v=202610312043";
+import { vistaOggi } from "./viste/oggi.js?v=202610312043";
+import { vistaAndamento } from "./viste/andamento.js?v=202610312043";
+import { vistaUscite } from "./viste/uscite.js?v=202610312043";
+import { vistaObiettivo } from "./viste/obiettivo.js?v=202610312043";
+import { vistaBenvenuto, vistaCollega, vistaGuida, vistaPrivacy, vistaCaricamento, vistaErrore } from "./viste/pagine.js?v=202610312043";
 
 // Dentro un riquadro di un altro sito la pagina non si apre: nessuno deve poterla "travestire".
 if (window.top !== window.self) {

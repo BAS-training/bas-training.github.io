@@ -1,8 +1,8 @@
 // Le pagine che si vedono anche senza essere entrati: benvenuto, collegamento, guida, privacy.
 
-import { h, icona } from "../dom.js?v=202610311949";
-import { SPIEGAZIONI, GUIDA_SEMAFORO, DISPOSITIVI, DOMANDE_FREQUENTI, LIMITI } from "../testi.js?v=202610311949";
-import { intestazione, luceSemaforo } from "./comuni.js?v=202610311949";
+import { h, icona } from "../dom.js?v=202610312043";
+import { SPIEGAZIONI, GUIDA_SEMAFORO, DISPOSITIVI, DOMANDE_FREQUENTI, LIMITI } from "../testi.js?v=202610312043";
+import { intestazione, luceSemaforo } from "./comuni.js?v=202610312043";
 
 const IMPOSTAZIONI = "https://intervals.icu/settings";
 
@@ -11,7 +11,8 @@ export function vistaBenvenuto(ctx) {
     h("section", { class: "eroe" },
       h("div", { class: "eroe-luce" }, luceSemaforo("verde")),
       h("div", { class: "eroe-testo" },
-        h("h1", {}, "Come sto"),
+        h("p", { class: "occhiello" }, "Come sto"),
+        h("h1", {}, "Arriva pronto alla tua prossima avventura"),
         h("p", { class: "attacco" }, "Ogni mattina ti dice se oggi puoi spingere o se è meglio andare piano. Legge i dati del tuo orologio e del ciclocomputer e te li spiega in parole semplici."),
         h("div", { class: "riga-bottoni" },
           h("a", { class: "bottone", href: "#collega" }, "Inizia"),

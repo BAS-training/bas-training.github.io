@@ -2,7 +2,7 @@
 // Servono a chi vuole vedere l'app prima di collegare il proprio account.
 // Sono generati sempre uguali (seme fisso) e non c'entrano con nessuna persona vera.
 
-import { aggiungiGiorni, giornoSettimana, calendario, baseHrv, baseFc, GIORNI_STORICO } from "./modello.js?v=202610311949";
+import { aggiungiGiorni, giornoSettimana, calendario, baseHrv, baseFc, GIORNI_STORICO } from "./modello.js?v=202610312043";
 
 function generatore(seme) {
   let a = seme >>> 0;

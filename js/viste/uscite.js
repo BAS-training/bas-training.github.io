@@ -1,10 +1,10 @@
 // Le uscite: le ore di ogni settimana e l'elenco degli allenamenti.
 
-import { h } from "../dom.js?v=202610311949";
-import { numero, durata, dataBreve, giornoMese } from "../formato.js?v=202610311949";
-import { settimane, nomeTipo, aggiungiGiorni } from "../modello.js?v=202610311949";
-import { grafico } from "../grafici.js?v=202610311949";
-import { intestazione, bannerDemo } from "./comuni.js?v=202610311949";
+import { h } from "../dom.js?v=202610312043";
+import { numero, durata, dataBreve, giornoMese } from "../formato.js?v=202610312043";
+import { settimane, nomeTipo, aggiungiGiorni } from "../modello.js?v=202610312043";
+import { grafico } from "../grafici.js?v=202610312043";
+import { intestazione, bannerDemo } from "./comuni.js?v=202610312043";
 
 export function vistaUscite(ctx) {
   const m = ctx.modello;

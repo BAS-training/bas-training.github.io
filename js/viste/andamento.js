@@ -1,10 +1,10 @@
 // L'andamento nel tempo: allenamento (Fitness, Fatica, Freschezza, carico) e notti (HRV, battito, sonno).
 
-import { h } from "../dom.js?v=202610311949";
-import { numero, segno, durata } from "../formato.js?v=202610311949";
-import { baseHrv, baseFc } from "../modello.js?v=202610311949";
-import { grafico } from "../grafici.js?v=202610311949";
-import { intestazione, bannerDemo } from "./comuni.js?v=202610311949";
+import { h } from "../dom.js?v=202610312043";
+import { numero, segno, durata } from "../formato.js?v=202610312043";
+import { baseHrv, baseFc } from "../modello.js?v=202610312043";
+import { grafico } from "../grafici.js?v=202610312043";
+import { intestazione, bannerDemo } from "./comuni.js?v=202610312043";
 
 const INTERVALLI = [
   { giorni: 30, nome: "30 giorni" },

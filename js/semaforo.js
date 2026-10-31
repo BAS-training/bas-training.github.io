@@ -4,7 +4,7 @@
 // Le soglie sono state riviste il 31/10/2026 contro la letteratura e una simulazione su un ciclista
 // sano: le prime regole davano verde solo in metà dei giorni normali.
 
-import { numero, durata } from "./formato.js?v=202610311949";
+import { numero, durata } from "./formato.js?v=202610312043";
 
 export const LIVELLI = {
   verde: {

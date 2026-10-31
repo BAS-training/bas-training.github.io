@@ -1,12 +1,12 @@
 // La pagina principale: il semaforo, le domande del mattino e i sei numeri del giorno.
 
-import { h, icona } from "../dom.js?v=202610311949";
-import { numero, segno, durata, dataLunga } from "../formato.js?v=202610311949";
-import { valuta, zonaFreschezza, ESITO_VOCE } from "../semaforo.js?v=202610311949";
-import { nomeTipo } from "../modello.js?v=202610311949";
-import { SPIEGAZIONI, DOMANDE_MATTINO } from "../testi.js?v=202610311949";
-import { sparkline } from "../grafici.js?v=202610311949";
-import { pillola, spiegazione, bannerDemo, luceSemaforo } from "./comuni.js?v=202610311949";
+import { h, icona } from "../dom.js?v=202610312043";
+import { numero, segno, durata, dataLunga } from "../formato.js?v=202610312043";
+import { valuta, zonaFreschezza, ESITO_VOCE } from "../semaforo.js?v=202610312043";
+import { nomeTipo } from "../modello.js?v=202610312043";
+import { SPIEGAZIONI, DOMANDE_MATTINO } from "../testi.js?v=202610312043";
+import { sparkline } from "../grafici.js?v=202610312043";
+import { pillola, spiegazione, bannerDemo, luceSemaforo } from "./comuni.js?v=202610312043";
 
 function saluto(nome) {
   const ora = new Date().getHours();
