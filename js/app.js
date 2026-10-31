@@ -284,7 +284,7 @@ if (sulMioComputer && leggi(sessione, PONTE) === "1") {
 } else if (chiaveSalvata) {
   stato.client = creaClient({ chiave: chiaveSalvata });
   carica();
-} else if (location.hash === "#esempio" || leggi(sessione, DEMO) === "1") {
+} else if (location.hash === "#esempio" || new URLSearchParams(location.search).has("esempio") || leggi(sessione, DEMO) === "1") {
   scrivi(sessione, DEMO, "1");
   avviaDemo();
   if (location.hash === "#esempio") history.replaceState(null, "", "#oggi");
