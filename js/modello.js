@@ -17,6 +17,16 @@ export function oggiLocale(d = new Date()) {
   return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
 }
 
+// La data di oggi nel fuso dell'atleta su intervals.icu (per chi viaggia o ha il telefono in un altro fuso).
+export function oggiNelFuso(fuso, adesso = new Date()) {
+  if (!fuso) return oggiLocale(adesso);
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: fuso, year: "numeric", month: "2-digit", day: "2-digit" }).format(adesso);
+  } catch {
+    return oggiLocale(adesso);
+  }
+}
+
 function utc(iso) {
   const [a, m, g] = iso.split("-").map(Number);
   return Date.UTC(a, m - 1, g);
@@ -60,18 +70,15 @@ export function normalizzaGiorno(w) {
     atl: num(w.atl),
     carico: num(w.atlLoad ?? w.ctlLoad),
     fc: pos(w.restingHR),
-    hrv: pos(w.hrv),
+    // Apple misura l'HRV in un altro modo (SDNN) e intervals.icu lo mette in un campo a parte:
+    // per il confronto con il proprio normale va bene lo stesso.
+    hrv: pos(w.hrv) ?? pos(w.hrvSDNN),
     sonno: pos(w.sleepSecs),
     punteggioSonno: pos(w.sleepScore),
     infortunio: pos(w.injury),
     fatica: pos(w.fatigue),
     dolori: pos(w.soreness),
-    note: typeof w.comments === "string" && w.comments.trim() ? w.comments.trim() : null,
   };
-}
-
-function giornoVuoto(d) {
-  return normalizzaGiorno({ id: d });
 }
 
 // Un giorno per riga, dal più vecchio a oggi, anche quando intervals.icu non ha niente.
@@ -83,7 +90,7 @@ export function calendario(benessere, oggi, giorni = GIORNI_STORICO) {
   const lista = [];
   for (let i = giorni - 1; i >= 0; i--) {
     const d = aggiungiGiorni(oggi, -i);
-    lista.push(perData.get(d) || giornoVuoto(d));
+    lista.push(perData.get(d) || normalizzaGiorno({ id: d }));
   }
   for (const g of lista) {
     g.forma = g.ctl !== null && g.atl !== null ? g.ctl - g.atl : null;
@@ -94,7 +101,7 @@ export function calendario(benessere, oggi, giorni = GIORNI_STORICO) {
 
 // Il normale di HRV di una persona, dalle notti prima del giorno i (escluso).
 // Si lavora sul logaritmo perché l'HRV ha una coda lunga verso l'alto: è il metodo
-// usato negli studi sul monitoraggio degli atleti. Servono almeno 14 notti.
+// usato negli studi sul monitoraggio degli atleti (Plews, Buchheit, Altini). Servono almeno 14 notti.
 export function baseHrv(giorni, i, finestra = 60) {
   const valori = [];
   for (let j = Math.max(0, i - finestra); j < i; j++) {
@@ -123,7 +130,13 @@ export function hrvSettimana(giorni, i) {
   return valori.length >= 4 ? Math.exp(media(valori)) : null;
 }
 
-// Il battito a riposo solito: la mediana delle ultime 30 notti (oggi escluso), almeno 7.
+export function sonnoSettimana(giorni, i) {
+  const valori = [];
+  for (let j = Math.max(0, i - 6); j <= i; j++) if (giorni[j].sonno) valori.push(giorni[j].sonno);
+  return valori.length >= 4 ? media(valori) : null;
+}
+
+// Il battito a riposo normale: la mediana delle ultime 30 notti (oggi escluso), almeno 7.
 export function baseFc(giorni, i, finestra = 30) {
   const valori = [];
   for (let j = Math.max(0, i - finestra); j < i; j++) {
@@ -148,7 +161,7 @@ const NOMI_TIPO = {
   AlpineSki: "Sci", BackcountrySki: "Scialpinismo", Elliptical: "Ellittica",
 };
 
-export const TIPI_BICI = new Set(["Ride", "GravelRide", "MountainBikeRide", "VirtualRide", "EBikeRide", "EMountainBikeRide"]);
+const TIPI_BICI = new Set(["Ride", "GravelRide", "MountainBikeRide", "VirtualRide", "EBikeRide", "EMountainBikeRide"]);
 
 export function nomeTipo(tipo, sorgente) {
   if (!tipo) return sorgente === "STRAVA" ? "Da Strava" : "Attività";
@@ -170,7 +183,6 @@ export function normalizzaUscite(lista) {
       dislivello: pos(a.total_elevation_gain),
       carico: num(a.icu_training_load),
       fcMedia: pos(a.average_heartrate),
-      intensita: pos(a.icu_intensity),
     }))
     .sort((a, b) => (a.inizio < b.inizio ? 1 : -1));
 }
@@ -194,11 +206,11 @@ export function settimane(uscite, oggi, n = 12) {
 }
 
 function normalizzaAtleta(a) {
-  if (!a || typeof a !== "object") return { nome: "" };
+  if (!a || typeof a !== "object") return { nome: "", fuso: null };
   const nome = (typeof a.firstname === "string" && a.firstname.trim())
     || (typeof a.name === "string" && a.name.trim().split(/\s+/)[0])
     || "";
-  return { nome };
+  return { nome, fuso: typeof a.timezone === "string" ? a.timezone : null };
 }
 
 // Tutto quello che serve alle viste, calcolato una volta sola.
@@ -210,15 +222,16 @@ export function costruisciModello({ atleta, benessere, uscite }, oggi = oggiLoca
   // Lo stato dell'allenamento "del mattino" è quello di fine ieri: se oggi c'è già un giro,
   // intervals.icu lo conta nel giorno, e il consiglio va dato com'era prima di uscire.
   const mattino = ieri && ieri.ctl !== null ? ieri : oggiG;
-  const listaUscite = normalizzaUscite(uscite);
   return {
     oggi,
     giorni,
     atleta: normalizzaAtleta(atleta),
     notteArrivata: Boolean(oggiG.hrv || oggiG.fc || oggiG.sonno),
+    notteMaiArrivata: !giorni.some((g) => g.hrv || g.fc || g.sonno),
     hrvMisurato: giorni.some((g) => g.hrv),
     base: { hrv: baseHrv(giorni, i), fc: baseFc(giorni, i) },
     hrvSettimana: hrvSettimana(giorni, i),
+    sonnoSettimana: sonnoSettimana(giorni, i),
     mattino: {
       ctl: mattino.ctl,
       atl: mattino.atl,
@@ -226,21 +239,28 @@ export function costruisciModello({ atleta, benessere, uscite }, oggi = oggiLoca
       formaPct: mattino.formaPct,
       rapporto: mattino.ctl > 0 && mattino.atl !== null ? mattino.atl / mattino.ctl : null,
     },
-    settimana: { carico: sommaCarico(giorni, i), solito: mattino.ctl !== null ? mattino.ctl * 7 : null },
     fitness28: giorni[i - 28] ? giorni[i - 28].ctl : null,
     caricoMese: sommaCarico(giorni, i - 1, 28),
-    uscite: listaUscite,
+    uscite: normalizzaUscite(uscite),
   };
 }
 
-// Le sfide per la pagina Obiettivo. Le soglie di Fitness sono ordini di grandezza
-// presi da ciclisti che queste cose le hanno fatte: dicono "ci arrivi", non "vinci".
+// --- La pagina Obiettivo ---
+
+// Le soglie di Fitness sono ordini di grandezza presi dall'esperienza di pochi ciclisti
+// che queste cose le hanno fatte, misurate alla partenza. Dicono "ci arrivi in fondo", non "vai forte".
 export const SFIDE = [
-  { id: "giornata", nome: "Una giornata lunga", descrizione: "100 km o 4-5 ore in sella, con qualche salita.", minimo: 35, comodo: 50 },
-  { id: "weekend", nome: "Due o tre giorni di fila", descrizione: "Un weekend in bikepacking o un evento di 2-3 giorni, 100-150 km al giorno.", minimo: 45, comodo: 60 },
-  { id: "settimana", nome: "Una settimana di viaggio", descrizione: "7-10 giorni di fila, 120-180 km al giorno.", minimo: 60, comodo: 75 },
-  { id: "grande", nome: "Due settimane e oltre", descrizione: "Un grande viaggio, 200 km al giorno per due settimane.", minimo: 65, comodo: 85 },
+  { id: "giornata", nome: "Una giornata lunga", descrizione: "4-5 ore in sella, per esempio 100 km con qualche salita.", minimo: 35, comodo: 50, oreTappa: 4.5 },
+  { id: "weekend", nome: "Due o tre giorni di fila", descrizione: "Un weekend in bikepacking o un evento di 2-3 giorni, 6-8 ore in sella al giorno.", minimo: 45, comodo: 60, oreTappa: 7 },
+  { id: "settimana", nome: "Una settimana di viaggio", descrizione: "7-10 giorni di fila, 7-9 ore in sella al giorno.", minimo: 60, comodo: 75, oreTappa: 8 },
+  { id: "grande", nome: "Due settimane e oltre", descrizione: "Un grande viaggio, 9-11 ore in sella al giorno per due settimane.", minimo: 65, comodo: 85, oreTappa: 10 },
 ];
+
+const K = 41 / 42;                     // quanto resta della Fitness da un giorno all'altro
+export const SCARICO_GIORNI = 14;      // le ultime due settimane si scarica
+export const SCARICO_QUOTA = 0.55;     // al 55% del carico di prima (Bosquet 2007)
+// Quanto della Fitness resta dopo lo scarico, se prima ci si allenava al proprio livello.
+export const RESTA_DOPO_SCARICO = SCARICO_QUOTA + (1 - SCARICO_QUOTA) * Math.pow(K, SCARICO_GIORNI);
 
 // Dove arriva la Fitness con un carico settimanale costante (stessa formula di intervals.icu).
 export function proiettaFitness(fitness, caricoSettimanale, giorni) {
@@ -250,11 +270,35 @@ export function proiettaFitness(fitness, caricoSettimanale, giorni) {
   return f;
 }
 
-// Il carico settimanale costante che porta la Fitness all'obiettivo in quei giorni.
-export function caricoNecessario(fitness, obiettivo, giorni) {
-  if (giorni <= 0) return null;
-  const k = Math.pow(41 / 42, giorni);
-  return Math.max(0, ((obiettivo - fitness * k) / (1 - k)) * 7);
+// La Fitness il giorno della partenza continuando con lo stesso carico, scarico compreso.
+export function fitnessAllaPartenza(fitness, caricoSettimanale, giorni) {
+  const allenamento = Math.max(0, giorni - SCARICO_GIORNI);
+  const prima = proiettaFitness(fitness, caricoSettimanale, allenamento);
+  return proiettaFitness(prima, caricoSettimanale * SCARICO_QUOTA, Math.min(giorni, SCARICO_GIORNI));
 }
 
-export const PUNTI_ORA_TRANQUILLA = 50;
+// Di quanto deve salire la Fitness ogni settimana, fino allo scarico, per arrivare all'obiettivo.
+export function salitaSettimanale(fitness, obiettivo, giorni) {
+  const settimane = (giorni - SCARICO_GIORNI) / 7;
+  if (settimane <= 0) return null;
+  return (obiettivo / RESTA_DOPO_SCARICO - fitness) / settimane;
+}
+
+// Il carico della prossima settimana per far salire la Fitness di "salita" punti.
+// Con un carico costante L per 7 giorni: F7 = L + (F0 - L)·K^7, quindi L = F0 + salita / (1 - K^7).
+export function caricoSettimanaPer(fitness, salita) {
+  return Math.max(0, 7 * (fitness + salita / (1 - Math.pow(K, 7))));
+}
+
+// I punti che vale un'ora di bici al ritmo solito di una persona (mediana dei suoi giri), altrimenti 40.
+export function puntiPerOra(uscite) {
+  const valori = uscite
+    .filter((u) => TIPI_BICI.has(u.tipo) && u.secondi >= 2700 && u.carico > 0)
+    .map((u) => u.carico / (u.secondi / 3600));
+  return valori.length >= 3 ? mediana(valori) : 40;
+}
+
+export function giroPiuLungo(uscite, oggi, giorni = 56) {
+  const limite = aggiungiGiorni(oggi, -giorni);
+  return uscite.filter((u) => TIPI_BICI.has(u.tipo) && u.d >= limite).reduce((max, u) => Math.max(max, u.secondi || 0), 0);
+}

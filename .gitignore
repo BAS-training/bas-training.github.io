@@ -1,7 +1,10 @@
-# Mai nel repository: chiavi, file personali, dati veri
-*.chiave.json
-.intervals_chiave.json
+# Mai nel repository: chiavi, segreti, dati veri
 *chiave*.json
+*key*.json
+*secret*
+*token*
+.env*
+*.local.*
 dev/*.local.*
 node_modules/
 .DS_Store

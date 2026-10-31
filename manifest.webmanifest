@@ -1,7 +1,7 @@
 {
   "name": "Come sto",
   "short_name": "Come sto",
-  "description": "Il semaforo del mattino per chi va in bici: se oggi puoi spingere o è meglio andare piano.",
+  "description": "Il semaforo del mattino per chi va in bici. Ti dice se oggi puoi spingere o se è meglio andare piano.",
   "lang": "it",
   "start_url": "./#oggi",
   "scope": "./",

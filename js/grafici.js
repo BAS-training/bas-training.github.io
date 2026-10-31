@@ -3,8 +3,8 @@
 // Regole: un solo asse verticale per grafico, linee sottili, griglia leggera,
 // un tooltip che segue il dito o il mouse, e la tabella con i numeri per chi non vede i colori.
 
-import { h, s } from "./dom.js";
-import { numero, giornoMese, mese, dataLunga, valido } from "./formato.js";
+import { h, s } from "./dom.js?v=202610311949";
+import { numero, giornoMese, mese, dataLunga, valido } from "./formato.js?v=202610311949";
 
 const ALTEZZA = 200;
 let contatore = 0;
@@ -121,7 +121,8 @@ export function grafico(opzioni) {
     ...opzioni,
   };
   opz.serie = opz.serie.map((se) => ({ classe: "s1", formato: (v) => numero(v), ...se }));
-  const vuoto = !opz.serie.some((se) => se.valori.some(valido));
+  // Un grafico a colonne fatto solo di zeri (per esempio nessuna uscita) è un grafico vuoto.
+  const vuoto = !opz.serie.some((se) => se.valori.some((v) => valido(v) && (opz.tipo !== "colonne" || v > 0)));
 
   const area = h("div", { class: "grafico-area" });
   const radice = h("figure", { class: ["grafico", vuoto && "grafico-vuoto"] },
@@ -155,7 +156,7 @@ export function grafico(opzioni) {
     const n = opz.etichette.length;
     const fineSerie = opz.tipo === "linee" && opz.serie.length <= 2 ? 46 : 14;
     const W = larghezza;
-    const H = ALTEZZA;
+    const H = opz.altezza || ALTEZZA;
     const pl = MARGINE.sinistra;
     const pr = W - fineSerie;
     const pt = MARGINE.su;
@@ -283,7 +284,7 @@ export function grafico(opzioni) {
       }
       suggerimento.replaceChildren(
         h("div", { class: "tooltip-data" }, opz.date ? dataLunga(opz.etichette[corrente]) : opz.etichette[corrente]),
-        righe);
+        ...righe);
       suggerimento.hidden = false;
       const lw = suggerimento.offsetWidth || 160;
       const sinistra = xi + 12 + lw > W ? xi - 12 - lw : xi + 12;

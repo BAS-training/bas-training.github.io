@@ -1,7 +1,7 @@
 // Pezzi usati da più pagine.
 
-import { h, icona } from "../dom.js";
-import { ESITO_VOCE } from "../semaforo.js";
+import { h, icona } from "../dom.js?v=202610311949";
+import { ESITO_VOCE } from "../semaforo.js?v=202610311949";
 
 export function pillola(colore, testo) {
   return h("span", { class: ["pillola", `pillola-${colore}`] },
@@ -40,11 +40,4 @@ export function luceSemaforo(colore) {
     h("span", { class: "luce-spenta luce-media" }),
     h("span", { class: "luce-spenta luce-bassa" }),
     h("span", { class: "luce-accesa" }, icona(simbolo, "luce-simbolo")));
-}
-
-export function sezione(titolo, testo, ...contenuto) {
-  return h("section", { class: "sezione" },
-    h("h2", {}, titolo),
-    testo && h("p", { class: "sezione-testo" }, testo),
-    contenuto);
 }

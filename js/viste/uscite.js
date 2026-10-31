@@ -1,10 +1,10 @@
 // Le uscite: le ore di ogni settimana e l'elenco degli allenamenti.
 
-import { h } from "../dom.js";
-import { numero, durata, dataBreve, giornoMese } from "../formato.js";
-import { settimane, nomeTipo, aggiungiGiorni } from "../modello.js";
-import { grafico } from "../grafici.js";
-import { intestazione, bannerDemo } from "./comuni.js";
+import { h } from "../dom.js?v=202610311949";
+import { numero, durata, dataBreve, giornoMese } from "../formato.js?v=202610311949";
+import { settimane, nomeTipo, aggiungiGiorni } from "../modello.js?v=202610311949";
+import { grafico } from "../grafici.js?v=202610311949";
+import { intestazione, bannerDemo } from "./comuni.js?v=202610311949";
 
 export function vistaUscite(ctx) {
   const m = ctx.modello;
@@ -25,17 +25,17 @@ export function vistaUscite(ctx) {
           h("th", { scope: "col" }, "Cosa"),
           h("th", { scope: "col", class: "num" }, "Tempo"),
           h("th", { scope: "col", class: "num" }, "Km"),
-          h("th", { scope: "col", class: "num" }, "Salita"),
+          h("th", { scope: "col", class: "num solo-largo" }, "Salita"),
           h("th", { scope: "col", class: "num" }, "Punti"),
-          h("th", { scope: "col", class: "num" }, "Battito"))),
+          h("th", { scope: "col", class: "num solo-largo" }, "Battito"))),
         h("tbody", {}, recenti.map((u) => h("tr", {},
           h("td", { class: "giorno" }, dataBreve(u.d)),
           h("td", {}, h("span", { class: "tipo" }, nomeTipo(u.tipo, u.sorgente)), nomeDiverso(u) ? h("span", { class: "nome-uscita" }, u.nome) : null),
           h("td", { class: "num" }, u.secondi ? durata(u.secondi) : "—"),
           h("td", { class: "num" }, u.metri ? numero(u.metri / 1000, u.metri < 10000 ? 1 : 0) : "—"),
-          h("td", { class: "num" }, u.dislivello ? `${numero(u.dislivello)} m` : "—"),
+          h("td", { class: "num solo-largo" }, u.dislivello ? `${numero(u.dislivello)} m` : "—"),
           h("td", { class: "num" }, u.carico !== null ? numero(u.carico) : "—"),
-          h("td", { class: "num" }, u.fcMedia ? numero(u.fcMedia) : "—"))))))
+          h("td", { class: "num solo-largo" }, u.fcMedia ? numero(u.fcMedia) : "—"))))))
     : h("p", { class: "vuoto" }, "Negli ultimi due mesi non ci sono uscite. Appena registri un giro compare qui.");
 
   return h("div", { class: "vista" },
@@ -51,7 +51,8 @@ export function vistaUscite(ctx) {
         descrizione: "Ore di allenamento per settimana",
         etichette: sett.map((x) => `dal ${giornoMese(x.inizio)}`),
         serie: [{ nome: "Ore", classe: "s1", valori: sett.map((x) => x.secondi / 3600), formato: (v) => durata(v * 3600) }],
-        formatoAsse: (v) => `${numero(v)}h`,
+        formatoAsse: (v) => (v ? durata(v * 3600) : "0"),
+        vuoto: "Nessun allenamento con la durata registrata nelle ultime 12 settimane.",
       })),
     h("section", { class: "sezione" },
       h("h2", {}, "Gli ultimi due mesi"),

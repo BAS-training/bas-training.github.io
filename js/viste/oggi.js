@@ -1,12 +1,12 @@
 // La pagina principale: il semaforo, le domande del mattino e i sei numeri del giorno.
 
-import { h, icona } from "../dom.js";
-import { numero, segno, durata, dataLunga } from "../formato.js";
-import { valuta, zonaForma, ESITO_VOCE } from "../semaforo.js";
-import { nomeTipo } from "../modello.js";
-import { SPIEGAZIONI, DOMANDE_MATTINO } from "../testi.js";
-import { sparkline } from "../grafici.js";
-import { pillola, spiegazione, bannerDemo, luceSemaforo } from "./comuni.js";
+import { h, icona } from "../dom.js?v=202610311949";
+import { numero, segno, durata, dataLunga } from "../formato.js?v=202610311949";
+import { valuta, zonaFreschezza, ESITO_VOCE } from "../semaforo.js?v=202610311949";
+import { nomeTipo } from "../modello.js?v=202610311949";
+import { SPIEGAZIONI, DOMANDE_MATTINO } from "../testi.js?v=202610311949";
+import { sparkline } from "../grafici.js?v=202610311949";
+import { pillola, spiegazione, bannerDemo, luceSemaforo } from "./comuni.js?v=202610311949";
 
 function saluto(nome) {
   const ora = new Date().getHours();
@@ -14,8 +14,9 @@ function saluto(nome) {
   return nome ? `${parola}, ${nome}` : parola;
 }
 
-function cartaSemaforo(e) {
+function cartaSemaforo(e, appenaSalvato) {
   return h("section", { class: ["semaforo", `semaforo-${e.colore}`], "aria-labelledby": "semaforo-titolo" },
+    appenaSalvato ? h("p", { class: "salvato", role: "status" }, "Salvato. Il semaforo è aggiornato con le tue risposte.") : null,
     h("div", { class: "semaforo-testa" },
       luceSemaforo(e.colore),
       h("div", { class: "semaforo-testo" },
@@ -28,8 +29,7 @@ function cartaSemaforo(e) {
       h("ul", { class: "voci" }, e.voci.map((v) => h("li", { class: ["voce", `voce-${v.colore}`] },
         h("span", { class: "voce-pallino", "aria-hidden": "true" }),
         h("span", { class: "voce-nome" }, v.nome, h("span", { class: "voce-esito" }, ESITO_VOCE[v.colore])),
-        h("span", { class: "voce-testo" }, v.testo)))),
-      e.notaDati && h("p", { class: "piccolo" }, e.notaDati)),
+        h("span", { class: "voce-testo" }, v.testo))))),
     h("p", { class: "semaforo-piede" }, h("a", { href: "#guida" }, "Come nasce il semaforo")));
 }
 
@@ -54,7 +54,8 @@ function domandeMattino(m, ctx) {
       h("ul", { class: "risposte" }, DOMANDE_MATTINO.map((d) => h("li", {},
         h("span", { class: "risposte-domanda" }, d.testo),
         h("strong", {}, d.opzioni[risposte[d.campo] - 1] || "—")))),
-      h("button", { class: "bottone bottone-secondario", type: "button", on: { click: () => ctx.azioni.preferenza("modificaDomande", true) } }, "Cambia le risposte"));
+      h("button", { class: "bottone bottone-secondario", type: "button", id: "cambia-risposte",
+        on: { click: () => ctx.azioni.preferenza("modificaDomande", true) } }, "Cambia le risposte"));
   }
 
   const stato = h("p", { class: "stato-salvataggio", role: "status", "aria-live": "polite" });
@@ -70,7 +71,7 @@ function domandeMattino(m, ctx) {
           h("label", { for: id }, testo));
       })))),
     h("div", { class: "riga-bottoni" },
-      h("button", { class: "bottone", type: "submit" }, "Salva le risposte"),
+      h("button", { class: "bottone", type: "submit", id: "salva-risposte" }, "Salva le risposte"),
       ctx.demo ? h("span", { class: "piccolo" }, "Con i dati di esempio le risposte restano solo in questa pagina.") : null),
     stato);
 
@@ -99,14 +100,17 @@ function domandeMattino(m, ctx) {
 }
 
 function tessera({ chiave, nome, valore, unita, sotto, colore, serie, classeSerie }) {
+  const testo = SPIEGAZIONI[chiave];
   return h("article", { class: "tessera" },
     h("header", { class: "tessera-testa" },
-      h("h3", {}, nome),
+      h("div", {},
+        h("h3", {}, nome),
+        testo ? h("p", { class: "tessera-cosa" }, testo.sottotitolo) : null),
       colore ? pillola(colore) : null),
     h("p", { class: "tessera-valore" }, valore, unita ? h("span", { class: "unita" }, unita) : null),
     sotto ? h("p", { class: "tessera-sotto" }, sotto) : null,
     serie ? sparkline(serie, classeSerie) : null,
-    spiegazione(SPIEGAZIONI[chiave]));
+    spiegazione(testo));
 }
 
 function numeriDelGiorno(m, esito) {
@@ -119,31 +123,37 @@ function numeriDelGiorno(m, esito) {
   };
   const bh = m.base.hrv;
   const bf = m.base.fc;
-  const zona = zonaForma(m.mattino.formaPct);
-  const settimaneSonno = g.slice(-7).filter((x) => x.sonno).map((x) => x.sonno);
-  const mediaSonno = settimaneSonno.length ? settimaneSonno.reduce((a, b) => a + b, 0) / settimaneSonno.length : null;
+  const zona = zonaFreschezza(m.mattino.formaPct);
   const differenzaFitness = m.mattino.ctl !== null && m.fitness28 !== null ? m.mattino.ctl - m.fitness28 : null;
+  const notteMai = m.notteMaiArrivata;
 
-  const tessere = [
+  const tessere = [];
+  if (!notteMai) {
+    tessere.push(
+      tessera({
+        chiave: "hrv", nome: "HRV della notte", valore: numero(oggi.hrv), unita: oggi.hrv ? "ms" : null,
+        sotto: bh.ok ? `Il tuo normale ${numero(bh.basso)}–${numero(bh.alto)}`
+          : m.hrvMisurato ? `Sto imparando il tuo normale, ${bh.n} notti su 14` : "Non arriva dal tuo dispositivo",
+        colore: coloreVoce("hrv"), serie: ultimi(21, "hrv"),
+      }),
+      tessera({
+        chiave: "fc", nome: "Battito a riposo", valore: numero(oggi.fc), unita: oggi.fc ? "battiti" : null,
+        sotto: bf.ok ? `Il tuo normale ${numero(bf.solito)}` : `Sto imparando il tuo normale, ${bf.n} notti su 7`,
+        colore: coloreVoce("fc"), serie: ultimi(21, "fc"),
+      }),
+      tessera({
+        chiave: "sonno", nome: "Sonno", valore: oggi.sonno ? durata(oggi.sonno) : "—",
+        sotto: [oggi.punteggioSonno ? `Punteggio ${numero(oggi.punteggioSonno)}` : null,
+          m.sonnoSettimana ? `media della settimana ${durata(m.sonnoSettimana)}` : null].filter(Boolean).join(", "),
+        colore: coloreVoce("sonno"), serie: ultimi(21, "sonno", (v) => v / 3600),
+      }));
+  }
+  tessere.push(
     tessera({
-      chiave: "hrv", nome: "HRV della notte", valore: numero(oggi.hrv), unita: oggi.hrv ? "ms" : null,
-      sotto: bh.ok ? `Il tuo normale ${numero(bh.basso)}–${numero(bh.alto)}` : m.hrvMisurato ? `Sto imparando il tuo normale, ${bh.n} notti su 14` : "Il tuo dispositivo non lo manda",
-      colore: coloreVoce("hrv"), serie: ultimi(21, "hrv"),
-    }),
-    tessera({
-      chiave: "fc", nome: "Battito a riposo", valore: numero(oggi.fc), unita: oggi.fc ? "battiti" : null,
-      sotto: bf.ok ? `Il tuo solito ${numero(bf.solito)}` : `Sto imparando il tuo solito, ${bf.n} notti su 7`,
-      colore: coloreVoce("fc"), serie: ultimi(21, "fc"),
-    }),
-    tessera({
-      chiave: "sonno", nome: "Sonno", valore: oggi.sonno ? durata(oggi.sonno) : "—",
-      sotto: [oggi.punteggioSonno ? `Punteggio ${numero(oggi.punteggioSonno)}` : null, mediaSonno ? `media della settimana ${durata(mediaSonno)}` : null].filter(Boolean).join(", "),
-      colore: coloreVoce("sonno"), serie: ultimi(21, "sonno", (v) => v / 3600),
-    }),
-    tessera({
-      chiave: "forma", nome: "Forma", valore: segno(m.mattino.forma),
-      sotto: zona ? `${zona.nome}. Fitness ${numero(m.mattino.ctl)} meno Fatica ${numero(m.mattino.atl)}` : "Servono un po' di giri registrati",
-      serie: g.slice(-29, -1).map((x) => x.forma),
+      chiave: "freschezza", nome: "Freschezza",
+      valore: m.mattino.formaPct !== null ? `${segno(m.mattino.formaPct * 100)}%` : "—",
+      sotto: zona ? `${zona.nome}. Fitness ${numero(m.mattino.ctl)}, Fatica ${numero(m.mattino.atl)}` : "Servono un po' di giri registrati",
+      serie: g.slice(-29, -1).map((x) => (x.formaPct !== null && x.ctl >= 10 ? x.formaPct * 100 : null)),
     }),
     tessera({
       chiave: "fitness", nome: "Fitness", valore: numero(m.mattino.ctl),
@@ -154,20 +164,23 @@ function numeriDelGiorno(m, esito) {
       chiave: "carico", nome: "Carico recente",
       valore: m.mattino.rapporto !== null ? numero(m.mattino.rapporto, 1) : "—",
       unita: m.mattino.rapporto !== null ? "volte il solito" : null,
-      sotto: m.mattino.rapporto === null ? "Servono un po' di giri registrati" : "Sotto 1,3 va bene, oltre 1,5 è troppo",
+      sotto: m.mattino.rapporto === null ? "Servono un po' di giri registrati" : "Fino a 1,3 volte va bene",
       colore: coloreVoce("carico"),
       serie: g.slice(-29, -1).map((x) => (x.ctl > 0 && x.atl !== null ? x.atl / x.ctl : null)), classeSerie: "s2",
-    }),
-  ];
+    }));
+
   return h("section", { class: "sezione" },
     h("h2", {}, "I numeri del giorno"),
-    h("p", { class: "sezione-testo" }, "I primi tre vengono dalla notte e dicono quanto hai recuperato. Gli altri tre vengono dagli allenamenti e dicono quanto hai caricato. Apri «Cosa vuol dire» per capire ogni numero."),
+    h("p", { class: "sezione-testo" }, notteMai
+      ? "Vengono dagli allenamenti e dicono quanto hai caricato. Apri «Cosa vuol dire» per capire ogni numero."
+      : "I primi tre vengono dalla notte e dicono come hai recuperato. Gli altri tre vengono dagli allenamenti e dicono quanto hai caricato. Apri «Cosa vuol dire» per capire ogni numero."),
     h("div", { class: "griglia-tessere" }, tessere));
 }
 
 function ultimaUscita(m) {
-  const u = m.uscite[0];
+  const u = m.uscite.find((x) => x.nome || x.secondi || x.carico !== null);
   if (!u) return null;
+  const tipo = nomeTipo(u.tipo, u.sorgente);
   const pezzi = [
     u.secondi ? durata(u.secondi) : null,
     u.metri ? `${numero(u.metri / 1000, u.metri < 10000 ? 1 : 0)} km` : null,
@@ -176,8 +189,8 @@ function ultimaUscita(m) {
   ].filter(Boolean);
   return h("section", { class: "carta ultima" },
     h("p", { class: "occhiello" }, "L'ultima uscita"),
-    h("h2", {}, u.nome || nomeTipo(u.tipo, u.sorgente)),
-    h("p", { class: "ultima-quando" }, `${nomeTipo(u.tipo, u.sorgente)}, ${dataLunga(u.d)}`),
+    h("h2", {}, u.nome || tipo),
+    h("p", { class: "ultima-quando" }, u.nome && u.nome.toLowerCase() !== tipo.toLowerCase() ? `${tipo}, ${dataLunga(u.d)}` : dataLunga(u.d)),
     pezzi.length ? h("p", { class: "ultima-numeri" }, pezzi.join(" · ")) : null,
     h("a", { href: "#uscite" }, "Tutte le uscite"));
 }
@@ -190,10 +203,9 @@ export function vistaOggi(ctx) {
       h("p", { class: "occhiello" }, dataLunga(m.oggi)),
       h("h1", {}, saluto(m.atleta.nome))),
     ctx.demo ? bannerDemo(ctx) : null,
-    !m.notteArrivata && !ctx.demo ? avvisoNotte(ctx) : null,
-    cartaSemaforo(esito),
+    !m.notteArrivata && !m.notteMaiArrivata && !ctx.demo ? avvisoNotte(ctx) : null,
+    cartaSemaforo(esito, ctx.appenaSalvato),
     domandeMattino(m, ctx),
     numeriDelGiorno(m, esito),
     ultimaUscita(m));
 }
-

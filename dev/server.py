@@ -8,7 +8,9 @@ Uso:
     python dev/server.py 8801 PERCORSO/AL/FILE_CHIAVE.json
 poi apri http://localhost:8801/?dev=ponte
 
-Il file della chiave non va MAI messo nel repository.
+Il file della chiave deve stare FUORI dalla cartella del progetto e non va mai nel repository.
+Il ponte risponde solo a richieste fatte dalla pagina stessa su localhost, così un altro sito
+aperto nel browser non può usarlo per leggere i tuoi dati.
 """
 import base64
 import json
@@ -21,10 +23,16 @@ from pathlib import Path
 
 RADICE = Path(__file__).resolve().parent.parent
 PREFISSO = "/intervals-ponte"
+# Si servono solo i file della pagina, mai .git, dev/ o altro.
+CONSENTITI = ("/", "/index.html", "/manifest.webmanifest", "/favicon.ico")
+CARTELLE_CONSENTITE = ("/css/", "/js/", "/img/")
 
 
 def leggi_chiave(percorso):
-    dati = json.loads(Path(percorso).read_text(encoding="utf-8-sig"))
+    percorso = Path(percorso).resolve()
+    if RADICE in percorso.parents:
+        raise SystemExit("Il file della chiave sta dentro il progetto: spostalo fuori, non deve mai finire nel repository.")
+    dati = json.loads(percorso.read_text(encoding="utf-8-sig"))
     chiave = dati.get("api_key")
     if not chiave:
         raise SystemExit("Nel file manca api_key")
@@ -33,12 +41,24 @@ def leggi_chiave(percorso):
 
 class Gestore(SimpleHTTPRequestHandler):
     chiave = None
+    porta = None
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
         super().end_headers()
 
+    def _host_valido(self):
+        return self.headers.get("Host") in (f"localhost:{self.porta}", f"127.0.0.1:{self.porta}")
+
+    def _dalla_pagina(self):
+        # I browser moderni dicono da dove arriva la richiesta: il ponte accetta solo la pagina stessa.
+        return self.headers.get("Sec-Fetch-Site", "same-origin") == "same-origin"
+
     def _ponte(self, metodo):
+        if not self._dalla_pagina():
+            self.send_error(403)
+            return
         corpo = None
         if metodo == "PUT":
             lunghezza = int(self.headers.get("Content-Length") or 0)
@@ -66,18 +86,30 @@ class Gestore(SimpleHTTPRequestHandler):
         self.wfile.write(contenuto)
 
     def do_GET(self):
-        if self.path.startswith(PREFISSO + "/"):
+        if not self._host_valido():
+            return self.send_error(421)
+        percorso = self.path.split("?", 1)[0]
+        if percorso.startswith(PREFISSO + "/"):
             return self._ponte("GET")
-        return super().do_GET()
+        if percorso in CONSENTITI or (percorso.startswith(CARTELLE_CONSENTITE) and ".." not in percorso):
+            return super().do_GET()
+        return self.send_error(404)
 
     def do_PUT(self):
+        if not self._host_valido():
+            return self.send_error(421)
         if self.path.startswith(PREFISSO + "/"):
             return self._ponte("PUT")
-        self.send_error(405)
+        return self.send_error(405)
 
     def log_message(self, formato, *argomenti):
         # niente nei registri che possa contenere dati personali: solo metodo e percorso
         sys.stderr.write(f"{self.command} {self.path.split('?')[0]}\n")
+
+
+class Server(ThreadingHTTPServer):
+    # il browser chiede tutti i moduli insieme: con la coda standard di 5 Windows ne rifiuta qualcuno
+    request_queue_size = 64
 
 
 def main():
@@ -85,7 +117,8 @@ def main():
         raise SystemExit(__doc__)
     porta = int(sys.argv[1])
     Gestore.chiave = leggi_chiave(sys.argv[2])
-    server = ThreadingHTTPServer(("127.0.0.1", porta), partial(Gestore, directory=str(RADICE)))
+    Gestore.porta = porta
+    server = Server(("127.0.0.1", porta), partial(Gestore, directory=str(RADICE)))
     print(f"Come sto in sviluppo su http://localhost:{porta}/?dev=ponte")
     server.serve_forever()
 
