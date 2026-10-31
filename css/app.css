@@ -507,6 +507,13 @@ input[type="date"], input[type="password"], input[type="text"] {
 }
 .scelta-bottone.attivo { background: var(--bottone); color: var(--bottone-testo); border-color: var(--bottone); }
 .accesso { border-width: 2px; border-color: var(--inchiostro); }
+/* Con «Entra con intervals.icu» acceso la chiave da incollare sta in un riquadro che si apre */
+.alternativa { border-top: 1px solid var(--linea); padding-top: 10px; }
+.alternativa summary {
+  cursor: pointer; color: var(--accento); font-weight: 600; min-height: 40px;
+  display: inline-flex; align-items: center;
+}
+.accesso-chiave { display: flex; flex-direction: column; gap: 12px; padding-top: 10px; min-width: 0; }
 .spunte { display: flex; flex-wrap: wrap; gap: 8px 20px; }
 .spunta { display: inline-flex; align-items: center; gap: 8px; }
 .spunta input { width: 20px; height: 20px; accent-color: var(--inchiostro); }

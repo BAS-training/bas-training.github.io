@@ -139,6 +139,12 @@ export const DOMANDE_FREQUENTI = [
   },
 ];
 
+// Con «Entra con intervals.icu» acceso prende il posto della domanda qui sopra con lo stesso titolo.
+export const DOMANDA_ESCI_CON_INTERVALS = {
+  d: "Come esco, o tolgo l'accesso?",
+  r: "Premi Esci in fondo alla pagina. Se sei entrato con il pulsante «Entra con intervals.icu», Esci toglie a Come sto anche il permesso su intervals.icu, e così esci dagli altri telefoni e computer dove sei entrato con il pulsante. Se hai incollato la chiave, Esci la cancella da questo dispositivo. Per togliere l'accesso ovunque, su intervals.icu crea una chiave nuova. Quella vecchia smette subito di funzionare.",
+};
+
 export const LIMITI = [
   "Con la febbre, o con tosse e dolori in tutto il corpo, non allenarti, qualunque colore abbia il semaforo.",
   "Se in bici senti dolore al petto, il cuore che batte strano, un fiato corto mai provato o ti gira la testa, fermati e chiama un medico.",
