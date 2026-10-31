@@ -2,7 +2,7 @@
 
 Ogni mattina un semaforo dice a chi va in bici se oggi può spingere o se è meglio andare piano. Legge i dati dell'orologio e del ciclocomputer da [intervals.icu](https://intervals.icu) e li spiega in parole semplici.
 
-L'app si apre da **https://advlabbik.github.io/come-sto/** e senza account si può guardare l'esempio, con i dati inventati di una ciclista, da **https://advlabbik.github.io/come-sto/?esempio**
+L'app si apre da **https://bas-training.github.io/** e senza account si può guardare l'esempio, con i dati inventati di una ciclista, da **https://bas-training.github.io/?esempio**
 
 ## Cosa fa
 
@@ -92,7 +92,7 @@ Le modifiche si fanno su un branch e arrivano su `main` dopo la revisione, perch
 ## Prossimi passi
 
 - **Entra con intervals.icu.** intervals.icu permette alle app di farsi autorizzare con OAuth anche senza server (PKCE). Quando l'app sarà registrata e approvata, al posto della chiave da copiare ci sarà un pulsante.
-- **Un indirizzo tutto suo.** Su `advlabbik.github.io` tutte le pagine dell'organizzazione condividono la stessa memoria del browser. Prima di farla usare a molte persone l'app va spostata su un sottodominio dedicato (un CNAME verso GitHub Pages), così la chiave salvata la può leggere solo lei.
+- **Un indirizzo tutto suo, sempre.** Il browser tiene una memoria sola per ogni indirizzo, e tutte le pagine pubblicate con GitHub Pages da una stessa organizzazione hanno lo stesso indirizzo. Per questo l'app sta da sola nell'organizzazione `BAS-training`, così la chiave salvata la può leggere solo lei. In questa organizzazione non va pubblicato nessun altro sito con GitHub Pages. Se un giorno l'app avrà un dominio suo, si collega a questo stesso repository e il vecchio indirizzo porta da solo al nuovo.
 - **Dati Garmin.** intervals.icu ha annunciato che potrebbe limitare l'accesso via API ai dati che arrivano da Garmin. Se succede, per chi usa Garmin il semaforo si regge su allenamento, sonno e domande del mattino finché non c'è un'alternativa ufficiale.
 
 ## Avvertenza
