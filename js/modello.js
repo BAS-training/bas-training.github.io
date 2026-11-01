@@ -2,9 +2,12 @@
 // un calendario di giorni, il "normale" di ogni persona e lo stato del mattino.
 // Niente DOM qui dentro, così tutto si prova con node (cartella test/).
 
-export const GIORNI_STORICO = 180;   // giorni di benessere letti da intervals.icu
-export const GIORNI_USCITE = 120;    // giorni di attività letti da intervals.icu
+import { SEMAFORO, CARICO, CHIAMATE, DATI } from "./parametri.js?v=202610312043";
 
+export const GIORNI_STORICO = CHIAMATE.primaLetturaGiorni;   // giorni di benessere letti da intervals.icu, 6.7
+export const GIORNI_USCITE = CHIAMATE.primaLetturaGiorni;    // giorni di attività letti da intervals.icu, 6.7
+
+const ORA = 3600;
 const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const pos = (v) => (num(v) !== null && v > 0 ? v : null);
 
@@ -49,16 +52,15 @@ export function media(valori) {
   return valori.reduce((s, x) => s + x, 0) / valori.length;
 }
 
-function devStd(valori) {
-  if (valori.length < 2) return 0;
-  const m = media(valori);
-  return Math.sqrt(valori.reduce((s, x) => s + (x - m) ** 2, 0) / (valori.length - 1));
-}
-
 export function mediana(valori) {
   const v = [...valori].sort((a, b) => a - b);
   const n = v.length;
   return n % 2 ? v[(n - 1) / 2] : (v[n / 2 - 1] + v[n / 2]) / 2;
+}
+
+// La deviazione mediana assoluta, la DS che le notti strane non spostano (regola 5.2).
+export function deviazioneMediana(valori, centro = mediana(valori)) {
+  return mediana(valori.map((x) => Math.abs(x - centro)));
 }
 
 // Un giorno di intervals.icu, con i nomi che usa la pagina.
@@ -69,9 +71,13 @@ export function normalizzaGiorno(w) {
     ctl: num(w.ctl),
     atl: num(w.atl),
     carico: num(w.atlLoad ?? w.ctlLoad),
+    // Il battito della notte. La FC media del sonno è il dato migliore, il battito a riposo di Garmin
+    // è la mezz'ora più bassa delle 24 ore. Quale dei due vale lo sceglie il calendario (fonteBattito).
+    fcSonno: pos(w.avgSleepingHR),
+    fcRiposo: pos(w.restingHR),
     fc: pos(w.restingHR),
-    // Apple misura l'HRV in un altro modo (SDNN) e intervals.icu lo mette in un campo a parte:
-    // per il confronto con il proprio normale va bene lo stesso.
+    // Apple misura l'HRV in un altro modo (SDNN) e intervals.icu lo mette in un campo a parte.
+    // Per il confronto con il proprio normale va bene lo stesso.
     hrv: pos(w.hrv) ?? pos(w.hrvSDNN),
     sonno: pos(w.sleepSecs),
     punteggioSonno: pos(w.sleepScore),
@@ -79,6 +85,23 @@ export function normalizzaGiorno(w) {
     fatica: pos(w.fatigue),
     dolori: pos(w.soreness),
   };
+}
+
+// Quanto resta di Fitness e Fatica da un giorno all'altro, con la forma scelta in js/parametri.js (6.5).
+export function decadimento(giorni) {
+  return CARICO.serie.forma === "passi" ? 1 - 1 / giorni : Math.exp(-1 / giorni);
+}
+
+// La FC media del sonno se c'è in almeno metà delle ultime 30 notti, altrimenti il battito a riposo (4.3).
+export function fonteBattito(giorni, i = giorni.length - 1) {
+  const B = SEMAFORO.battito;
+  let con = 0;
+  let notti = 0;
+  for (let j = Math.max(0, i - B.notti + 1); j <= i; j++) {
+    notti += 1;
+    if (giorni[j].fcSonno) con += 1;
+  }
+  return notti && con >= B.quotaSonno * notti ? "sonno" : "riposo";
 }
 
 // Un giorno per riga, dal più vecchio a oggi, anche quando intervals.icu non ha niente.
@@ -92,64 +115,137 @@ export function calendario(benessere, oggi, giorni = GIORNI_STORICO) {
     const d = aggiungiGiorni(oggi, -i);
     lista.push(perData.get(d) || normalizzaGiorno({ id: d }));
   }
+  const fonte = lista.length ? fonteBattito(lista) : "riposo";
+  // La Fatica lenta, a 10 giorni, per il semaforo da 50 anni (regola 1.7). Parte dalla Fatica di
+  // intervals.icu del primo giorno, se c'è, altrimenti da zero (6.5).
+  const lenta = decadimento(CARICO.serie.faticaLenta);
+  let faticaLenta = null;
   for (const g of lista) {
+    g.fc = fonte === "sonno" ? g.fcSonno : g.fcRiposo;
     g.forma = g.ctl !== null && g.atl !== null ? g.ctl - g.atl : null;
     g.formaPct = g.forma !== null && g.ctl > 0 ? g.forma / g.ctl : null;
+    faticaLenta = faticaLenta === null
+      ? g.atl ?? (g.carico || 0) * (1 - lenta)
+      : faticaLenta * lenta + (g.carico || 0) * (1 - lenta);
+    g.faticaLenta = faticaLenta;
   }
   return lista;
 }
 
-// Il normale di HRV di una persona, dalle notti prima del giorno i (escluso).
-// Si lavora sul logaritmo perché l'HRV ha una coda lunga verso l'alto: è il metodo
-// usato negli studi sul monitoraggio degli atleti (Plews, Buchheit, Altini). Servono almeno 14 notti.
-export function baseHrv(giorni, i, finestra = 60) {
+// --- Le notti e le basi personali (4.3) ---
+
+// Una notte vale per l'HRV se c'è l'HRV e il sonno è di almeno 4 ore, oppure se il sonno non arriva.
+export function notteValida(giorno) {
+  if (!giorno || !giorno.hrv) return false;
+  return !giorno.sonno || giorno.sonno >= SEMAFORO.notteValidaOre * ORA;
+}
+
+// Per il battito vale la stessa regola del sonno, senza chiedere l'HRV.
+export function notteValidaBattito(giorno) {
+  if (!giorno || !giorno.fc) return false;
+  return !giorno.sonno || giorno.sonno >= SEMAFORO.notteValidaOre * ORA;
+}
+
+// La DS minima dell'HRV in unità ln, secondo il dispositivo della notte (regola 5.3).
+export function dsMinimaHrv(dispositivo) {
+  const classe = SEMAFORO.dispositivi[dispositivo] || SEMAFORO.dispositivi[SEMAFORO.dispositivoPredefinito];
+  return SEMAFORO.hrv.dsMinima[classe];
+}
+
+// Le esclusioni si passano come insieme o lista di date, oppure come funzione sul giorno.
+function predicato(esclusioni) {
+  if (!esclusioni) return () => false;
+  if (typeof esclusioni === "function") return esclusioni;
+  const date = esclusioni instanceof Set ? esclusioni : new Set(esclusioni);
+  return (g) => date.has(g.d);
+}
+
+function stato(n, punti, piene) {
+  return n < punti ? "taratura" : n < piene ? "provvisoria" : "piena";
+}
+
+// Il normale di HRV del giorno i, dalle notti valide fra 60 notti fa e ieri, tolte le escluse.
+// Si lavora sul logaritmo, con mediana e 1,4826 volte la deviazione mediana assoluta (regole 5.2 e 5.3).
+// Sotto 14 notti è in taratura e non dà punti, da 14 a 27 è provvisoria, da 28 piena.
+export function baseHrv(giorni, i, dispositivo = SEMAFORO.dispositivoPredefinito, esclusioni = null) {
+  const H = SEMAFORO.hrv;
+  const escluso = predicato(esclusioni);
   const valori = [];
-  for (let j = Math.max(0, i - finestra); j < i; j++) {
-    if (giorni[j].hrv) valori.push(Math.log(giorni[j].hrv));
+  for (let j = Math.max(0, i - H.notti); j < i; j++) {
+    const g = giorni[j];
+    if (notteValida(g) && !escluso(g)) valori.push(Math.log(g.hrv));
   }
-  if (valori.length < 14) return { ok: false, n: valori.length };
-  const m = media(valori);
-  const sd = Math.max(devStd(valori), 0.05); // mai una fascia più stretta del 5%
+  const n = valori.length;
+  const s = stato(n, H.nottiPunti, H.nottiPiene);
+  if (!n) return { ok: false, n, stato: s, centro: null, ds: null };
+  const centro = mediana(valori);
+  const ds = Math.max(H.madInDs * deviazioneMediana(valori, centro), dsMinimaHrv(dispositivo));
   return {
-    ok: true,
-    n: valori.length,
-    tipico: Math.exp(m),
-    basso: Math.exp(m - sd),
-    alto: Math.exp(m + sd),
-    soglia: Math.exp(m - 0.5 * sd),
-    moltoBasso: Math.exp(m - 1.5 * sd),
+    ok: s !== "taratura",
+    n,
+    stato: s,
+    centro,
+    ds,
+    tipico: Math.exp(centro),
+    basso: Math.exp(centro - ds),
+    alto: Math.exp(centro + ds),
   };
 }
 
-// La media delle ultime 7 notti (oggi compreso), se ce ne sono almeno 4.
-export function hrvSettimana(giorni, i) {
+// Il battito normale del giorno i, dalle ultime 30 notti valide fino a ieri, tolte le escluse.
+// Mediana e DS robusta, mai sotto 1 battito. Da 7 notti provvisorio, da 14 pieno (regola 5.7).
+export function baseFc(giorni, i, esclusioni = null) {
+  const B = SEMAFORO.battito;
+  const escluso = predicato(esclusioni);
   const valori = [];
-  for (let j = Math.max(0, i - 6); j <= i; j++) {
-    if (giorni[j].hrv) valori.push(Math.log(giorni[j].hrv));
+  for (let j = i - 1; j >= 0 && valori.length < B.notti; j--) {
+    const g = giorni[j];
+    if (notteValidaBattito(g) && !escluso(g)) valori.push(g.fc);
   }
-  return valori.length >= 4 ? Math.exp(media(valori)) : null;
+  const n = valori.length;
+  const s = stato(n, B.nottiProvvisorie, B.nottiPiene);
+  if (!n) return { ok: false, n, stato: s, centro: null, ds: null };
+  const centro = mediana(valori);
+  const ds = Math.max(SEMAFORO.hrv.madInDs * deviazioneMediana(valori, centro), B.dsMinima);
+  return { ok: s !== "taratura", n, stato: s, centro, ds, solito: centro, basso: centro - ds, alto: centro + ds };
+}
+
+// La media delle ultime 7 notti valide (oggi compreso), se ce ne sono almeno 3.
+export function hrvSettimana(giorni, i) {
+  const H = SEMAFORO.hrv;
+  const valori = [];
+  for (let j = Math.max(0, i - H.nottiMedia + 1); j <= i; j++) {
+    if (notteValida(giorni[j])) valori.push(Math.log(giorni[j].hrv));
+  }
+  return valori.length >= H.nottiMediaMinime ? Math.exp(media(valori)) : null;
 }
 
 export function sonnoSettimana(giorni, i) {
+  const Z = SEMAFORO.sonno;
   const valori = [];
-  for (let j = Math.max(0, i - 6); j <= i; j++) if (giorni[j].sonno) valori.push(giorni[j].sonno);
-  return valori.length >= 4 ? media(valori) : null;
-}
-
-// Il battito a riposo normale: la mediana delle ultime 30 notti (oggi escluso), almeno 7.
-export function baseFc(giorni, i, finestra = 30) {
-  const valori = [];
-  for (let j = Math.max(0, i - finestra); j < i; j++) {
-    if (giorni[j].fc) valori.push(giorni[j].fc);
-  }
-  if (valori.length < 7) return { ok: false, n: valori.length };
-  return { ok: true, n: valori.length, solito: mediana(valori) };
+  for (let j = Math.max(0, i - Z.nottiMedia + 1); j <= i; j++) if (giorni[j].sonno) valori.push(giorni[j].sonno);
+  return valori.length >= Z.nottiMediaMinime ? media(valori) : null;
 }
 
 export function sommaCarico(giorni, i, n = 7) {
   let somma = 0;
   for (let j = Math.max(0, i - n + 1); j <= i; j++) somma += giorni[j].carico || 0;
   return somma;
+}
+
+// Le notti che il diario toglie dalle basi, cioè quelle con una casella delle cause o con un sintomo
+// di «Sto male», e quelle prima di un cambio di dispositivo (regole 5.2 e 5.11). Il semaforo aggiunge
+// modalità evento, giorni di guardia e malattia.
+export function esclusioniDelDiario(diario, profilo = {}) {
+  const date = new Set();
+  for (const [d, voce] of Object.entries(diario || {})) {
+    if (!voce || typeof voce !== "object") continue;
+    const cause = Array.isArray(voce.cause) ? voce.cause : [];
+    const sintomi = Array.isArray(voce.stoMale) ? voce.stoMale : [];
+    if (cause.length || sintomi.length || voce.controllo === "si") date.add(d);
+  }
+  const dal = profilo && typeof profilo.cambioDispositivo === "string" ? profilo.cambioDispositivo : null;
+  return (g) => date.has(g.d) || Boolean(dal && g.d < dal);
 }
 
 const NOMI_TIPO = {
@@ -162,6 +258,7 @@ const NOMI_TIPO = {
 };
 
 const TIPI_BICI = new Set(["Ride", "GravelRide", "MountainBikeRide", "VirtualRide", "EBikeRide", "EMountainBikeRide"]);
+const TIPI_ORE_BICI = new Set(DATI.tipiBici);
 
 export function nomeTipo(tipo, sorgente) {
   if (!tipo) return sorgente === "STRAVA" ? "Da Strava" : "Attività";
@@ -183,8 +280,18 @@ export function normalizzaUscite(lista) {
       dislivello: pos(a.total_elevation_gain),
       carico: num(a.icu_training_load),
       fcMedia: pos(a.average_heartrate),
+      // Arrivano solo quando la lettura li chiede (6.7). Senza, la fiducia del carico usa il carico.
+      potenza: typeof a.device_watts === "boolean" ? a.device_watts : null,
+      sforzo: pos(a.icu_rpe),
     }))
     .sort((a, b) => (a.inizio < b.inizio ? 1 : -1));
+}
+
+// Le ore in bici di un giorno, tutte le attività in bici sommate, e-bike esclusa (2.2).
+export function oreBiciDelGiorno(uscite, d) {
+  let secondi = 0;
+  for (const u of uscite || []) if (u.d === d && TIPI_ORE_BICI.has(u.tipo)) secondi += u.secondi || 0;
+  return secondi / ORA;
 }
 
 // Ore e carico per settimana (da lunedì), le ultime n settimane fino a oggi.
@@ -213,28 +320,44 @@ function normalizzaAtleta(a) {
   return { nome, fuso: typeof a.timezone === "string" ? a.timezone : null };
 }
 
-// Tutto quello che serve alle viste, calcolato una volta sola.
-export function costruisciModello({ atleta, benessere, uscite }, oggi = oggiLocale()) {
+const oggetto = (v) => (v && typeof v === "object" && !Array.isArray(v) ? v : {});
+
+// Tutto quello che serve alle viste, calcolato una volta sola. Diario, storia, profilo e piano
+// arrivano dal telefono (js/memoria.js) e sono facoltativi.
+// diario   { [data]: { stoMale, senzaFebbre, cause, controllo, pedalata, viaggio } }, le risposte del mattino
+// storia   { [data]: il registro che valuta restituisce ogni giorno }, gli esiti dei giorni passati
+// profilo  { eta o fasciaEta, dispositivo, cambioDispositivo, aritmia, fasciaCardio, ftp }
+// piano    { fatiche: [{ tipo, inizio, fine }] }, i weekend, le prove e i blocchi già fatti
+export function costruisciModello({ atleta, benessere, uscite, diario, storia, profilo, piano } = {}, oggi = oggiLocale()) {
   const giorni = calendario(benessere, oggi);
   const i = giorni.length - 1;
   const oggiG = giorni[i];
   const ieri = giorni[i - 1];
+  const prof = oggetto(profilo);
+  const dia = oggetto(diario);
   // Lo stato dell'allenamento "del mattino" è quello di fine ieri: se oggi c'è già un giro,
   // intervals.icu lo conta nel giorno, e il consiglio va dato com'era prima di uscire.
   const mattino = ieri && ieri.ctl !== null ? ieri : oggiG;
+  const escluse = esclusioniDelDiario(dia, prof);
   return {
     oggi,
     giorni,
     atleta: normalizzaAtleta(atleta),
+    diario: dia,
+    storia: oggetto(storia),
+    profilo: prof,
+    piano: piano && typeof piano === "object" ? piano : null,
+    fonteFc: fonteBattito(giorni),
     notteArrivata: Boolean(oggiG.hrv || oggiG.fc || oggiG.sonno),
     notteMaiArrivata: !giorni.some((g) => g.hrv || g.fc || g.sonno),
     hrvMisurato: giorni.some((g) => g.hrv),
-    base: { hrv: baseHrv(giorni, i), fc: baseFc(giorni, i) },
+    base: { hrv: baseHrv(giorni, i, prof.dispositivo, escluse), fc: baseFc(giorni, i, escluse) },
     hrvSettimana: hrvSettimana(giorni, i),
     sonnoSettimana: sonnoSettimana(giorni, i),
     mattino: {
       ctl: mattino.ctl,
       atl: mattino.atl,
+      faticaLenta: mattino.faticaLenta,
       forma: mattino.forma,
       formaPct: mattino.formaPct,
       rapporto: mattino.ctl > 0 && mattino.atl !== null ? mattino.atl / mattino.ctl : null,
@@ -245,7 +368,7 @@ export function costruisciModello({ atleta, benessere, uscite }, oggi = oggiLoca
   };
 }
 
-// --- La pagina Obiettivo ---
+// --- La pagina Obiettivo, finché non arriva Pronto? (rilascio 3) ---
 
 // Le soglie di Fitness sono ordini di grandezza presi dall'esperienza di pochi ciclisti
 // che queste cose le hanno fatte, misurate alla partenza. Dicono "ci arrivi in fondo", non "vai forte".
@@ -256,17 +379,17 @@ export const SFIDE = [
   { id: "grande", nome: "Due settimane e oltre", descrizione: "Un grande viaggio, 9-11 ore in sella al giorno per due settimane.", minimo: 65, comodo: 85, oreTappa: 10 },
 ];
 
-const K = 41 / 42;                     // quanto resta della Fitness da un giorno all'altro
+const K = decadimento(CARICO.serie.fitness);   // quanto resta della Fitness da un giorno all'altro
 export const SCARICO_GIORNI = 14;      // le ultime due settimane si scarica
 export const SCARICO_QUOTA = 0.55;     // al 55% del carico di prima (Bosquet 2007)
 // Quanto della Fitness resta dopo lo scarico, se prima ci si allenava al proprio livello.
 export const RESTA_DOPO_SCARICO = SCARICO_QUOTA + (1 - SCARICO_QUOTA) * Math.pow(K, SCARICO_GIORNI);
 
-// Dove arriva la Fitness con un carico settimanale costante (stessa formula di intervals.icu).
+// Dove arriva la Fitness con un carico settimanale costante, con la forma della serie di 6.5.
 export function proiettaFitness(fitness, caricoSettimanale, giorni) {
   const quotidiano = caricoSettimanale / 7;
   let f = fitness;
-  for (let k = 0; k < giorni; k++) f += (quotidiano - f) / 42;
+  for (let k = 0; k < giorni; k++) f = f * K + quotidiano * (1 - K);
   return f;
 }
 

@@ -290,6 +290,12 @@ export const DOMENICA = congela({
 // Il semaforo del mattino, usato da js/semaforo.js e da js/modello.js (capitolo 4).
 export const SEMAFORO = congela({
   notteValidaOre: 4,              // ore di sonno minime con l'HRV, senza sonno vale lo stesso, regola 5.1
+  etaPredefinita: 45,             // anni, la fascia 40-49 quando la persona non risponde, 6.3
+  fasceEta: ["sotto40", "40-49", "50-54", "55-59", "60+"],   // le fasce del primo avvio, con i centri di PIANO.limiteFacile.etaCentri, 7.3
+  // Il dispositivo della notte scelto in Impostazioni e la sua classe per la DS minima (4.3, regola 5.3).
+  dispositivi: { garmin: "polso", orologio: "polso", braccialetto: "polso", nonso: "polso", anello: "anelloFascia", fascia: "anelloFascia" },
+  dispositivoPredefinito: "nonso",   // DS minima 0,08 senza risposta, 4.3
+  battitoNonNotturno: "garmin",   // il restingHR di Garmin è la mezz'ora più bassa delle 24 ore, 4.3 e regola 5.7
   hrv: {
     notti: 60,                    // la base va da 60 notti fa a ieri, regola 5.2, stima nostra
     nottiPunti: 14,               // sotto, nessun punto, regola 5.2
@@ -333,6 +339,7 @@ export const SEMAFORO = congela({
     ore2: 5,                      // 2 punti sotto 5 ore, regola 5.8
     nottiDiFila: 2,               // 2 notti di fila sotto 6 ore, 2 punti, regola 5.8
     punteggio: 50,                // al massimo 1 punto sotto 50 se le ore non ne danno, regola 5.8
+    nottiMedianaMinime: 7,        // la mediana di 28 notti vale da 7 notti, come il battito provvisorio, stima nostra
   },
   // Le risposte sulla scala 1-4 di intervals.icu, 1 il meglio, e i loro punti (4.3).
   domande: {
@@ -341,6 +348,7 @@ export const SEMAFORO = congela({
     acciacchi: { 1: 0, 2: 1, 3: "stop", 4: "stop" },   // injury, con 3 la domanda sulla pedalata, regola 5.9
     doloreSenzaCambio: 2,         // «Un dolore» con il no alla pedalata, stima nostra, prudente
     energiaPoca: 3,               // «Poca», con un segnale forte dà Rosso, regola 5.15
+    gambeIndolenzite: 3,          // «Un po' indolenzite», da qui è un segno di fatica per l'HRV alta, regola 5.5
     ottime: { energia: 1, gambeFino: 2, acciacchi: 1 },   // migliorano di un gradino, regola 5.15
     acciacchiGiorniPrima: 1,      // senza risposta oggi vale quella di ieri, 4.2
   },
@@ -350,21 +358,45 @@ export const SEMAFORO = congela({
     fitnessMinima: 5,             // sotto, il carico non vota, 4.3
     faticaLentaDaAnni: 50,        // Fatica lenta, la costante sta in CARICO.serie, regola 1.7
     mattineMoltoAlto: 3,          // Rosso da 3 mattine di fila, regole 1.8 e 5.12
+    fiduciaBassaMassimo: 1,       // punti con la fiducia del carico bassa, e mai Rosso, regola 1.10 e 4.7
+    riposato: 0.8,                // sotto, il testo dice «meno del solito», solo per il testo come oggi
   },
   punti: { forte: 2, gialloLeggero: 1, giallo: 2, rosso: 4, fortiPerRosso: 2 },   // voce forte da 2, P 1 e da 2, Rosso con la concordanza e P da 4 o 2 forti, regola 5.15
+  malanno: 2,                     // punti di HRV e battito, con il carico a 0, per la nota del malanno, stima nostra
+  // I giorni di guardia dopo le fatiche volute (4.6). Il tetto è Giallo, HRV e battito non danno punti
+  // per 72 ore, cioè le 3 mattine dopo, il carico non dà punti per tutti i giorni del tetto.
   guardia: {
-    weekendGiorni: 2,             // tetto Giallo dopo un weekend, una prova o un'uscita grande, regole 5.13 e 8.8
+    weekendGiorni: 2,             // tetto Giallo dopo un weekend di due giorni, regole 5.13 e 8.8
+    provaGiorni: 2,               // dopo una prova con le borse, regole 5.13 e 8.8
+    uscitaGrandeGiorni: 2,        // dopo un'uscita grande, regole 5.13 e 8.8
     bloccoGiorni: 3,              // regola 5.13
-    evento: { "2-5": 7, "6-10": 10, "11+": 14 },   // giorni dopo un evento, regola 8.8, 10 stima nostra, prudente
+    evento: { "1": 2, "2-5": 7, "6-10": 10, "11+": 14 },   // dopo un evento o un viaggio, per giorni, regola 8.8, 10 stima nostra, prudente, uno solo come un'uscita grande
     oreSenzaPunti: 72,            // HRV e battito senza punti, regola 5.13
+    riposoDaAnni: 50,             // da qui, o con sensazioni basse, 2 giorni di riposo dopo un weekend, regola 8.8
   },
   uscitaGrande: { ore: 5, volte: 1.5, settimane: 4, oreMinime: 3 },   // 5 ore o 1,5 volte la più lunga di 4 settimane, regola 8.8, stima nostra, prudente
-  rientro: { giorni: 4, giorniDopoMalattiaLunga: 7, malattiaLungaOltre: 7, oreSenzaFebbre: 24 },   // tetto Giallo, regola 5.18, stima nostra, prudente
+  rientro: {
+    giorni: 4,                    // tetto Giallo dopo la febbre, regola 5.18, stima nostra, prudente
+    giorniDopoMalattiaLunga: 7,   // regola 5.18, stima nostra, prudente
+    malattiaLungaOltre: 7,        // giorni di malattia, regola 5.18
+    oreSenzaFebbre: 24,           // senza farmaci per la febbre, regola 5.18
+    malattiaRiportataGiorni: 14,  // senza «Non ho più febbre» lo stop resta fino a 14 giorni dall'ultimo sintomo, come le carte che scadono, stima nostra, prudente
+  },
   ultimiGiorni: 7,                // il Giallo leggero vale Giallo, regola 5.19, stima nostra, prudente
   crescitaRapidaGiorni: 7,        // al massimo Giallo leggero, regola 1.9
   gialliDiFila: 3,                // giorni in Giallo o Rosso che fanno partire il controllo della domenica, regola 5.16
   sopraIlColloMinuti: 60,         // al massimo un'ora facile con i soli sintomi sopra il collo, regola 5.10
-  medico: { daAnni: 40, viaggioDaGiorni: 11, settimanePrima: 4, battitoSopra: 5, battitoNotti: 3, malattiaGiorni: 7 },   // regole 5.17 e 3.13, 7 giorni stima nostra, prudente
+  medico: {
+    daAnni: 40,                   // la riga del viaggio lungo, regole 5.17 e 3.13
+    viaggioDaGiorni: 11,          // regola 3.13
+    settimanePrima: 4,            // regola 3.13
+    battitoSopra: 5,              // da 3 notti con stanchezza, presto e senza urgenza, regola 5.17
+    battitoNotti: 3,              // regola 5.17
+    malattiaGiorni: 7,            // oltre, prima di riprendere serve il medico, la regola dice 7-10, stima nostra, prudente
+    dopoVirusGiorni: 14,          // un sintomo di cuore entro 14 giorni da una malattia, regola 5.17, stima nostra
+    palpitazioniVolte: 2,         // palpitazioni ripetute, in 2 giorni su 14, regola 5.17, stima nostra
+    palpitazioniGiorni: 14,       // stima nostra
+  },
   viaggio: {
     sonnoOrologioMinuti: 45,      // sonno vero = orologio meno 45 minuti, uguale con anelli e fasce, regola 3.10
     sonnoCortoOre: 5,             // meno di 5 ore ogni 24, regola 3.10
@@ -380,8 +412,17 @@ export const SEMAFORO = congela({
     propostaQuotaH: 0.5,          // 4.5
     propostaOre: 4,               // senza un obiettivo, 4.5
     taglioGiallo: { minimo: 0.2, massimo: 0.3 },   // con il Giallo la giornata più corta, regola 9.2
+    sonnoRisposte: { bene: 6, poco: 5, pochissimo: 4 },   // ore di «Quanto hai dormito davvero?», il lato basso di ogni scelta, 4.5
   },
-  dispositivo: { salto: 2.5, nottiRecenti: 7, nottiPrima: 28, mattine: 3, nottiTaratura: 14 },   // DS di salto della mediana, regola 10.4, stima nostra
+  dispositivo: {
+    salto: 2.5,                   // DS di salto della mediana delle ultime 7 notti, regola 10.4, stima nostra
+    nottiRecenti: 7,              // regola 10.4
+    nottiPrima: 28,               // regola 10.4
+    mattine: 3,                   // regola 10.4
+    nottiTaratura: 14,            // dopo un cambio la base riparte, regola 10.4
+    nottiRecentiMinime: 4,        // notti con il dato fra le 7, stima nostra
+    nottiPrimaMinime: 14,         // notti con il dato fra le 28, come la base dell'HRV, stima nostra
+  },
   fiducia: { quotaAlta: 0.9, giorni: 42, quotaSenzaDati: 0.3, settimane: 6 },   // regole 1.10 e 10.2
 });
 
@@ -436,6 +477,8 @@ export const DOMANDE = congela({
   primoAvvioSenzaGiri: 10,        // stima nostra
   soloSemaforo: 2,                // con «Solo il semaforo del mattino», 7.3
   mattino: 3,                     // le tre domande di sempre, 6.4
+  viaggio: 3,                     // le domande del mattino in viaggio, 4.5, dalla proposta semplice
+  sceltePerCasella: 1,            // ogni casella di «Qualcosa non va?» apre al massimo una scelta in più, 4.5
   carteInPiu: 1,                  // per apertura, stima nostra
   carteInPiuConBorse: 2,          // quando una è sulle borse, stima nostra
   scadenzaGiorni: 14,             // le carte senza risposta, stima nostra

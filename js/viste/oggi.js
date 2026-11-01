@@ -14,7 +14,15 @@ function saluto(nome) {
   return nome ? `${parola}, ${nome}` : parola;
 }
 
+// Il semaforo a punti dà a ogni voce un pallino verde, giallo o grigio. Il grigio usa lo stile neutro.
+const COLORE_PALLINO = { verde: "verde", giallo: "giallo", grigio: "neutro" };
+const colorePallino = (v) => COLORE_PALLINO[v.pallino] || "neutro";
+
 function cartaSemaforo(e, appenaSalvato) {
+  // La pagina nuova con il pannello «Sto male» e le domande arriva dopo. Qui le frasi del semaforo
+  // si mostrano tutte, una volta sola, e l'avviso della notte resta quello sotto l'intestazione.
+  const note = [e.nota, ...e.medico.map((x) => x.testo), ...e.messaggi.filter((x) => x.chiave !== "notte").map((x) => x.testo)]
+    .filter((t, k, tutte) => t && t !== e.consiglio && tutte.indexOf(t) === k);
   return h("section", { class: ["semaforo", `semaforo-${e.colore}`], "aria-labelledby": "semaforo-titolo" },
     appenaSalvato ? h("p", { class: "salvato", role: "status" }, "Salvato. Il semaforo è aggiornato con le tue risposte.") : null,
     h("div", { class: "semaforo-testa" },
@@ -22,13 +30,15 @@ function cartaSemaforo(e, appenaSalvato) {
       h("div", { class: "semaforo-testo" },
         h("p", { class: "occhiello" }, "Il semaforo di oggi"),
         h("h2", { id: "semaforo-titolo" }, e.titolo),
-        h("p", { class: "semaforo-consiglio" }, e.consiglio))),
-    e.nota && h("p", { class: "semaforo-nota" }, e.nota),
+        h("p", { class: "semaforo-consiglio" }, [e.consiglio, ...e.aggiunte].join(" ")),
+        e.perche ? h("p", { class: "piccolo" }, e.perche) : null,
+        e.fiducia && e.fiducia.accanto ? h("p", { class: "piccolo" }, e.fiducia.testo) : null)),
+    note.map((t) => h("p", { class: "semaforo-nota" }, t)),
     h("div", { class: "semaforo-voci" },
       h("h3", {}, "Perché"),
-      h("ul", { class: "voci" }, e.voci.map((v) => h("li", { class: ["voce", `voce-${v.colore}`] },
+      h("ul", { class: "voci" }, e.voci.map((v) => h("li", { class: ["voce", `voce-${colorePallino(v)}`] },
         h("span", { class: "voce-pallino", "aria-hidden": "true" }),
-        h("span", { class: "voce-nome" }, v.nome, h("span", { class: "voce-esito" }, ESITO_VOCE[v.colore])),
+        h("span", { class: "voce-nome" }, v.nome, h("span", { class: "voce-esito" }, ESITO_VOCE[colorePallino(v)])),
         h("span", { class: "voce-testo" }, v.testo))))),
     h("p", { class: "semaforo-piede" }, h("a", { href: "#guida" }, "Come nasce il semaforo")));
 }
@@ -119,7 +129,7 @@ function numeriDelGiorno(m, esito) {
   const ultimi = (n, campo, fn = (v) => v) => g.slice(-n).map((x) => (x[campo] ? fn(x[campo]) : null));
   const coloreVoce = (chiave) => {
     const v = esito.voci.find((x) => x.chiave === chiave);
-    return v ? v.colore : null;
+    return v ? colorePallino(v) : null;
   };
   const bh = m.base.hrv;
   const bf = m.base.fc;
