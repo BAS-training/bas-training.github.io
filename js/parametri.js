@@ -41,6 +41,7 @@ export const STIMA = congela({
     quotaFtp: 0.625,              // la giornata al 60-65% della FTP, regola 7.2
     ftpUsciteMinime: 3,           // uscite con la potenza del dispositivo, 1.4 e regola 7.2
     ftpSettimane: 8,              // delle ultime 8 settimane, regola 1.10
+    tipi: ["Ride", "GravelRide", "MountainBikeRide", "VirtualRide"],   // le uscite in bici che contano per la FTP, e-bike escluse, 1.4
     fattoreGiri: 0.9,             // per il passo dei giri e la media dichiarata, 0,625 / 0,70, stima nostra, prudente
     wattKgSenzaDati: 2.25,        // × 0,625 × massa, fra principiante e amatore, stima nostra, prudente
     wattKgTetto: 3.5,             // × 0,625 × massa, il tetto senza FTP misurata, stima nostra, prudente
@@ -69,14 +70,18 @@ export const STIMA = congela({
   lavoro: { kjPerWattOra: 3.6, qCollina: 0.85, qPiano: 0.95, collinaDaMetriPerKm: 10 },   // kJ = 3,6 × P × H × q, regola 7.5
   punti: { ifPerFtp: 0.96, moltiplicatori: { asfalto: 1.00, compatto: 1.075, smosso: 1.15 } },   // H × IF² × 100 × m, regola 7.5, m stima nostra
   arrotonda: { ore: 0.5, km: 5, metri: 50 },   // H alla mezz'ora con la mezza esatta in su, strada al giorno, 1.1 e 1.5 passo 10
+  arrotondaMinuti: { passo: 5, passoLunghe: 10, lungheDa: 120 },   // le durate a parole del 7.1, a 5 minuti sotto le 2 ore e a 10 sopra, stima nostra
   giornoInPiuDaH: 9,              // per 2-5 giorni l'app dice come scende la giornata con un giorno in più, 1.11, regola 7.7
+  giornoInPiuGiorni: { da: 2, a: 5 },   // la frase vale per 2-5 giorni e mai oltre i giorni massimi del percorso, 1.11
   oreEbike: [4, 5, 6, 7, 8, 9],   // le ore al giorno chieste a chi va in e-bike, 1.8, stima nostra
+  tipiEbike: ["EBikeRide", "EMountainBikeRide"],   // l'ultimo giro lungo di questi tipi vale «Vado con la e-bike», 1.8
   obiettivoLibero: {
     oreGiro: [3, 4, 5, 6, 8],     // «Un giro lungo di … ore», 1.9
     giorniDiFila: [2, 3],         // «Più giorni di fila», 1.9
     borseKg: 8,                   // con le borse e nei giorni di fila, 1.9
     acquaCiboKg: 1.5,             // 1.9
     classi: { strada: "asfalto-collinare", gravel: "misto", misto: "misto", mountainBike: "sterrato-ripido" },   // 1.9
+    bici: { strada: 9, gravel: 11, misto: 11, mountainBike: 13 },   // kg se il profilo non dice la bici, come 1.3, stima nostra
   },
 });
 
@@ -86,6 +91,8 @@ export const PASSO = congela({
   kmMinimi: 20,                   // stima nostra
   velocita: { minima: 8, massima: 40 },     // km/h di media, stima nostra
   metriPerKm: { minimi: 0, massimi: 40 },   // dislivello del dispositivo senza fattore, stima nostra
+  zeroOltreKm: 30,                // un giro all'aperto di oltre 30 km senza dislivello resta fuori, 6.3
+  borseSenzaRispostaOltreOre: 3,  // oltre 3 ore senza la risposta sulle borse il giro resta fuori, 6.3
   giorni: 84,                     // prima gli ultimi 84 giorni, stima nostra
   giorniRiserva: 182,             // se non bastano, gli ultimi 182, stima nostra
   giriMinimi: 3,                  // stima nostra, dalla proposta semplice
