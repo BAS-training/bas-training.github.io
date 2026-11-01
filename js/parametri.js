@@ -451,10 +451,21 @@ export const DOMANDE = congela({
 // Cosa resta sul telefono e per quanto, usato da js/memoria.js (6.6).
 export const MEMORIA = congela({
   giorni: 400,                    // uscite, palestra, mattine, esiti e domeniche, stima nostra
-  mesiDopoEvento: 3,              // obiettivo e piano, 6.6, stima nostra
+  mesiDopoEvento: 3,              // obiettivo, piano e invito, dall'ultimo giorno dell'evento, 6.6, stima nostra
   copiaOgniGiorni: 30,            // il promemoria della copia di sicurezza, stima nostra
   formatoCopia: 1,                // il numero di formato del file della copia, 6.6
+  copiaMassima: 5000000,          // caratteri, un file più grande non è una copia, il browser tiene circa 5 MB per sito, stima nostra
   cacheGiorniInPiu: 3,            // si rileggono i giorni nuovi più 3, stima nostra
+  // Le sfide della pagina Obiettivo di prima diventano un obiettivo libero con la stessa data (6.6 e 9.7).
+  // Le ore sono quelle della giornata che la pagina usava (oreTappa), per eccesso all'ora intera, i giorni
+  // il lato alto, al massimo i 3 dell'obiettivo libero (1.9), stima nostra, prudente.
+  sfide: {
+    giornata: { libero: "ore", giorni: 1, ore: 5 },       // «4-5 ore in sella», un giro lungo
+    weekend: { libero: "giorni", giorni: 3, ore: 7 },     // «2-3 giorni, 6-8 ore al giorno»
+    settimana: { libero: "giorni", giorni: 3, ore: 8 },   // «7-10 giorni, 7-9 ore al giorno»
+    grande: { libero: "giorni", giorni: 3, ore: 10 },     // «due settimane e oltre, 9-11 ore al giorno»
+  },
+  sfidaSenzaScelta: "weekend",    // quella che la pagina di prima mostrava senza una scelta salvata
 });
 
 // Le chiamate a intervals.icu, usato da js/api.js, js/app.js e js/modello.js (6.7).
