@@ -46,10 +46,12 @@ function casella(id, testo, acceso, cambia) {
     h("label", { for: id }, testo));
 }
 
+// Senza una fascia salvata nessuna scelta è spuntata, così anche chi ha 40-49 anni la può confermare
+// con un tocco. Il semaforo intanto conta 40-49, e la riga sotto lo dice.
 function sezioneEta(ctx) {
-  const fascia = ctx.profilo.fasciaEta || null;
+  const fascia = SEMAFORO.fasceEta.includes(ctx.profilo.fasciaEta) ? ctx.profilo.fasciaEta : null;
   return sezione("eta", I.eta.titolo,
-    gruppo("fascia-eta", I.eta.domanda, I.eta.scelte, fascia || SEMAFORO.fasceEta[1],
+    gruppo("fascia-eta", I.eta.domanda, I.eta.scelte, fascia,
       (v) => ctx.azioni.profilo({ fasciaEta: v }, "eta")),
     fascia ? null : h("p", { class: "piccolo" }, I.eta.senza),
     h("p", { class: "piccolo" }, I.eta.aiuto),

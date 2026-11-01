@@ -601,6 +601,45 @@ test("il link degli iscritti resta per il ritorno da intervals.icu, finché non 
   assert.deepEqual(mai.pulisci("2027-08-24").chiavi, [CHIAVI.invito]);
 });
 
+test("con la memoria assente, bloccata o piena le risposte della stessa apertura non si perdono una dopo l'altra", () => {
+  // Lucia risponde «Un dolore» e no alla pedalata, poi spunta «Naso che cola». La memoria non tiene,
+  // e la seconda risposta deve partire da quella che l'app ha in pagina, non da un diario vuoto.
+  for (const locale of [null, memoriaFinta({}, { rotta: true }), memoriaFinta({}, { quota: 10 })]) {
+    const memoria = creaMemoria(locale, { adesso: () => ADESSO });
+    let diario = memoria.leggi(CHIAVI.mattino);
+    let esito = memoria.cambia(CHIAVI.mattino, (d) => { d[OGGI] = { ...(d[OGGI] || {}), pedalata: "no" }; }, diario);
+    assert.equal(esito.salvato, false);
+    assert.equal(memoria.tiene(), false);
+    diario = esito.valore;
+    esito = memoria.cambia(CHIAVI.mattino, (d) => { d[OGGI] = { ...(d[OGGI] || {}), stoMale: ["naso"] }; }, diario);
+    assert.deepEqual(esito.valore[OGGI], { pedalata: "no", stoMale: ["naso"] });
+    // lo stesso per il profilo, dove scegliere il dispositivo non cancella la fascia d'età appena scelta
+    let profilo = {};
+    profilo = memoria.cambia(CHIAVI.profilo, (p) => ({ ...(p || {}), fasciaEta: "50-54" }), profilo).valore;
+    profilo = memoria.cambia(CHIAVI.profilo, (p) => ({ ...(p || {}), dispositivo: "anello" }), profilo).valore;
+    assert.deepEqual(profilo, { fasciaEta: "50-54", dispositivo: "anello" });
+    // dopo «Esci e cancella tutto» non c'è più niente da tenere in pagina
+    memoria.esciCancellaTutto();
+    assert.equal(memoria.tiene(), true);
+  }
+
+  // Con la memoria che funziona si riparte da quello salvato, anche se la pagina ha altro.
+  const locale = memoriaFinta();
+  const memoria = creaMemoria(locale, { adesso: () => ADESSO });
+  memoria.cambia(CHIAVI.profilo, () => ({ fasciaEta: "40-49" }), {});
+  const { valore, salvato } = memoria.cambia(CHIAVI.profilo, (p) => ({ ...p, dispositivo: "anello" }), { altro: 1 });
+  assert.equal(salvato, true);
+  assert.deepEqual(valore, { fasciaEta: "40-49", dispositivo: "anello" });
+  assert.deepEqual(memoria.leggi(CHIAVI.profilo), { fasciaEta: "40-49", dispositivo: "anello" });
+  assert.equal(memoria.tiene(), true);
+  // con false non cambia niente, con true vale la modifica sul posto, con null la chiave si toglie
+  assert.equal(memoria.cambia(CHIAVI.profilo, () => false).valore.dispositivo, "anello");
+  const storia = memoria.cambia(CHIAVI.esiti, (s) => { s[OGGI] = { livello: "verde" }; return true; }).valore;
+  assert.deepEqual(storia, { [OGGI]: { livello: "verde" } });
+  memoria.cambia(CHIAVI.profilo, () => null);
+  assert.equal(memoria.leggi(CHIAVI.profilo), null);
+});
+
 test("togli toglie solo le chiavi della tabella", () => {
   const locale = memoriaFinta({ [CHIAVI.profilo]: { eta: "40-49" }, [CHIAVE]: CHIAVE_LUCIA });
   const memoria = creaMemoria(locale);

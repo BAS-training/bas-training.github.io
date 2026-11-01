@@ -4,10 +4,10 @@
 // vincono sempre. Funzioni pure, senza DOM e senza window. Le soglie stanno in js/parametri.js e i testi
 // in js/testi.js, dove c'è anche la tabella della Guida (GUIDA_SEMAFORO) da cambiare con le regole.
 
-import { SEMAFORO, DATI, PRONTEZZA, PIANO } from "./parametri.js?v=202610312043";
+import { SEMAFORO, DATI, PRONTEZZA, PIANO, MEMORIA } from "./parametri.js?v=202610312043";
 import {
   aggiungiGiorni, giorniTra, media, mediana, deviazioneMediana, notteValida, baseHrv, baseFc, dsMinimaHrv,
-  oreBiciDelGiorno,
+  oreBiciDelGiorno, mattinoDelGiorno, GIORNI_USCITE,
 } from "./modello.js?v=202610312043";
 import {
   LIVELLI, ESITO_VOCE, VOCI, PERCHE, NOTE, STOP, CARICO_TRE_MATTINE, STO_MALE, CONTROLLO, GUARDIA,
@@ -46,6 +46,13 @@ function sintomiDi(voceDiario) {
   return s;
 }
 
+// La febbre con i sintomi al petto, che prima di riprendere chiede il medico (regola 5.17).
+function febbreAlPetto(s) {
+  return s.malattia.includes("febbre") && (s.malattia.includes("tosse") || s.cuore.includes("petto") || s.cuore.includes("fiato"));
+}
+
+const DATA = /^\d{4}-\d{2}-\d{2}$/;
+
 // Una voce del «Perché». Il pallino è verde, giallo o grigio, mai un quinto colore (4.8).
 function voce(chiave, campi = {}) {
   const v = {
@@ -80,11 +87,15 @@ function risolvi(m, contesto = {}) {
     giorniEvento: numero(contesto.giorniEvento),
     crescita: Boolean(contesto.crescita),
     malattia: statoMalattia(m.diario, m.storia, m.oggi),
+    cuore: statoCuore(m.diario, m.storia, m.oggi),
   };
   c.rientro = contesto.rientro !== undefined ? contesto.rientro : c.malattia.rientro;
+  // I viaggi del diario ricostruiscono anche i giorni in cui l'app è rimasta chiusa (4.6).
+  c.viaggi = viaggiDelDiario(m.diario, m.uscite, m.oggi);
+  c.giorniInEvento = giorniInEvento(c.viaggi, m.storia, m.oggi);
   c.guardia = contesto.guardia !== undefined
     ? contesto.guardia
-    : giorniDiGuardia(m.storia, m.piano, m.uscite, m.oggi, { eta });
+    : giorniDiGuardia(m.storia, m.piano, m.uscite, m.oggi, { eta, viaggi: c.viaggi });
   const esc = (c.guardia && c.guardia.esclusioni) || {};
   c.guardiaNotti = new Set(lista(esc.notti));
   c.guardiaCarico = new Set(lista(esc.carico));
@@ -101,7 +112,7 @@ function esclusioni(m, c) {
   for (const [d, v] of Object.entries(m.diario || {})) {
     if (v && (lista(v.cause).length || lista(v.stoMale).length || v.controllo === "si")) notti.add(d);
   }
-  for (const [d, r] of Object.entries(m.storia || {})) if (r && r.evento) notti.add(d);
+  for (const d of c.giorniInEvento) notti.add(d);
   if (c.evento) notti.add(m.oggi);
   for (const d of c.guardiaNotti) notti.add(d);
   const dal = c.cambioDispositivo;
@@ -119,7 +130,7 @@ function situazione(m, c, k) {
     oggi,
     cause: lista(dia.cause),
     pedalata: dia.pedalata === "si" || dia.pedalata === "no" ? dia.pedalata : null,
-    evento: oggi ? Boolean(c.evento) : Boolean(storiaDi(m, d).evento),
+    evento: oggi ? Boolean(c.evento) : c.giorniInEvento.has(d),
     senzaPuntiNotte: oggi ? Boolean(guardia.senzaPuntiNotte) : c.guardiaNotti.has(d),
     senzaPuntiCarico: oggi ? Boolean(guardia.senzaPuntiCarico) : c.guardiaCarico.has(d),
   };
@@ -139,8 +150,11 @@ function vociDomande(m, k, s) {
   const T = VOCI;
   const r = {};
 
+  // Una domanda senza risposta ha il pallino grigio e la sua scritta, perché le domande contano sempre
+  // per intero (4.3) e «non conta oggi» direbbe il contrario.
+  const senza = (chiave, testo) => voce(chiave, { testo, esito: "daRispondere" });
   const e = g.fatica;
-  if (!e) r.energia = voce("energia", { testo: T.energia.senza });
+  if (!e) r.energia = senza("energia", T.energia.senza);
   else if (D.energia[e] === "stop") r.energia = voce("energia", { attiva: true, valore: e, stop: "pezzi", pallino: "giallo", testo: T.energia.pezzi });
   else {
     const p = D.energia[e] || 0;
@@ -148,7 +162,7 @@ function vociDomande(m, k, s) {
   }
 
   const gb = g.dolori;
-  if (!gb) r.gambe = voce("gambe", { testo: T.gambe.senza });
+  if (!gb) r.gambe = senza("gambe", T.gambe.senza);
   else {
     const p = D.gambe[gb] || 0;
     if (p >= S.punti.forte && s.pedalata === "si") {
@@ -173,7 +187,7 @@ function vociDomande(m, k, s) {
     pedalata = pedalata || (p === "si" || p === "no" ? p : null);
   }
   const ieri = (testo) => (daIeri ? `${testo} ${T.acciacchi.ieri}` : testo);
-  if (!a) r.acciacchi = voce("acciacchi", { testo: T.acciacchi.senza });
+  if (!a) r.acciacchi = senza("acciacchi", T.acciacchi.senza);
   else {
     const p = D.acciacchi[a];
     const campi = { attiva: true, valore: a, daIeri };
@@ -186,10 +200,10 @@ function vociDomande(m, k, s) {
   return r;
 }
 
-// Fitness e Fatica di ieri sera, mai quelle di oggi che contengono già il giro di stamattina.
+// Fitness e Fatica di ieri sera, mai quelle di oggi che contengono già il giro di stamattina. Se ieri
+// manca, valgono quelle dell'ultimo giorno prima che le ha (mattinoDelGiorno di js/modello.js).
 function mattinoDi(m, k) {
-  const ieri = m.giorni[k - 1];
-  const g = ieri && ieri.ctl !== null ? ieri : m.giorni[k];
+  const g = mattinoDelGiorno(m.giorni, k);
   return { ctl: g.ctl, atl: g.atl, faticaLenta: numero(g.faticaLenta) };
 }
 
@@ -224,10 +238,13 @@ function medianaSonno(m, k, escluso) {
   return valori.length >= Z.nottiMedianaMinime ? mediana(valori) : null;
 }
 
-function mediaSonno(m, k) {
+// La media delle ore delle ultime 7 notti, oggi compreso, se sono almeno 4. Con senzaOggi la stessa
+// settimana senza la notte di oggi, per dire se la regola regge anche togliendo stanotte (regola 5.15).
+function mediaSonno(m, k, senzaOggi = false) {
   const Z = S.sonno;
   const valori = [];
-  for (let j = Math.max(0, k - Z.nottiMedia + 1); j <= k; j++) if (m.giorni[j].sonno) valori.push(m.giorni[j].sonno / ORA);
+  const fino = senzaOggi ? k - 1 : k;
+  for (let j = Math.max(0, k - Z.nottiMedia + 1); j <= fino; j++) if (m.giorni[j].sonno) valori.push(m.giorni[j].sonno / ORA);
   return valori.length >= Z.nottiMediaMinime ? media(valori) : null;
 }
 
@@ -253,7 +270,11 @@ function voceSonno(m, k, s, c) {
     else if (ore < Z.ore1) { punti = 1; motivo = "poco"; }
     else if (sottoSolito) { punti = 1; motivo = "sottoSolito"; }
     else if (settimana) { punti = 1; motivo = "settimana"; }
-    piuNotti = punti > 0 && (dueNotti || settimana);
+    // La media della settimana guarda più notti solo se resta bassa anche senza stanotte, altrimenti
+    // una notte storta da sola farebbe la concordanza (regola 5.15).
+    const mediaPrima = mediaSonno(m, k, true);
+    const settimanaPrima = mediaPrima !== null && mediaPrima < Z.mediaOre;
+    piuNotti = punti > 0 && (dueNotti || (settimana && settimanaPrima));
   }
   const daOre = punti > 0;
   if (!punti && punteggio && punteggio < Z.punteggio) { punti = 1; motivo = "punteggio"; }
@@ -300,10 +321,12 @@ function voceFc(m, k, s, c) {
 }
 
 // La media dei ln delle notti valide degli ultimi 7 giorni, oggi compreso, se sono almeno 3, in DS.
-function zMedia(m, k, base) {
+// Con senzaOggi la stessa media senza la notte di oggi, per la concordanza (regola 5.15).
+function zMedia(m, k, base, senzaOggi = false) {
   const H = S.hrv;
   const valori = [];
-  for (let j = Math.max(0, k - H.nottiMedia + 1); j <= k; j++) {
+  const fino = senzaOggi ? k - 1 : k;
+  for (let j = Math.max(0, k - H.nottiMedia + 1); j <= fino; j++) {
     if (notteValida(m.giorni[j])) valori.push(Math.log(m.giorni[j].hrv));
   }
   return valori.length >= H.nottiMediaMinime ? (media(valori) - base.centro) / base.ds : null;
@@ -343,8 +366,11 @@ function voceHrv(m, k, s, c, altre) {
   if (!base.ok) return voce("hrv", { testo: VOCI.hrv.impara(base.n), lettura: { base } });
   const zNotte = (Math.log(g.hrv) - base.centro) / base.ds;
   const z7 = zMedia(m, k, base);
+  const z7Prima = zMedia(m, k, base, true);
   const mediaBassa = z7 !== null && z7 < H.mediaBassa;
-  const treMattine = mediaBassa && [1, 2].every((j) => {
+  // La media bassa da 3 mattine di fila, cioè oggi e le mattineDiFila − 1 mattine prima.
+  const mattinePrima = Array.from({ length: Math.max(0, H.mattineDiFila - 1) }, (_, j) => j + 1);
+  const treMattine = mediaBassa && mattinePrima.every((j) => {
     const z = zMediaIl(m, k - j, c);
     return z !== null && z < H.mediaBassa;
   });
@@ -376,11 +402,16 @@ function voceHrv(m, k, s, c, altre) {
     motivo = "altaEta";
     nonMigliorabile = true;
   }
-  // I punti che vengono dalla media di 7 notti guardano già più notti, e valgono per la concordanza.
-  const piuNotti = punti > 0 && (mediaBassa || combinata || motivo === "altaFatica");
+  // I punti che vengono dalla media di 7 notti guardano più notti, e valgono per la concordanza, solo se
+  // la media resta oltre la soglia anche senza stanotte. Una notte storta da sola sposta la media e non
+  // deve bastare (regola 5.15, 9.5 «Senza concordanza»). La media bassa da 3 mattine guarda già le
+  // mattine di prima, che stanotte non la contengono.
+  const mediaBassaPrima = z7Prima !== null && z7Prima < H.mediaBassa;
+  const mediaAltaPrima = z7Prima !== null && z7Prima > H.mediaAlta;
+  const piuNotti = punti > 0 && ((mediaBassa && mediaBassaPrima) || combinata || (motivo === "altaFatica" && mediaAltaPrima));
   if (base.stato === "provvisoria") punti = Math.min(punti, 1);
   if (s.cause.length) punti = Math.min(punti, 1);
-  const lettura = { base, zNotte, z7, treMattine, calo, sospesaCalo, saturazione, mediaAlta, insolita };
+  const lettura = { base, zNotte, z7, z7Prima, treMattine, calo, sospesaCalo, saturazione, mediaAlta, insolita };
   if (s.evento) return voce("hrv", { attiva: true, lettura, pallino: "grigio", testo: VOCI.viaggio });
   if (s.senzaPuntiNotte) return voce("hrv", { attiva: true, lettura, pallino: "grigio", testo: VOCI.guardiaNotte });
 
@@ -424,16 +455,23 @@ export function puntiDomande(m, contesto = {}) {
 
 // --- Stop, malattia e rientro (4.4) ---
 
-function trovaStop(v, sintomi, c, dia) {
+// Il primo stop di oggi, con la sua origine. Un sintomo di cuore dei giorni prima ferma ancora, finché
+// la persona non dice di aver sentito il medico (statoCuore). Con senzaDoloreSospeso il dolore che
+// aspetta la risposta sulla pedalata non conta, così si vede se resta uno stop comunque.
+function trovaStop(v, sintomi, c, dia, { senzaDoloreSospeso = false } = {}) {
   const tutti = sintomi.cuore.length + sintomi.malattia.length + sintomi.collo.length;
   const fc = v.fc.lettura;
   const battito = tutti > 0 && Boolean(fc) && typeof fc.d === "number" && fc.d >= S.battito.stopMalattia;
+  const doloreSospeso = v.acciacchi.stop === "dolore" && v.acciacchi.domanda === "pedalata";
   if (sintomi.cuore.length) return { tipo: "cuore", origine: "cuore" };
+  if (c.cuore && c.cuore.aperto) return { tipo: "cuore", origine: "cuoreRiportato" };
   if (sintomi.malattia.length || dia.controllo === "si") return { tipo: "malattia", origine: "malattia" };
   if (battito) return { tipo: "malattia", origine: "battito" };
   if (c.malattia.inCorso) return { tipo: "malattia", origine: "malattiaRiportata" };
   if (v.acciacchi.stop === "infortunio") return { tipo: "infortunio", origine: "infortunio" };
-  if (v.acciacchi.stop === "dolore" || v.gambe.stop === "dolore") return { tipo: "dolore", origine: "dolore" };
+  if ((v.acciacchi.stop === "dolore" && !(senzaDoloreSospeso && doloreSospeso)) || v.gambe.stop === "dolore") {
+    return { tipo: "dolore", origine: "dolore" };
+  }
   if (v.energia.stop === "pezzi") return { tipo: "pezzi", origine: "pezzi" };
   return { tipo: null, origine: null };
 }
@@ -446,55 +484,93 @@ export function stop(m, contesto = {}) {
   return trovaStop(v, sintomiDi(dia), c, dia).tipo;
 }
 
+// I giorni da guardare per malattia e cuore, uno per uno, dal primo segnato nel diario o nella storia
+// fino a oggi, al massimo quanto la memoria li tiene (MEMORIA.giorni).
+function giorniDaGuardare(diario, storia, oggi) {
+  const limite = aggiungiGiorni(oggi, -MEMORIA.giorni);
+  let primo = oggi;
+  for (const d of [...Object.keys(diario || {}), ...Object.keys(storia || {})]) {
+    if (DATA.test(d) && d >= limite && d < primo) primo = d;
+  }
+  const giorni = [];
+  for (let d = primo; d <= oggi; d = aggiungiGiorni(d, 1)) giorni.push(d);
+  return giorni;
+}
+
+// Il primo giorno, da da a oggi, in cui la persona ha segnato «Il medico mi ha detto che posso
+// riprendere» (medicoSentito nel diario), oppure null.
+function medicoSentitoDal(diario, da, oggi) {
+  let primo = null;
+  for (const [d, v] of Object.entries(diario || {})) {
+    if (d >= da && d <= oggi && v && v.medicoSentito && (!primo || d < primo)) primo = d;
+  }
+  return primo;
+}
+
 // La malattia dal diario. Un episodio comincia con un sintomo di malattia, un sì alla domanda di
 // controllo o uno stop dal battito, e finisce con «Non ho più febbre da 24 ore». Senza quella risposta
-// lo stop resta, fino a 14 giorni dall'ultimo sintomo. Dalla risposta parte il rientro, al massimo
-// Giallo per 4 giorni, 7 se la malattia è durata più di 7 (regola 5.18).
+// lo stop resta fino a 14 giorni dall'ultimo sintomo, poi l'episodio si chiude il giorno dopo, e
+// siccome la durata non si conosce vale come una malattia lunga (la lettura prudente).
+// Dalla fine parte il rientro, al massimo Giallo per 4 giorni, 7 se la malattia è durata più di 7
+// (regola 5.18). Una malattia lunga, o con la febbre e i sintomi al petto, prima di riprendere chiede
+// il medico (regola 5.17). Allora il rientro aspetta (attesa) finché la persona non segna
+// «Il medico mi ha detto che posso riprendere», e i suoi giorni contano da quella risposta.
 export function statoMalattia(diario, storia, oggi) {
   const R = S.rientro;
-  const indietro = S.hrv.notti + R.giorniDopoMalattiaLunga + R.malattiaRiportataGiorni;
   const chiusi = [];
   let aperto = null;
-  for (let k = -indietro; k <= 0; k++) {
-    const d = aggiungiGiorni(oggi, k);
+  for (const d of giorniDaGuardare(diario, storia, oggi)) {
     const v = (diario && diario[d]) || {};
     const r = (storia && storia[d]) || {};
-    const malato = sintomiDi(v).malattia.length > 0 || v.controllo === "si" || (r.stop === "malattia" && !r.riportato);
+    const sintomi = sintomiDi(v);
+    const malato = sintomi.malattia.length > 0 || v.controllo === "si" || (r.stop === "malattia" && !r.riportato);
     if (aperto && !malato && giorniTra(aperto.ultimo, d) > R.malattiaRiportataGiorni) {
-      chiusi.push({ ...aperto, fine: null, scaduto: true });
+      chiusi.push({ ...aperto, fine: d, scaduto: true });
       aperto = null;
     }
     if (malato) {
-      if (!aperto) aperto = { dal: d, ultimo: d };
+      if (!aperto) aperto = { dal: d, ultimo: d, alPetto: false };
       aperto.ultimo = d;
+      if (febbreAlPetto(sintomi)) aperto.alPetto = true;
     } else if (v.senzaFebbre) {
-      chiusi.push(aperto ? { ...aperto, fine: d } : { dal: d, ultimo: d, fine: d, senzaInizio: true });
+      chiusi.push(aperto ? { ...aperto, fine: d } : { dal: d, ultimo: d, fine: d, senzaInizio: true, alPetto: false });
       aperto = null;
     }
   }
   const giorni = new Set();
   for (const e of chiusi.concat(aperto ? [{ ...aperto, fine: oggi }] : [])) {
     if (e.senzaInizio) continue;
-    const fine = e.fine || e.ultimo;
-    for (let d = e.dal; d <= fine; d = aggiungiGiorni(d, 1)) giorni.add(d);
+    for (let d = e.dal; d <= e.fine; d = aggiungiGiorni(d, 1)) giorni.add(d);
   }
-  const finiti = chiusi.filter((e) => e.fine);
-  const ultimoFinito = finiti.length ? finiti[finiti.length - 1] : null;
+  const durataDi = (e) => (e.scaduto ? null : e.senzaInizio ? 0 : giorniTra(e.dal, e.fine));
+  const lunga = (e) => e.scaduto || durataDi(e) > R.malattiaLungaOltre;
+  const conMedico = (e) => e.scaduto || durataDi(e) > S.medico.malattiaGiorni || e.alPetto;
+
+  // Il medico che manca, dall'ultima malattia finita che lo chiedeva.
+  const daVedere = chiusi.filter(conMedico);
+  const ultimaConMedico = daVedere.length ? daVedere[daVedere.length - 1] : null;
+  const sentito = ultimaConMedico ? medicoSentitoDal(diario, ultimaConMedico.fine, oggi) : null;
+  const attesa = Boolean(ultimaConMedico && !sentito);
+
+  const ultimoFinito = chiusi.length ? chiusi[chiusi.length - 1] : null;
   let rientro = null;
   let durata = null;
-  let medico = false;
+  let medico = attesa;
   if (aperto) {
     durata = giorniTra(aperto.dal, oggi);
-    medico = durata > R.malattiaLungaOltre;
+    medico = medico || durata > S.medico.malattiaGiorni || aperto.alPetto;
+  } else if (attesa) {
+    durata = durataDi(ultimaConMedico);
+    rientro = {
+      giorno: giorniTra(ultimaConMedico.fine, oggi) + 1, giorni: R.giorniDopoMalattiaLunga,
+      durata, dal: ultimaConMedico.fine, attesa: true,
+    };
   } else if (ultimoFinito) {
-    durata = ultimoFinito.senzaInizio ? 0 : giorniTra(ultimoFinito.dal, ultimoFinito.fine);
-    const lungo = durata > R.malattiaLungaOltre;
-    const quanti = lungo ? R.giorniDopoMalattiaLunga : R.giorni;
-    const giorno = giorniTra(ultimoFinito.fine, oggi) + 1;
-    if (giorno <= quanti) {
-      rientro = { giorno, giorni: quanti, durata, dal: ultimoFinito.fine };
-      medico = lungo;
-    }
+    durata = durataDi(ultimoFinito);
+    const quanti = lunga(ultimoFinito) ? R.giorniDopoMalattiaLunga : R.giorni;
+    const dal = conMedico(ultimoFinito) ? medicoSentitoDal(diario, ultimoFinito.fine, oggi) : ultimoFinito.fine;
+    const giorno = giorniTra(dal, oggi) + 1;
+    if (giorno <= quanti) rientro = { giorno, giorni: quanti, durata, dal, attesa: false };
   }
   return {
     inCorso: Boolean(aperto),
@@ -502,9 +578,31 @@ export function statoMalattia(diario, storia, oggi) {
     durata,
     rientro,
     medico,
+    attesa,
     ultimaFine: ultimoFinito ? ultimoFinito.fine : null,
     giorni: [...giorni].sort(),
   };
+}
+
+// Il cuore dal diario (regole 5.10 e 5.17). Un sintomo di cuore, compreso l'avviso di ritmo irregolare
+// dell'orologio, apre un episodio che resta aperto, e Rosso, finché la persona non segna «Il medico mi
+// ha detto che posso riprendere» in un giorno dopo l'ultimo sintomo. La specifica non dà una durata,
+// e senza la risposta l'episodio non scade, la lettura prudente. Restituisce { aperto, dal, ultimo }.
+export function statoCuore(diario, storia, oggi) {
+  let dal = null;
+  let ultimo = null;
+  for (const d of giorniDaGuardare(diario, storia, oggi)) {
+    const v = (diario && diario[d]) || {};
+    const r = (storia && storia[d]) || {};
+    if (sintomiDi(v).cuore.length || (r.stop === "cuore" && !r.riportato)) {
+      if (!dal) dal = d;
+      ultimo = d;
+    } else if (dal && v.medicoSentito) {
+      dal = null;
+      ultimo = null;
+    }
+  }
+  return { aperto: Boolean(dal), dal, ultimo };
 }
 
 // --- I giorni di guardia (4.6) ---
@@ -543,26 +641,115 @@ export function usciteGrandi(uscite, oggi) {
   return grandi.sort();
 }
 
-// Le fatiche volute già finite. I giorni in modalità evento di fila dalla storia, i weekend, le
-// prove e i blocchi del piano e le uscite grandi.
-function fatiche(storia, piano, uscite, oggi) {
+// --- I viaggi del diario (4.5) ---
+
+// Un viaggio che nessuno chiude finisce da solo dopo 2 giorni di fila senza nessuna attività, così un
+// «Sono arrivato» dimenticato non spegne le notti per settimane [stima nostra, prudente]. Restituisce
+// il secondo giorno vuoto, che è l'ultimo della modalità evento, oppure null finché i 2 giorni vuoti
+// non ci sono.
+function fineDaSola(inizio, uscite, oggi) {
+  const conAttivita = new Set((uscite || []).map((u) => u.d));
+  let vuoti = 0;
+  for (let d = inizio; d < oggi; d = aggiungiGiorni(d, 1)) {
+    if (conAttivita.has(d)) { vuoti = 0; continue; }
+    vuoti += 1;
+    if (vuoti >= S.viaggio.giorniVuotiFine) return d;
+  }
+  return null;
+}
+
+// I viaggi segnati nel diario, dal più vecchio. «Sono in viaggio», «Sì, parto» e la proposta segnano
+// il giorno d'inizio con inViaggio, «Sono arrivato» il giorno della fine con arrivato. Un viaggio
+// finisce con «Sono arrivato», da solo dopo 2 giorni senza attività, dopo i giorni previsti più uno
+// (eventoDiOggi), oppure il giorno prima del viaggio dopo. Così il viaggio si ritrova intero anche se
+// l'app è rimasta chiusa qualche giorno, e la storia, che si scrive solo aprendo l'app, non serve.
+// Per ognuno { inizio, fine, ultimoGiorno, tipo, giorni }. fine è il giorno dell'arrivo o l'ultimo con
+// un'attività, ultimoGiorno l'ultimo in modalità evento, tutti e due null finché il viaggio è in corso.
+export function viaggiDelDiario(diario, uscite, oggi) {
+  const voce = (d) => {
+    const v = diario && diario[d];
+    return v && typeof v === "object" && !Array.isArray(v) ? v : null;
+  };
+  const giorni = Object.keys(diario || {}).filter((d) => DATA.test(d) && d <= oggi && voce(d)).sort();
+  const inizi = giorni.filter((d) => {
+    const x = voce(d).inViaggio;
+    return Boolean(x && typeof x === "object" && !Array.isArray(x));
+  });
+  return inizi.map((inizio, k) => {
+    const prossimo = inizi[k + 1] || null;
+    const dati = voce(inizio).inViaggio;
+    const previsti = Number.isInteger(dati.giorni) && dati.giorni > 0 ? dati.giorni : null;
+    const arrivo = giorni.find((d) => d >= inizio && (!prossimo || d < prossimo) && voce(d).arrivato) || null;
+    let ultimoGiorno = arrivo || fineDaSola(inizio, uscite, prossimo && prossimo < oggi ? prossimo : oggi);
+    const accorcia = (giorno) => { if (!ultimoGiorno || giorno < ultimoGiorno) ultimoGiorno = giorno; };
+    if (previsti) {
+      const tetto = aggiungiGiorni(inizio, previsti + S.viaggio.giorniInPiu - 1);
+      if (tetto < oggi) accorcia(tetto);
+    }
+    if (prossimo && (!ultimoGiorno || ultimoGiorno >= prossimo)) accorcia(aggiungiGiorni(prossimo, -1));
+    // La fine vera è l'arrivo, oppure l'ultimo giorno con un'attività prima che la modalità si spenga.
+    let fine = null;
+    if (ultimoGiorno) fine = arrivo && arrivo <= ultimoGiorno ? arrivo : ultimaAttivita(uscite, inizio, ultimoGiorno) || inizio;
+    return { inizio, fine, ultimoGiorno, tipo: typeof dati.tipo === "string" ? dati.tipo : "viaggio", giorni: previsti };
+  });
+}
+
+function ultimaAttivita(uscite, da, a) {
+  let ultima = null;
+  for (const u of uscite || []) if (u.d >= da && u.d <= a && (!ultima || u.d > ultima)) ultima = u.d;
+  return ultima;
+}
+
+// I giorni passati in modalità evento, dai viaggi del diario e dalla storia. Le loro notti escono dalle
+// basi (4.3) e le loro mattine non contano per il carico di 3 mattine. Oggi lo dice il contesto.
+function giorniInEvento(viaggi, storia, oggi) {
+  const giorni = new Set();
+  const ieri = aggiungiGiorni(oggi, -1);
+  for (const v of viaggi) {
+    const fine = v.ultimoGiorno && v.ultimoGiorno < oggi ? v.ultimoGiorno : ieri;
+    for (let d = v.inizio; d <= fine; d = aggiungiGiorni(d, 1)) giorni.add(d);
+  }
+  for (const [d, r] of Object.entries(storia || {})) if (r && r.evento) giorni.add(d);
+  return giorni;
+}
+
+// Le fatiche volute già finite. I viaggi del diario, i giorni in modalità evento della storia, i
+// weekend, le prove e i blocchi del piano e le uscite grandi. Nella storia ogni giorno in modalità
+// evento dice il suo numero, così i giorni dello stesso viaggio si ritrovano anche con i buchi, e il
+// viaggio conta i giorni dal primo all'ultimo.
+function fatiche(storia, piano, uscite, oggi, viaggi = []) {
   const elenco = [];
-  const giorni = Object.keys(storia || {}).filter((d) => d < oggi && storia[d] && storia[d].evento).sort();
-  let corrente = null;
-  for (const d of giorni) {
+  const dalDiario = [];
+  for (const v of viaggi) {
+    if (!v.fine || !v.ultimoGiorno || !(v.ultimoGiorno < oggi)) continue;
+    dalDiario.push({ tipo: v.tipo, inizio: v.inizio, fine: v.fine, contati: giorniTra(v.inizio, v.fine) + 1, previsti: v.giorni, inEvento: true });
+  }
+  // I giorni dei viaggi del diario, anche di quello in corso, li conosce già il diario.
+  const delDiario = (d) => viaggi.some((v) => d >= v.inizio && d <= (v.ultimoGiorno || oggi));
+  const pezzi = new Map();
+  for (const d of Object.keys(storia || {}).filter((x) => x < oggi && storia[x] && storia[x].evento).sort()) {
+    if (delDiario(d)) continue;
     const e = storia[d].evento;
     const tipo = typeof e.tipo === "string" ? e.tipo : "viaggio";
-    const previsti = numero(e.giorni);
-    if (corrente && corrente.tipo === tipo && giorniTra(corrente.fine, d) === 1) {
-      corrente.fine = d;
-      corrente.contati += 1;
-      if (previsti) corrente.previsti = previsti;
-    } else {
-      if (corrente) elenco.push(corrente);
-      corrente = { tipo, inizio: d, fine: d, contati: 1, previsti, inEvento: true };
-    }
+    const n = Number.isInteger(e.giorno) && e.giorno > 0 ? e.giorno : 1;
+    const inizio = aggiungiGiorni(d, 1 - n);
+    const chiave = `${tipo} ${inizio}`;
+    const p = pezzi.get(chiave) || { tipo, inizio, fine: d, previsti: null };
+    if (d > p.fine) p.fine = d;
+    if (numero(e.giorni)) p.previsti = e.giorni;
+    pezzi.set(chiave, p);
   }
-  if (corrente) elenco.push(corrente);
+  // Due pezzi della storia che si toccano sono lo stesso viaggio.
+  const uniti = [];
+  for (const p of [...pezzi.values()].sort((a, b) => (a.inizio < b.inizio ? -1 : 1))) {
+    const prima = uniti[uniti.length - 1];
+    if (prima && prima.tipo === p.tipo && p.inizio <= aggiungiGiorni(prima.fine, 1)) {
+      if (p.fine > prima.fine) prima.fine = p.fine;
+      prima.previsti = prima.previsti || p.previsti;
+    } else uniti.push({ ...p });
+  }
+  for (const v of dalDiario) elenco.push(v);
+  for (const p of uniti) elenco.push({ ...p, contati: giorniTra(p.inizio, p.fine) + 1, inEvento: true });
   for (const f of lista(piano && piano.fatiche)) {
     if (!f || typeof f.inizio !== "string" || typeof f.fine !== "string" || !(f.fine < oggi)) continue;
     elenco.push({ tipo: f.tipo || "weekend", inizio: f.inizio, fine: f.fine, contati: giorniTra(f.inizio, f.fine) + 1, previsti: null, inEvento: false });
@@ -573,13 +760,17 @@ function fatiche(storia, piano, uscite, oggi) {
   return elenco;
 }
 
+// opzioni { eta, sensazioniBasse, sopraIlCollo }. Con i soli sintomi sopra il collo il giro facile è
+// quello di 4.4, al massimo un'ora, così nella carta c'è una durata sola (regola 5.10).
 function testiDellaGuardia(g, opzioni = {}) {
   const nome = GUARDIA.nomi[g.tipo] || GUARDIA.nomi.viaggio;
+  const G = PIANO.sedute.giroGiallo;
+  const facile = opzioni.sopraIlCollo ? STO_MALE.sopraIlCollo : GUARDIA.fare.facile(G.minimo, G.massimo);
   let fare;
   if (g.tipo === "evento" || g.tipo === "viaggio") fare = GUARDIA.fare.evento;
-  else if (g.tipo === "blocco") fare = GUARDIA.fare.facile;
+  else if (g.tipo === "blocco") fare = facile;
   else if (g.giorno === 1) fare = GUARDIA.fare.primo;
-  else fare = opzioni.eta >= S.guardia.riposoDaAnni || opzioni.sensazioniBasse ? GUARDIA.fare.riposo : GUARDIA.fare.facile;
+  else fare = opzioni.eta >= S.guardia.riposoDaAnni || opzioni.sensazioniBasse ? GUARDIA.fare.riposo : facile;
   return {
     testo: GUARDIA.testo(g.giorno, nome, fare),
     perche: g.giorno <= NOTTI_DOPO ? GUARDIA.perche(nome) : GUARDIA.percheDopo(nome),
@@ -589,9 +780,11 @@ function testiDellaGuardia(g, opzioni = {}) {
 // Il tetto e le esclusioni di oggi dopo le fatiche volute. Il tetto Giallo dura 2 giorni dopo un
 // weekend, una prova o un'uscita grande, 3 dopo un blocco, 7, 10 o 14 dopo un evento o un viaggio.
 // HRV e battito non danno punti per 72 ore, il carico per tutti i giorni del tetto.
-// opzioni { eta, sensazioniBasse } cambiano solo il testo del secondo giorno.
+// opzioni { eta, sensazioniBasse } cambiano solo il testo del secondo giorno. opzioni.diario, oppure
+// opzioni.viaggi già pronti da viaggiDelDiario, danno i viaggi con inizio e fine veri.
 export function giorniDiGuardia(storia, piano, uscite, oggi, opzioni = {}) {
-  const elenco = fatiche(storia, piano, uscite, oggi);
+  const viaggi = opzioni.viaggi || (opzioni.diario ? viaggiDelDiario(opzioni.diario, uscite, oggi) : []);
+  const elenco = fatiche(storia, piano, uscite, oggi, viaggi);
   const notti = new Set();
   const carico = new Set();
   let principale = null;
@@ -661,8 +854,13 @@ export function fiducia(m, profilo = m.profilo || {}, opzioni = {}) {
       carico = "alta";
       motivoCarico = "alta";
     } else {
+      // Il motivo dice la fonte solo quando la conosce. Con la potenza ma senza la soglia letta resta
+      // media, e la riga non parla di battito.
       carico = "media";
-      motivoCarico = recenti.length && conSforzo / recenti.length >= F.quotaAlta ? "sforzo" : "battito";
+      if (conPotenza) motivoCarico = "potenza";
+      else if (recenti.length && conSforzo / recenti.length >= F.quotaAlta) motivoCarico = "sforzo";
+      else if (recenti.some((u) => u.fcMedia)) motivoCarico = "battito";
+      else motivoCarico = "sensori";
     }
   }
 
@@ -724,15 +922,39 @@ export function eventoDiOggi(viaggio, oggi) {
   return { tipo: typeof viaggio.tipo === "string" ? viaggio.tipo : "viaggio", giorno, giorni };
 }
 
+// Un giorno dentro un viaggio del diario, da inViaggio all'ultimo giorno in modalità evento, oppure
+// fino a oggi se il viaggio è in corso.
+function dentroUnViaggio(viaggi, d, oggi) {
+  return lista(viaggi).some((v) => d >= v.inizio && d <= (v.ultimoGiorno || oggi));
+}
+
 // La proposta automatica. Ieri e l'altro ieri almeno 0,5 × H di bici, o almeno 4 ore senza un
-// obiettivo. Fuori dal piano, e questo lo guarda la pagina.
-export function propostaViaggio(uscite, oggi, oreH = null) {
+// obiettivo, e nessuno dei due giorni dentro un viaggio già segnato nel diario (viaggiDelDiario),
+// così il mattino dopo «Sono arrivato» non si propone lo stesso viaggio. Fuori dal piano, e questo lo
+// guarda la pagina.
+export function propostaViaggio(uscite, oggi, oreH = null, viaggi = []) {
   const V = S.viaggio;
   const soglia = numero(oreH) ? V.propostaQuotaH * oreH : V.propostaOre;
   for (let j = 1; j <= V.propostaGiorni; j++) {
-    if (oreBiciDelGiorno(uscite, aggiungiGiorni(oggi, -j)) < soglia) return false;
+    const d = aggiungiGiorni(oggi, -j);
+    if (dentroUnViaggio(viaggi, d, oggi) || oreBiciDelGiorno(uscite, d) < soglia) return false;
   }
   return true;
+}
+
+// Il giorno da cui comincia il viaggio con il «Sì» alla proposta, il primo dei giorni lunghi di fila
+// fuori dai viaggi del diario, oppure null senza proposta.
+export function inizioProposta(uscite, oggi, oreH = null, viaggi = []) {
+  if (!propostaViaggio(uscite, oggi, oreH, viaggi)) return null;
+  const V = S.viaggio;
+  const soglia = numero(oreH) ? V.propostaQuotaH * oreH : V.propostaOre;
+  let inizio = aggiungiGiorni(oggi, -V.propostaGiorni);
+  for (let k = 0; k < GIORNI_USCITE; k++) {
+    const prima = aggiungiGiorni(inizio, -1);
+    if (dentroUnViaggio(viaggi, prima, oggi) || oreBiciDelGiorno(uscite, prima) < soglia) break;
+    inizio = prima;
+  }
+  return inizio;
 }
 
 // La mattina del giorno 1 di un weekend, di una prova o di un blocco. Si parte con Verde o Giallo
@@ -757,7 +979,7 @@ function sonnoVero(m, c, k, risposte) {
 
 function rispostePrima(m, k) {
   const v = diarioDi(m, m.giorni[k].d).viaggio;
-  return v && typeof v === "object" ? v : {};
+  return v && typeof v === "object" ? { ...v, problemi: problemiDi(v) } : {};
 }
 
 const PRIORITA_VIAGGIO = ["gonfiore", "collo", "sonno", "stomaco", "mani", "sedere", "ginocchia", "energia"];
@@ -769,11 +991,24 @@ function rigaProblema(id, scelta) {
   return `${opzione ? opzione.testo : casella ? casella.testo : id}.`;
 }
 
+// Le caselle di «Qualcosa non va?». Una casella spuntata senza la scelta sotto (true) vale come la
+// scelta più grave, l'ultima della lista, la lettura prudente.
+function problemiDi(risposte) {
+  const grezzi = risposte && risposte.problemi && typeof risposte.problemi === "object" ? risposte.problemi : {};
+  const p = {};
+  for (const casella of VIAGGIO.domande.problemi.caselle) {
+    const x = grezzi[casella.id];
+    if (!x) continue;
+    p[casella.id] = x === true && casella.scelte ? casella.scelte[casella.scelte.length - 1].id : x;
+  }
+  return p;
+}
+
 function viaggioInterno(m, risposte, c, vOggi) {
   const V = S.viaggio;
   const i = ultimo(m);
   const r = risposte && typeof risposte === "object" ? risposte : {};
-  const p = r.problemi && typeof r.problemi === "object" ? r.problemi : {};
+  const p = problemiDi(r);
   const segnali = [];
   const consigli = [];
   const segnala = (chiave, livello, testo, perche, extra = {}) => segnali.push({ chiave, livello, testo, perche, ...extra });
@@ -834,11 +1069,15 @@ function viaggioInterno(m, risposte, c, vOggi) {
   const voci = [];
   const testoEnergia = !energia ? VOCI.energia.senza : energia === 4 ? VOCI.energia.pezzi
     : energia === S.domande.energiaPoca ? VOCI.energia.uno : energia === 1 ? VOCI.energia.tanta : VOCI.energia.normale;
-  voci.push(voce("energia", { attiva: Boolean(energia), valore: energia, testo: testoEnergia, pallino: !energia ? "grigio" : pesa("energia") ? "giallo" : "verde" }));
+  voci.push(voce("energia", {
+    attiva: Boolean(energia), valore: energia, testo: testoEnergia, esito: energia ? null : "daRispondere",
+    pallino: !energia ? "grigio" : pesa("energia") ? "giallo" : "verde",
+  }));
   voci.push(voce("sonno", {
     attiva: sonno !== null,
     testo: sonno === null ? VIAGGIO.sonnoSenza : corte ? VIAGGIO.sonnoCorto(corte) : VIAGGIO.sonno(sonno),
     pallino: sonno === null && !p.addormentato ? "grigio" : pesa("sonno") ? "giallo" : "verde",
+    esito: sonno === null && !p.addormentato ? "daRispondere" : null,
     lettura: { minuti: sonno, nottiCorte: corte },
   }));
   for (const casella of VIAGGIO.domande.problemi.caselle) {
@@ -933,13 +1172,9 @@ function saltoDispositivo(m, c) {
   });
 }
 
-function giorniConSintomo(m, id, giorni) {
-  let n = 0;
-  for (let k = 0; k < giorni; k++) if (lista(diarioDi(m, aggiungiGiorni(m.oggi, -k)).stoMale).includes(id)) n += 1;
-  return n;
-}
-
 // Il battito almeno 5 sopra la mediana da 3 notti, con stanchezza e senza spiegazione (regola 5.17).
+// Spiegano il battito alto le caselle delle cause, la modalità evento e le 72 ore dopo le fatiche
+// volute, come in situazione, e allora l'invito non parte.
 function battitoAltoTreNotti(m, c, v) {
   const M = S.medico;
   if (!(v.energia.valore >= S.domande.energiaPoca)) return false;
@@ -947,14 +1182,18 @@ function battitoAltoTreNotti(m, c, v) {
     const k = ultimo(m) - j;
     if (k < 0) return false;
     const g = m.giorni[k];
-    if (!g.fc || lista(diarioDi(m, g.d).cause).length) return false;
+    const s = situazione(m, c, k);
+    if (!g.fc || s.cause.length || s.evento || s.senzaPuntiNotte) return false;
     const b = baseFc(m.giorni, k, c.escluso);
     if (!b.ok || g.fc - b.centro < M.battitoSopra) return false;
   }
   return true;
 }
 
-// Quando mandare dal medico (4.9). Ogni invito ha la sua chiave e il suo quando.
+// Quando mandare dal medico (4.9). Ogni invito ha la sua chiave e il suo quando. «Prima di riprendere»
+// vale per tutto l'episodio di cuore (statoCuore), che comprende l'avviso di ritmo irregolare, le
+// palpitazioni ripetute e i sintomi al petto dopo un virus, per la febbre con i sintomi al petto e per
+// la malattia lunga, finché la persona non dice di aver sentito il medico.
 function medicoDelGiorno(m, c, v, sintomi) {
   const M = S.medico;
   const elenco = [];
@@ -962,13 +1201,8 @@ function medicoDelGiorno(m, c, v, sintomi) {
     if (!elenco.some((x) => x.chiave === chiave)) elenco.push({ chiave, quando, testo });
   };
   if (sintomi.cuore.length) aggiungi("cuore", "subito", MEDICO.subito);
-  const dopoVirus = c.malattia.inCorso || Boolean(c.malattia.rientro)
-    || Boolean(c.malattia.ultimaFine && giorniTra(c.malattia.ultimaFine, m.oggi) <= M.dopoVirusGiorni);
-  const febbreAlPetto = sintomi.malattia.includes("febbre")
-    && (sintomi.malattia.includes("tosse") || sintomi.cuore.includes("petto") || sintomi.cuore.includes("fiato"));
-  const palpitazioni = sintomi.cuore.includes("palpitazioni")
-    && giorniConSintomo(m, "palpitazioni", M.palpitazioniGiorni) >= M.palpitazioniVolte;
-  if (sintomi.cuore.includes("avvisoRitmo") || (sintomi.cuore.length && dopoVirus) || febbreAlPetto || palpitazioni || c.malattia.medico) {
+  const attesa = Boolean(c.rientro && c.rientro.attesa);
+  if (sintomi.cuore.length || (c.cuore && c.cuore.aperto) || febbreAlPetto(sintomi) || c.malattia.medico || attesa) {
     aggiungi("riprendere", "primaDiRiprendere", MEDICO.primaDiRiprendere);
   }
   if (battitoAltoTreNotti(m, c, v)) aggiungi("battito", "presto", MEDICO.presto);
@@ -1027,13 +1261,14 @@ function notaDelGiorno(m, v, c, P) {
 // contesto {
 //   evento: { tipo, giorno, giorni } | null    modalità evento accesa oggi (eventoDiOggi)
 //   guardia: risultato di giorniDiGuardia       se manca lo calcolo da m.storia, m.piano e m.uscite
-//   rientro: { giorno, giorni } | null          se manca lo calcolo dal diario (statoMalattia)
+//   rientro: { giorno, giorni, attesa } | null  se manca lo calcolo dal diario (statoMalattia)
 //   giorniPartenza, giorniEvento                giorni alla partenza e giorni dell'evento, se c'è
 //   eta (anni) o fasciaEta, aritmia, crescita   età, aritmia nota, avviso di crescita negli ultimi 7 giorni
 //   dispositivo, cambioDispositivo, profilo     dispositivo della notte e la data del cambio
 // }
 // Restituisce { livello, colore, titolo, consiglio, perche, voci, P, forti, concordanza, stop,
-// controllo, tetti, fiducia, nota, aggiunte, medico, messaggi, domande, domenica, viaggio, basi, registro }.
+// controllo, tetti, fiducia, nota, aggiunte, medico, messaggi, domande, domenica, viaggio, basi,
+// dispositivo, escluso, registro }.
 export function valuta(m, contesto = {}) {
   const c = risolvi(m, contesto);
   const i = ultimo(m);
@@ -1046,12 +1281,16 @@ export function valuta(m, contesto = {}) {
   const sensazioniBasse = v.energia.valore >= S.domande.energiaPoca || v.gambe.valore >= S.domande.gambeIndolenzite;
   const guardia = c.guardia && c.guardia.attiva ? c.guardia : null;
   const testiGuardia = guardia
-    ? (guardia.tipo ? testiDellaGuardia(guardia, { eta: c.eta, sensazioniBasse }) : { testo: guardia.testo, perche: guardia.perche })
+    ? (guardia.tipo
+      ? testiDellaGuardia(guardia, { eta: c.eta, sensazioniBasse, sopraIlCollo: soloCollo })
+      : { testo: guardia.testo, perche: guardia.perche })
     : null;
+  // Dopo una malattia che chiede il medico, finché la persona non dice di averlo sentito (4.9).
+  const attesa = Boolean(c.rientro && c.rientro.attesa);
+  const fraseRientro = c.rientro ? (attesa ? PERCHE.attesa : PERCHE.rientro(c.rientro.giorno, c.rientro.giorni)) : null;
 
   let { tipo: tipoStop, origine } = trovaStop(v, sintomi, c, dia);
   const controllo = [];
-  if (contano.some((x) => x.domanda === "pedalata")) controllo.push({ chiave: "pedalata", ...CONTROLLO.pedalata });
   const medico = medicoDelGiorno(m, c, v, sintomi);
   const messaggi = [];
   const aggiunte = [];
@@ -1064,45 +1303,49 @@ export function valuta(m, contesto = {}) {
   let perche;
   let nota = null;
   let voci = vociPerIlPerche(m, v);
-  let viaggio = null;
 
-  if (!tipoStop && c.evento) {
-    // Modalità evento. Gli stop restano, poi decidono le voci dei giorni di fila (4.5).
-    viaggio = viaggioInterno(m, dia.viaggio || {}, c, v);
+  // Modalità evento. Gli stop restano, poi decidono le voci dei giorni di fila (4.5). Le voci del
+  // «Perché» e la riga della notte sono quelle di 7.10 anche con uno stop.
+  const viaggio = c.evento ? viaggioInterno(m, dia.viaggio || {}, c, v) : null;
+  if (viaggio) {
     voci = viaggio.voci;
-    if (viaggio.stop) {
+    nota = viaggio.nota;
+    if (!tipoStop && viaggio.stop) {
       tipoStop = viaggio.stop;
       origine = viaggio.stop;
-    } else {
-      livello = viaggio.livello;
-      consiglio = viaggio.consiglio;
-      perche = viaggio.perche;
-      nota = viaggio.nota;
-      // In viaggio restano il minimo dei sintomi sopra il collo e il tetto del rientro dopo una
-      // malattia, che vince sempre (passo 11). Gli altri tetti non servono, si è dentro la fatica.
-      const minimo = (chiave, testo, frase) => {
-        const alza = GRAVITA[livello] < 2;
-        tetti.push({ chiave, livello: "giallo", testo, perche: frase, alza });
-        if (alza) { livello = "giallo"; consiglio = VIAGGIO.esiti.giallo; perche = frase; }
-      };
-      if (soloCollo) {
-        minimo("sopraIlCollo", STO_MALE.sopraIlCollo, PERCHE.collo);
-        aggiunte.push(STO_MALE.sopraIlCollo);
-      }
-      if (c.rientro) {
-        const frase = PERCHE.rientro(c.rientro.giorno, c.rientro.giorni);
-        minimo("rientro", frase, frase);
-      }
-      const fc = v.fc.lettura;
-      if (fc && fc.alto && fc.altoIeri && !dia.controllo) controllo.push({ chiave: "malattia", ...CONTROLLO.malattia });
     }
   }
 
+  // La domanda sulla pedalata solo se la risposta può cambiare la giornata. Con uno stop che resta
+  // comunque, cuore, malattia, infortunio, «Sono a pezzi» o uno stop del viaggio, la carta è quella
+  // dello stop (4.2, passo 2).
+  const stopComunque = trovaStop(v, sintomi, c, dia, { senzaDoloreSospeso: true }).tipo || (viaggio && viaggio.stop);
+  if (contano.some((x) => x.domanda === "pedalata") && !stopComunque) controllo.push({ chiave: "pedalata", ...CONTROLLO.pedalata });
+
   if (tipoStop) {
     livello = "rosso";
-    consiglio = STOP[tipoStop];
+    consiglio = STOP[origine] || STOP[tipoStop];
     perche = PERCHE.stop[origine] || PERCHE.stop[tipoStop];
-  } else if (!c.evento) {
+  } else if (viaggio) {
+    livello = viaggio.livello;
+    consiglio = viaggio.consiglio;
+    perche = viaggio.perche;
+    // In viaggio restano il minimo dei sintomi sopra il collo e il tetto del rientro dopo una
+    // malattia, che vince sempre (passo 11). Gli altri tetti non servono, si è dentro la fatica.
+    const minimo = (chiave, testo, frase) => {
+      const alza = GRAVITA[livello] < 2;
+      tetti.push({ chiave, livello: "giallo", testo, perche: frase, alza });
+      if (alza) { livello = "giallo"; consiglio = VIAGGIO.esiti.giallo; perche = frase; }
+    };
+    if (soloCollo) {
+      minimo("sopraIlCollo", STO_MALE.sopraIlCollo, PERCHE.collo);
+      aggiunte.push(STO_MALE.sopraIlCollo);
+    }
+    if (c.rientro) minimo("rientro", fraseRientro, fraseRientro);
+    if (attesa) consiglio = MEDICO.attesa;
+    const fc = v.fc.lettura;
+    if (fc && fc.alto && fc.altoIeri && !dia.controllo) controllo.push({ chiave: "malattia", ...CONTROLLO.malattia });
+  } else {
     // passi 6-9, i punti, la concordanza e il Rosso dai numeri
     concordanza = contano.some((x) => x.punti > 0 && (DALLE_RISPOSTE.has(x.chiave) || x.chiave === "carico"
       || x.piuNotti || Boolean(vIeri && vIeri[x.chiave].punti > 0)));
@@ -1131,12 +1374,9 @@ export function valuta(m, contesto = {}) {
       tetti.push({ chiave, livello: livelloTetto, testo, perche: frase, alza: g < minimo });
       g = Math.max(g, minimo);
     };
-    if (soloCollo) { alza("sopraIlCollo", "giallo", STO_MALE.sopraIlCollo, PERCHE.collo); aggiunte.push(STO_MALE.sopraIlCollo); }
+    if (soloCollo) alza("sopraIlCollo", "giallo", STO_MALE.sopraIlCollo, PERCHE.collo);
     if (guardia) alza("guardia", "giallo", testiGuardia.testo, testiGuardia.perche);
-    if (c.rientro) {
-      const frase = PERCHE.rientro(c.rientro.giorno, c.rientro.giorni);
-      alza("rientro", "giallo", frase, frase);
-    }
+    if (c.rientro) alza("rientro", "giallo", fraseRientro, fraseRientro);
     if (c.crescita) alza("crescita", "giallo-leggero", PERCHE.crescita, PERCHE.crescita);
     const ultimi = c.giorniPartenza !== null && c.giorniPartenza >= 1 && c.giorniPartenza <= S.ultimiGiorni;
     if (ultimi) {
@@ -1148,6 +1388,14 @@ export function valuta(m, contesto = {}) {
     consiglio = LIVELLI[livello].consiglio;
     if (livello === "rosso" && treMattine) consiglio = CARICO_TRE_MATTINE;
     else if (livello === "giallo" && guardia) consiglio = testiGuardia.testo;
+    else if (livello === "giallo" && soloCollo) consiglio = STO_MALE.consiglio;
+    // Con i soli sintomi sopra il collo la carta ha una durata sola, al massimo un'ora (regola 5.10).
+    // La frase di 4.4 si aggiunge solo dove il consiglio non ne dice già una, cioè dopo un viaggio.
+    if (soloCollo && livello === "giallo" && guardia && (guardia.tipo === "evento" || guardia.tipo === "viaggio")) {
+      aggiunte.push(STO_MALE.sopraIlCollo);
+    }
+    // Finché si aspetta il medico il consiglio non propone mai un giro (4.9).
+    if (attesa) consiglio = MEDICO.attesa;
     perche = frasePerche(contano, tetti, livello);
     nota = notaDelGiorno(m, v, c, P);
 
@@ -1183,7 +1431,7 @@ export function valuta(m, contesto = {}) {
     punti: Object.fromEntries(ORDINE.map((k) => [k, v[k].punti])),
     tetti: tetti.map((t) => t.chiave),
     stop: tipoStop,
-    riportato: origine === "malattiaRiportata",
+    riportato: origine === "malattiaRiportata" || origine === "cuoreRiportato",
     spiegato,
     evento: c.evento ? { tipo: c.evento.tipo || "viaggio", giorno: numero(c.evento.giorno), giorni: numero(c.evento.giorni) } : null,
     guardia: guardia ? guardia.tipo || "guardia" : null,
@@ -1212,8 +1460,19 @@ export function valuta(m, contesto = {}) {
     domenica,
     viaggio,
     basi: { hrv: baseHrv(m.giorni, i, c.dispositivo, c.escluso), fc: baseFc(m.giorni, i, c.escluso) },
+    // Il dispositivo e le notti escluse dalle basi, così Andamento disegna lo stesso normale (4.3).
+    dispositivo: c.dispositivo,
+    escluso: c.escluso,
     registro,
   };
+}
+
+// La fascia del battito normale, per Andamento. Sopra il bordo alto il battito comincia a dare punti,
+// almeno 3 battiti e 2 DS sopra la mediana (regola 5.7). Il bordo basso è alla stessa distanza.
+export function fasciaBattito(base) {
+  if (!base || !base.ok) return { basso: null, alto: null };
+  const scarto = Math.max(S.battito.sopra, S.battito.z * base.ds);
+  return { basso: base.centro - scarto, alto: base.centro + scarto };
 }
 
 // La Freschezza (su intervals.icu si chiama Form) in parole semplici, con le fasce di js/testi.js.

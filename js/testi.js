@@ -95,12 +95,14 @@ export const LIVELLI = {
   },
 };
 
-// La parola accanto al pallino di una tessera.
+// La parola accanto al pallino di una tessera. daRispondere è per le domande ancora senza risposta,
+// che contano sempre per intero (4.3), così il grigio non vuol dire «non conta».
 export const ESITO_VOCE = {
   verde: "a posto",
   giallo: "attenzione",
   rosso: "frena",
   neutro: "non conta oggi",
+  daRispondere: "da rispondere",
 };
 
 // Le righe del «Perché», una per voce (4.8). Mai i punti scritti.
@@ -160,7 +162,7 @@ export const VOCI = {
     moltoBassa: "Stanotte il corpo ha recuperato molto meno del solito.",
     normale: "Stanotte è nel tuo normale.",
     calo: "Un po' sotto il tuo normale, come capita dopo un'uscita lunga.",
-    saturazione: "È scesa insieme al battito, succede a chi è molto allenato. Oggi non conta.",
+    saturazione: "È scesa insieme al battito, succede quando il battito a riposo è molto basso. Oggi non conta.",
     sopra: "Sopra il tuo solito. Non è un premio.",
     altaFatica: "Sopra il tuo solito, con il battito basso e qualche segno di fatica. A volte vuol dire stanchezza.",
     altaEta: "Stanotte è più alta del tuo solito. Se capita spesso, parlane con il medico.",
@@ -180,7 +182,7 @@ export const VOCI = {
   },
   notte: {
     nome: "La notte",
-    mai: "HRV, battito a riposo e sonno non arrivano da nessun dispositivo. Il semaforo guarda le tue risposte e il carico.",
+    mai: "La variabilità del battito (HRV), il battito a riposo e il sonno non arrivano da nessun dispositivo. Il semaforo guarda le tue risposte e il carico.",
   },
   // Le righe comuni a più voci.
   nonArrivata: "Stanotte non è ancora arrivata.",
@@ -197,10 +199,14 @@ export const PERCHE = {
     ? "Manca un giorno. Adesso conta arrivare riposato."
     : `Mancano ${giorni} giorni. Adesso conta arrivare riposato.`),
   rientro: (giorno, giorni) => `Riparti dopo la malattia, giorno ${giorno} di ${giorni}. In questi giorni il semaforo non va oltre il giallo.`,
+  // Dopo una malattia di più di una settimana, o con la febbre e il petto chiuso, finché non mi dici
+  // che il medico ti ha detto che puoi riprendere (4.9 e regola 5.17).
+  attesa: "Dopo questa malattia, prima di riprendere serve il medico. Il semaforo aspetta che tu me lo dica.",
   crescita: "La Fitness è salita in fretta. Per qualche giorno niente sforzi al massimo, e la settimana prossima non aumentare.",
   collo: "Hai segnato naso che cola o gola irritata.",
   stop: {
     cuore: "Hai segnato un sintomo di cuore.",
+    cuoreRiportato: "Nei giorni scorsi hai segnato un sintomo di cuore, e non mi hai ancora detto che il medico ti ha detto che puoi riprendere.",
     malattia: "Hai segnato un sintomo di malattia.",
     malattiaRiportata: "Nei giorni scorsi hai segnato un sintomo di malattia, e non mi hai ancora detto che è passato.",
     battito: "Il battito a riposo è molto più alto del solito, e hai segnato un sintomo.",
@@ -214,14 +220,17 @@ export const PERCHE = {
 export const NOTE = {
   malanno: "Non hai fatto niente di duro, eppure le notti sono basse. Può essere un malanno in arrivo. Oggi resta fermo, e se hai febbre o dolori in tutto il corpo non allenarti.",
   ascolta: "Le notti sono buone, ma tu non ti senti al meglio. Ascolta anche te stesso.",
-  caloAtteso: "L'HRV è scesa dopo l'uscita lunga di ieri. È normale e non conta.",
-  hrvAlta: "L'HRV è sopra il tuo solito. Non è un premio, a volte arriva con la stanchezza o prima di un raffreddore.",
+  // Le due note stanno sulla carta, sopra ogni altra riga, e la sigla si spiega qui la prima volta (7.1).
+  caloAtteso: "L'HRV, la variabilità del battito, è scesa dopo l'uscita lunga di ieri. È normale e non conta.",
+  hrvAlta: "L'HRV, la variabilità del battito, è sopra il tuo solito. Non è un premio, a volte arriva con la stanchezza o prima di un raffreddore.",
   senzaNotte: "La notte non arriva da nessun dispositivo. Oggi decidono le tue risposte e il carico.",
 };
 
 // Le frasi degli stop (4.4 e 4.9).
 export const STOP = {
   cuore: "Fermati e chiama il medico oggi. Dolore al petto, svenimento, palpitazioni o fiato corto che non conosci vengono prima di ogni numero. Se sei in sella, fermati e chiedi aiuto. Se il dolore al petto è forte o non passa, chiama il 112.",
+  // Dal giorno dopo un sintomo di cuore, finché la persona non dice di aver sentito il medico (regola 5.10).
+  cuoreRiportato: "Oggi niente allenamento, finché il medico non ti ha visto. Se torna un dolore al petto forte o che non passa, chiama il 112.",
   malattia: "Oggi niente allenamento. Con la febbre o con i dolori in tutto il corpo il corpo deve guarire. Riparti 24 ore dopo l'ultima febbre, senza farmaci per la febbre, con qualche giorno tranquillo.",
   dolore: "Hai segnato un dolore. Oggi lascialo riposare. Se non migliora in una o due settimane, fatti vedere da un medico o da un fisioterapista.",
   infortunio: "Hai segnato un infortunio. Oggi niente bici. Se il dolore è forte o non passa in pochi giorni, fatti vedere.",
@@ -270,7 +279,14 @@ export const STO_MALE = {
   ],
   // Il giorno dopo uno stop per malattia. Con questa risposta parte il rientro (senzaFebbre nel diario).
   senzaFebbre: "Non ho più febbre da 24 ore, senza farmaci per la febbre",
+  // Dal giorno dopo un sintomo di cuore, e dopo una malattia che chiede il medico. Con questa risposta
+  // (medicoSentito nel diario) il semaforo torna a leggere la giornata (4.9).
+  medicoDomanda: "Hai sentito il medico?",
+  medicoSentito: "Il medico mi ha detto che posso riprendere",
   sopraIlCollo: "Se esci, al massimo un'ora facile, a ritmo da chiacchiera.",
+  // Il consiglio del Giallo con i soli sintomi sopra il collo, con la durata di 4.4 e non quella del
+  // giro del Giallo, così nella carta c'è un massimo solo (regola 5.10).
+  consiglio: "Se esci, al massimo un'ora facile, a ritmo da chiacchiera. Oppure palestra leggera. Oggi niente lunga, weekend o prove, si spostano.",
   // Il pannello sulla pagina Oggi (7.4).
   attacco: "Segna quello che senti oggi. Una casella basta, il semaforo fa il resto. Resta su questo telefono e non va su intervals.icu.",
   segnati: (n) => (n === 1 ? "Hai segnato un sintomo." : `Hai segnato ${n} sintomi.`),
@@ -340,7 +356,8 @@ export const GUARDIA = {
   fare: {
     primo: "Oggi riposo o 30-45 minuti di recupero.",
     riposo: "Oggi ancora riposo o 30-45 minuti di recupero.",
-    facile: "Oggi un giro facile.",
+    // Con le durate del giro del Giallo, PIANO.sedute.giroGiallo in js/parametri.js.
+    facile: (minimo, massimo) => `Oggi un giro facile, da ${durataInParole(minimo)} a ${durataInParole(massimo)}.`,
     evento: "Niente piano, solo giri facili se ti va.",
   },
   testo: (giorno, nome, fare) => `${giorno === 1 ? "Ieri" : `${giorno} giorni fa`} hai finito ${nome}. ${fare} Il semaforo oggi non va oltre il giallo. È stanchezza voluta.`,
@@ -364,6 +381,8 @@ export const MESSAGGI = {
 export const MEDICO = {
   subito: STOP.cuore,
   primaDiRiprendere: "Prima di riprendere ad allenarti, fatti vedere dal medico.",
+  // Il consiglio finché si aspetta il medico, che non propone mai un giro.
+  attesa: "Oggi riposo, o una camminata tranquilla, finché il medico non ti ha visto.",
   presto: "Il battito a riposo è alto da tre notti e ti senti stanco. Senti il medico, senza fretta ma presto.",
   viaggioLungo: "Prima di un viaggio così lungo, un controllo dal medico sportivo è una buona idea. Se in viaggio senti il cuore che batte strano, fermati e chiedi aiuto.",
 };
@@ -374,7 +393,9 @@ export const FIDUCIA = {
   livelli: { alta: "Alta", media: "Media", bassa: "Bassa" },
   carico: {
     alta: "Il carico arriva dalla potenza, ed è preciso.",
+    potenza: "Il carico arriva dalla potenza. È preciso se su intervals.icu la tua soglia è giusta.",
     battito: "Il carico arriva dal battito. Va bene, ma è meno preciso della potenza.",
+    sensori: "Il carico arriva dai dati dei tuoi giri. Va bene, ma è meno preciso della potenza misurata.",
     sforzo: "Il carico arriva dallo sforzo che mi dici. Va bene, ma è meno preciso dei sensori.",
     polso: "Mi fido poco del carico, il battito al polso in bici sbaglia spesso.",
     storia: "Mi fido poco del carico, ho meno di sei settimane di giri.",
@@ -400,7 +421,11 @@ export const VIAGGIO = {
     scelte: [{ id: "si", testo: "Sì, parto" }, { id: "no", testo: "Non ancora" }],
   },
   proposta: "Sei in viaggio? Ti chiedo le cose giuste per i giorni di fila.",
-  giorno: (giorno, giorni) => (giorni ? `Giorno ${giorno} di ${giorni}` : `Giorno ${giorno}`),
+  // La modalità evento resta accesa G giorni più uno (4.5). Il giorno in più non è un giorno del viaggio.
+  giorno: (giorno, giorni) => {
+    if (giorni && giorno > giorni) return "Il giorno dopo il viaggio";
+    return giorni ? `Giorno ${giorno} di ${giorni}` : `Giorno ${giorno}`;
+  },
   // Le tre domande del mattino in viaggio. La seconda solo se il sonno non arriva da un dispositivo.
   domande: {
     energia: { testo: "Quanta energia hai?", scelte: ["Tanta", "Normale", "Poca", "Sono a pezzi"] },
@@ -453,6 +478,8 @@ export const VIAGGIO = {
   titoloDomande: "Come stai stamattina?",
   attaccoDomande: "Tre domande per i giorni di fila. Una casella apre al massimo una scelta in più.",
   attaccoDomandeCorto: "Due domande per i giorni di fila. Una casella apre al massimo una scelta in più.",
+  // Una casella spuntata senza la scelta sotto non si salva, perché la scelta cambia il colore (4.5).
+  sceltaMancante: (casella) => `Sotto «${casella}» scegli quale delle due.`,
   risposte: "Le tue risposte di stamattina",
   nienteSegnato: "Niente",
   propostaSi: "Sì, sono in viaggio",
@@ -521,7 +548,7 @@ export const GUIDA_SEMAFORO = [
     voce: "Sto male",
     verde: "Niente segnato.",
     giallo: "Solo naso che cola o gola appena irritata. Il semaforo non va oltre il giallo.",
-    rosso: "Febbre, brividi, dolori in tutto il corpo, tosse con il petto chiuso, mal di pancia. Ogni sintomo di cuore, con l'invito dal medico.",
+    rosso: "Febbre, brividi, dolori in tutto il corpo, tosse con il petto chiuso, mal di pancia. Ogni sintomo di cuore, con l'invito dal medico, e il rosso resta finché il medico non ti dice che puoi riprendere.",
   },
 ];
 
@@ -529,8 +556,8 @@ export const GUIDA_SEMAFORO = [
 export const GUIDA_LIVELLI = [
   { livello: "verde", titolo: "Verde, via libera.", testo: "Nessun segnale di stanchezza." },
   { livello: "giallo-leggero", titolo: "Giallo, senza esagerare.", testo: "Un segnale piccolo." },
-  { livello: "giallo", titolo: "Giallo, giornata tranquilla.", testo: "Due segnali piccoli o uno che conta il doppio. E sempre nei giorni dopo un weekend lungo, una prova, un'uscita grande o un viaggio, e quando riparti dopo la febbre." },
-  { livello: "rosso", titolo: "Rosso, oggi recupera.", testo: "Più segnali che vanno d'accordo, da più notti o con le tue risposte. E sempre con un dolore, un infortunio, la febbre, un sintomo di cuore o quando dici di essere a pezzi. Una notte storta da sola non dà mai rosso." },
+  { livello: "giallo", titolo: "Giallo, giornata tranquilla.", testo: "Due segnali piccoli o uno che conta il doppio. Nei giorni dopo un weekend lungo, una prova, un'uscita grande o un viaggio, e quando riparti dopo la febbre, il semaforo non va oltre il giallo." },
+  { livello: "rosso", titolo: "Rosso, oggi recupera.", testo: "Più segnali che vanno d'accordo, da più notti o con le tue risposte, o il carico molto più alto del solito per tre mattine di fila. E sempre con un dolore, un infortunio, la febbre, un sintomo di cuore o quando dici di essere a pezzi. Una notte storta da sola non dà mai rosso." },
 ];
 
 export const DOMANDE_MATTINO = [
@@ -594,7 +621,7 @@ export const DOMANDE_FREQUENTI = [
   },
   {
     d: "Il semaforo è rosso ma io sto bene. Esco?",
-    r: "Il rosso arriva solo da un sintomo, da un dolore o da più segnali che vanno d'accordo, mai da una notte storta da sola. Se proprio vuoi uscire, al massimo 45 minuti pianissimo. Con febbre, dolori in tutto il corpo o un sintomo di cuore resta fermo.",
+    r: "Il rosso arriva da un sintomo, da un dolore, da più segnali che vanno d'accordo o dal carico molto più alto del solito per tre mattine di fila, mai da una notte storta da sola. Se il rosso viene da questi numeri e proprio vuoi uscire, al massimo 45 minuti pianissimo. Con un dolore, un infortunio, «Sono a pezzi», la febbre o un sintomo di cuore niente bici.",
   },
   {
     d: "Posso confrontare i miei numeri con quelli di un amico?",
@@ -643,6 +670,17 @@ export const OGGI = {
   salvato: "Salvato. Il semaforo è aggiornato con le tue risposte.",
   perche: "Perché",
   comeNasce: "Come nasce il semaforo",
+};
+
+// Una volta per apertura, quando la memoria del browser manca o è piena (6.6). Le risposte restano
+// nella pagina e l'app va avanti lo stesso.
+export const AVVISI = {
+  soloPagina: "Questo browser non mi lascia salvare le tue risposte sul telefono. Restano finché la pagina è aperta.",
+};
+
+// La pagina Collega, l'attacco in alto (7.3). Il normale si impara in quattro settimane (4.1 e 4.3).
+export const COLLEGA = {
+  attacco: "Ci vogliono cinque minuti. Il semaforo parte dalla prima notte e dal primo giro registrati, e impara il tuo normale in quattro settimane.",
 };
 
 // Le tre domande del mattino, il modulo (7.4). Le domande e le scelte sono in DOMANDE_MATTINO.
@@ -751,8 +789,9 @@ export const IMPOSTAZIONI = {
   dati: {
     titolo: "Dove stanno i tuoi dati",
     righe: (giorni) => [
-      "Le tre risposte del mattino stanno su intervals.icu, nel giorno di ogni mattina.",
-      `«Sto male», «Ieri sera…», le domande in viaggio e il colore del semaforo di ogni giorno stanno su questo telefono per ${giorni} giorni, poi si cancellano da sole.`,
+      "Le tre risposte del mattino stanno su intervals.icu, nel giorno di ogni mattina. In viaggio ci va allo stesso modo la risposta sull'energia.",
+      `«Sto male», «Ieri sera…», il sonno e «Qualcosa non va?» in viaggio stanno su questo telefono per ${giorni} giorni, poi si cancellano da sole.`,
+      `Per ogni giorno restano su questo telefono anche il colore del semaforo, quanto ha pesato ogni voce e se c'è stato uno stop, per ${giorni} giorni.`,
       "Queste impostazioni stanno su questo telefono finché non le cancelli.",
       "Noi non riceviamo niente.",
     ],
@@ -844,7 +883,7 @@ export const PRIVACY = {
         },
         "Prima di entrare confermi di avere almeno 18 anni e dai il consenso per i dati sulla salute, con due caselle. A ogni nuovo ingresso le caselle sono vuote. Che hai almeno 18 anni lo dichiari tu, e noi non possiamo controllarlo.",
         "Il tuo browser chiede a intervals.icu i dati che servono e li mette insieme sul tuo dispositivo per calcolare semaforo, andamento, uscite e obiettivo.",
-        "Le risposte alle tre domande del mattino il tuo browser le scrive nel tuo account intervals.icu, nel giorno di oggi.",
+        "Le risposte alle tre domande del mattino il tuo browser le scrive nel tuo account intervals.icu, nel giorno di oggi. In viaggio fa lo stesso con la risposta sull'energia.",
         "Le altre risposte che dai nella pagina, per esempio quelle del pannello «Sto male», restano sul tuo dispositivo.",
         "Niente passa da un server nostro. Non vediamo e non conserviamo i dati dell'app.",
       ],
@@ -853,9 +892,9 @@ export const PRIVACY = {
       titolo: "Quali dati usa la pagina",
       punti: [
         "La notte. HRV, cioè la variabilità del battito mentre dormi, battito a riposo, ore e punteggio del sonno. Anche il battito medio mentre dormi, se il tuo dispositivo lo manda.",
-        "Gli allenamenti. Di ogni uscita la pagina usa data, tipo, nome, durata, distanza, dislivello, battito medio e carico, cioè i punti di lavoro dell'uscita. Usa anche Fitness e Fatica, la media del tuo lavoro nelle ultime sei settimane e nell'ultima settimana, calcolate da intervals.icu. Il nome dell'uscita lo mostra così come l'hai scritto tu o il tuo dispositivo.",
+        "Gli allenamenti. Di ogni uscita la pagina usa data, tipo, nome, durata, distanza, dislivello, battito medio e carico, cioè i punti di lavoro dell'uscita, se la potenza arriva da un misuratore e lo sforzo che hai segnato su intervals.icu. Usa anche Fitness e Fatica, la media del tuo lavoro nelle ultime sei settimane e nell'ultima settimana, calcolate da intervals.icu. Il nome dell'uscita lo mostra così come l'hai scritto tu o il tuo dispositivo.",
         "Le tue risposte del mattino. Energia, gambe e acciacchi, su una scala da 1 a 4.",
-        "Le altre tue risposte. Il pannello «Sto male», con i sintomi di cuore, di malattia e del raffreddore, le caselle di «Ieri sera…», per esempio l'alcol o una notte in alta quota, e le domande in viaggio.",
+        "Le altre tue risposte. Il pannello «Sto male», con i sintomi di cuore, di malattia e del raffreddore e la risposta sul medico, le caselle di «Ieri sera…», per esempio l'alcol o una notte in alta quota, e le domande in viaggio.",
         "Quello che ci dici di te, in Impostazioni. La fascia d'età, il dispositivo che porti di notte, se hai un'aritmia nota, se in bici usi la fascia cardio e, solo se la accendi, la casella dei giorni prima del ciclo. Puoi lasciarle vuote, e l'app funziona lo stesso.",
         "Il tuo profilo intervals.icu. Arriva intero nella memoria della pagina, perché intervals.icu non permette di chiederne solo una parte. La pagina ne usa solo il nome, per salutarti, e il fuso orario, per sapere qual è il tuo «oggi». Il resto, come email, data di nascita, sesso o peso, non lo usa e non lo salva da nessuna parte. Non chiede mai la fase del ciclo.",
         "La chiave di intervals.icu, che apre il tuo account come una password, oppure l'accesso che ti dà intervals.icu se entri con il pulsante.",
@@ -878,7 +917,8 @@ export const PRIVACY = {
         "La chiave, o l'accesso dato da intervals.icu, resta solo sul tuo dispositivo. Con «Ricordami» resta finché premi Esci. Senza, sparisce quando chiudi la scheda.",
         "I numeri che arrivano da intervals.icu stanno nella memoria della pagina finché è aperta.",
         "La tua scelta sul consenso resta finché sei dentro e si cancella con Esci.",
-        "Le tue risposte restano sul tuo dispositivo per 400 giorni, poi si cancellano da sole. Sono i sintomi di «Sto male», le caselle di «Ieri sera…», le domande in viaggio e il colore del semaforo di ogni giorno.",
+        "Le tue risposte restano sul tuo dispositivo per 400 giorni, poi si cancellano da sole. Sono i sintomi di «Sto male», le caselle di «Ieri sera…», il sonno e «Qualcosa non va?» in viaggio.",
+        "Per ogni giorno restano sul dispositivo per 400 giorni anche il colore del semaforo, quanto ha pesato ogni voce e se c'è stato uno stop, per esempio per un sintomo di cuore.",
         "Quello che ci dici di te e le tue scelte restano nel browser finché non le cancelli con «Esci e cancella tutto da questo dispositivo» o dalle impostazioni del browser.",
         "Quello che sta su intervals.icu, comprese le risposte del mattino, resta nel tuo account e segue l'informativa di intervals.icu.",
       ],
@@ -887,8 +927,8 @@ export const PRIVACY = {
     {
       titolo: "Cosa scrive l'app nel tuo intervals.icu",
       punti: [
-        "Le tre risposte del mattino, nel giorno di oggi.",
-        "Non scrive mai i sintomi di «Sto male», le caselle di «Ieri sera…», le domande in viaggio, la casella del ciclo o l'aritmia. Non cancella mai un'attività.",
+        "Le tre risposte del mattino, nel giorno di oggi, e in viaggio la risposta sull'energia.",
+        "Non scrive mai i sintomi di «Sto male», le caselle di «Ieri sera…», il sonno e «Qualcosa non va?» in viaggio, la casella del ciclo o l'aritmia. Non cancella mai un'attività.",
         "Quello che l'app scrive lo vedi tu, e lo vede chi può vedere il tuo account intervals.icu, per esempio un allenatore con cui lo condividi o un'altra app che hai collegato.",
         "Lo puoi cambiare o cancellare da intervals.icu quando vuoi.",
       ],
@@ -954,7 +994,7 @@ export const GUIDA = {
     paragrafi: [
       "Ogni mattina il semaforo guarda la notte, il carico degli ultimi giorni e le tue tre risposte. Ogni voce può pesare poco o tanto. Quando una voce pesa tanto, prima di decidere ti fa una domanda.",
       "Il colore toglie e non aggiunge. Il verde non allunga mai il giro di oggi.",
-      "Una notte storta da sola non dà mai rosso. Il carico da solo arriva al massimo al giallo. Febbre, cuore e dolore fermano sempre.",
+      "Una notte storta da sola non dà mai rosso. Il carico da solo arriva al massimo al giallo, salvo tre mattine di fila molto sopra il solito. Febbre, cuore e dolore fermano sempre.",
       "Nelle prime settimane, finché impara il tuo normale, il semaforo può dire «Ancora pochi dati».",
     ],
     livelli: "I quattro livelli",
@@ -966,9 +1006,10 @@ export const GUIDA = {
       titolo: "Quando si ferma tutto",
       paragrafi: [
         "Alcune cose fermano la giornata, qualunque cosa dicano i numeri. Un sintomo di cuore, la febbre o un altro sintomo di malattia, il battito a riposo molto alto con un sintomo, «Sono a pezzi», un infortunio, o un dolore che cambia la pedalata.",
-        "Il tasto «Sto male» sotto la carta di oggi apre le caselle di cuore, malattia e naso e gola. Con un sintomo di cuore l'app ti dice di fermarti e di sentire il medico oggi stesso.",
+        "Il tasto «Sto male» sotto la carta di oggi apre le caselle di cuore, malattia e naso e gola. Con un sintomo di cuore l'app ti dice di fermarti e di sentire il medico oggi stesso. Nei giorni dopo il semaforo resta rosso, finché non segni «Il medico mi ha detto che posso riprendere».",
         "Con naso che cola o gola appena irritata il semaforo non va oltre il giallo, e se esci al massimo un'ora facile.",
         "Dopo la febbre, quando segni «Non ho più febbre da 24 ore, senza farmaci per la febbre», parte il rientro. Per 4 giorni il semaforo non va oltre il giallo, per 7 se la malattia è durata più di una settimana.",
+        "Dopo una malattia di più di una settimana, o con la febbre e il petto chiuso, prima di riprendere serve il medico. Il semaforo consiglia riposo finché non segni «Il medico mi ha detto che posso riprendere», e da lì contano i giorni del rientro. Se per due settimane non mi dici niente, conto la malattia come lunga.",
       ],
     },
     {
@@ -983,7 +1024,7 @@ export const GUIDA = {
       paragrafi: [
         "Dopo un weekend lungo, una prova con le borse o un'uscita grande il corpo è stanco per forza, e il semaforo lo sa. Per 2 giorni non va oltre il giallo, e per 3 mattine le notti storte non contano.",
         "Un'uscita grande dura almeno 5 ore, oppure almeno 3 ore e una volta e mezza la più lunga delle 4 settimane prima.",
-        "Dopo un viaggio di 2-5 giorni il giallo dura una settimana, 10 giorni dopo un viaggio di 6-10 giorni, 2 settimane dopo un viaggio più lungo.",
+        "Dopo un viaggio di 2-5 giorni per una settimana il semaforo non va oltre il giallo, per 10 giorni dopo un viaggio di 6-10 giorni, per 2 settimane dopo un viaggio più lungo. Contano i giorni dal primo all'ultimo, anche quelli in cui non hai aperto l'app.",
         "Il rosso resta sempre possibile, con un sintomo o con segnali che vanno d'accordo.",
       ],
     },

@@ -3,6 +3,7 @@
 import { h } from "../dom.js?v=202610312043";
 import { numero, segno, durata } from "../formato.js?v=202610312043";
 import { baseHrv, baseFc } from "../modello.js?v=202610312043";
+import { fasciaBattito } from "../semaforo.js?v=202610312043";
 import { grafico } from "../grafici.js?v=202610312043";
 import { intestazione, bannerDemo } from "./comuni.js?v=202610312043";
 
@@ -29,9 +30,12 @@ export function vistaAndamento(ctx) {
   const fineIeri = giorni.slice(0, -1);
   const dateIeri = date.slice(0, -1);
 
-  // Il "normale" di ogni giorno, calcolato con le notti precedenti a quel giorno.
-  const bandaHrv = giorni.map((_, k) => baseHrv(m.giorni, inizio + k));
-  const bandaFc = giorni.map((_, k) => baseFc(m.giorni, inizio + k));
+  // Il "normale" di ogni giorno, calcolato con le notti precedenti a quel giorno, con il dispositivo
+  // della notte e le stesse notti escluse del semaforo, così la fascia è quella che il semaforo usa.
+  const dispositivo = ctx.esito ? ctx.esito.dispositivo : undefined;
+  const escluso = ctx.esito ? ctx.esito.escluso : null;
+  const bandaHrv = giorni.map((_, k) => baseHrv(m.giorni, inizio + k, dispositivo, escluso));
+  const bandaFc = giorni.map((_, k) => fasciaBattito(baseFc(m.giorni, inizio + k, escluso)));
 
   // con una base minuscola la percentuale salta da un estremo all'altro e non vuol dire niente
   const freschezza = fineIeri.map((g) => (g.formaPct !== null && g.ctl >= 10 ? g.formaPct * 100 : null));
@@ -54,10 +58,10 @@ export function vistaAndamento(ctx) {
   const notti = m.notteMaiArrivata
     ? h("section", { class: "sezione" },
       h("h2", {}, "Le notti"),
-      h("p", { class: "vuoto" }, "HRV, battito a riposo e sonno non arrivano da nessun dispositivo. Se colleghi a intervals.icu un orologio o un anello che li misura, qui vedi anche le tue notti."))
+      h("p", { class: "vuoto" }, "La variabilità del battito (HRV), il battito a riposo e il sonno non arrivano da nessun dispositivo. Se colleghi a intervals.icu un orologio o un anello che li misura, qui vedi anche le tue notti."))
     : h("section", { class: "sezione" },
       h("h2", {}, "Le notti"),
-      blocco("HRV",
+      blocco("HRV, la variabilità del battito",
         "La fascia azzurra è il tuo normale, ricalcolato ogni giorno con le notti precedenti. Una notte sotto capita. Più notti di fila sotto vogliono dire che il recupero non è finito.",
         grafico({
           descrizione: "HRV della notte con il tuo normale",
@@ -67,12 +71,12 @@ export function vistaAndamento(ctx) {
           vuoto: "Il tuo dispositivo non manda l'HRV a intervals.icu.",
         })),
       blocco("Battito a riposo",
-        "La fascia è il tuo normale, più o meno 3 battiti. Sopra la fascia il semaforo comincia a frenare.",
+        "La fascia è il tuo normale, almeno 3 battiti sopra e sotto, di più se le tue notti cambiano tanto da una all'altra. Sopra la fascia il semaforo comincia a frenare.",
         grafico({
           descrizione: "Battito a riposo con il tuo normale",
           etichette: date,
           serie: [{ nome: "Battito", classe: "s1", valori: giorni.map((g) => g.fc), formato: (v) => `${numero(v)} battiti` }],
-          banda: { nome: "Il tuo normale", basso: bandaFc.map((b) => (b.ok ? b.solito - 3 : null)), alto: bandaFc.map((b) => (b.ok ? b.solito + 3 : null)) },
+          banda: { nome: "Il tuo normale", basso: bandaFc.map((b) => b.basso), alto: bandaFc.map((b) => b.alto) },
           vuoto: "Il battito a riposo non arriva dal tuo dispositivo.",
         })),
       blocco("Ore di sonno",

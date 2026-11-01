@@ -9,13 +9,15 @@ import {
   cancellaCredenziali, togliCredenziale, dopoUnCambio,
 } from "./credenziali.js?v=202610312043";
 import {
-  costruisciModello, normalizzaGiorno, oggiLocale, oggiNelFuso, aggiungiGiorni, giorniTra, oreBiciDelGiorno,
+  costruisciModello, normalizzaGiorno, oggiLocale, oggiNelFuso, aggiungiGiorni, giorniTra,
   GIORNI_STORICO, GIORNI_USCITE,
 } from "./modello.js?v=202610312043";
-import { valuta, eventoDiOggi, propostaViaggio, giorniDiGuardia, statoMalattia } from "./semaforo.js?v=202610312043";
+import {
+  valuta, eventoDiOggi, inizioProposta, giorniDiGuardia, statoMalattia, statoCuore, viaggiDelDiario,
+} from "./semaforo.js?v=202610312043";
 import { creaMemoria, CHIAVI } from "./memoria.js?v=202610312043";
 import { SEMAFORO, PIANO, MEMORIA } from "./parametri.js?v=202610312043";
-import { CONSENSO, ESCI } from "./testi.js?v=202610312043";
+import { CONSENSO, ESCI, AVVISI } from "./testi.js?v=202610312043";
 import { generaDemo } from "./demo.js?v=202610312043";
 import { vistaOggi } from "./viste/oggi.js?v=202610312043";
 import { vistaAndamento } from "./viste/andamento.js?v=202610312043";
@@ -46,11 +48,6 @@ const locale = memoriaDelBrowser("localStorage");
 const sessione = memoriaDelBrowser("sessionStorage");
 const memoria = creaMemoria(locale, { sessione });
 
-// Le sfide della pagina Obiettivo di prima dicono «7-10 giorni» e «due settimane e oltre» (SFIDE in
-// js/modello.js), ma l'obiettivo libero della migrazione tiene al massimo 3 giorni. Per la modalità
-// evento e per la riga del medico vale il lato alto della sfida, la lettura prudente.
-const GIORNI_SFIDA = { giornata: 1, weekend: 3, settimana: 10, grande: 14 };
-
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 const oggetto = (v) => (v && typeof v === "object" && !Array.isArray(v) ? v : null);
 
@@ -59,12 +56,17 @@ function uiIniziale() {
     modificaDomande: false,  // il modulo delle domande del mattino riaperto con «Cambia le risposte»
     modificaViaggio: false,  // lo stesso per le domande in viaggio
     stoMale: false,          // il pannello «Sto male» aperto
+    toccataStoMale: null,    // l'ultima casella di «Sto male» toccata, per mostrare l'esito subito sotto
     cause: false,            // la riga «Ieri sera…» aperta
     rispondoDopo: false,     // la domanda di controllo rimandata, solo per questa apertura
     carta: null,             // la carta in più di questa apertura, una sola (6.4)
     salvato: null,           // dove mostrare «Salvato.» in Impostazioni
     viaggioLungo: false,     // la riga del medico prima di un viaggio lungo è già comparsa in questa apertura
     dispositivo: null,       // il dispositivo scelto nella pagina Collega, che cambia solo le istruzioni
+    bozzaMattino: null,      // le risposte del mattino scelte e non ancora salvate, che un ridisegno non perde
+    bozzaViaggio: null,      // lo stesso per le domande in viaggio
+    perche: false,           // «Perché» aperto
+    numeri: false,           // «Per chi ama i numeri» aperto
   };
 }
 
@@ -88,6 +90,7 @@ const stato = {
   appenaSalvato: false,
   atletaPronto: null,        // l'atleta letto all'ingresso, per non chiederlo due volte
   serveConsenso: false,      // dentro con la chiave o l'accesso, ma senza il consenso di questa versione
+  avvisatoMemoria: false,    // l'avviso della memoria che non tiene è già comparso in questa apertura
   // Dal telefono (js/memoria.js).
   preferenze: {},
   profilo: {},
@@ -98,7 +101,10 @@ const stato = {
 };
 let giro = 0;                // ogni caricamento ha il suo numero: vince solo l'ultimo
 
+// Quando la memoria del telefono non tiene, cioè dopo una scrittura non riuscita, valgono le risposte
+// che sono in pagina, e rileggere la memoria le cancellerebbe (6.6).
 function leggiMemoria() {
+  if (!memoria.tiene()) return;
   stato.preferenze = { ...(oggetto(memoria.leggi(CHIAVI.preferenze)) || {}) };
   stato.profilo = oggetto(memoria.leggi(CHIAVI.profilo)) || {};
   stato.diario = memoria.leggi(CHIAVI.mattino);
@@ -122,7 +128,7 @@ function salvaConsenso() {
   stato.serveConsenso = false;
 }
 
-// --- scritture sul telefono, sempre rilette dalla memoria prima di cambiarle ---
+// --- scritture sul telefono, rilette dalla memoria prima di cambiarle ---
 
 function pulito(voce) {
   const v = {};
@@ -133,20 +139,27 @@ function pulito(voce) {
   return v;
 }
 
+// Ogni scrittura passa da memoria.cambia, che parte dalla memoria e, se la memoria non tiene, da
+// quello che c'è in pagina. Una scrittura non riuscita si dice una volta per apertura (6.6).
+function salvaSulTelefono(chiave, fn, inPagina) {
+  const esito = memoria.cambia(chiave, fn, inPagina);
+  if (!esito.salvato && !stato.avvisatoMemoria) {
+    stato.avvisatoMemoria = true;
+    stato.messaggio = AVVISI.soloPagina;
+  }
+  return esito.valore;
+}
+
 // Cambia la voce di un giorno del diario (comesto.mattino.v1). Un campo null o vuoto si toglie.
 function aggiornaDiario(giorno, campi) {
-  if (stato.demo && stato.demoDati) {
-    const voce = pulito({ ...(stato.demoDati.diario[giorno] || {}), ...campi });
-    if (Object.keys(voce).length) stato.demoDati.diario[giorno] = voce;
-    else delete stato.demoDati.diario[giorno];
-    return;
-  }
-  const diario = memoria.leggi(CHIAVI.mattino);
-  const voce = pulito({ ...(oggetto(diario[giorno]) || {}), ...campi });
-  if (Object.keys(voce).length) diario[giorno] = voce;
-  else delete diario[giorno];
-  memoria.scrivi(CHIAVI.mattino, diario);
-  stato.diario = diario;
+  const cambia = (diario) => {
+    const voce = pulito({ ...(oggetto(diario[giorno]) || {}), ...campi });
+    if (Object.keys(voce).length) diario[giorno] = voce;
+    else delete diario[giorno];
+    return diario;
+  };
+  if (stato.demo && stato.demoDati) { cambia(stato.demoDati.diario); return; }
+  stato.diario = salvaSulTelefono(CHIAVI.mattino, cambia, stato.diario);
 }
 
 function aggiornaProfilo(campi) {
@@ -154,31 +167,31 @@ function aggiornaProfilo(campi) {
     stato.demoDati.profilo = pulito({ ...stato.demoDati.profilo, ...campi });
     return;
   }
-  const profilo = pulito({ ...(oggetto(memoria.leggi(CHIAVI.profilo)) || {}), ...campi });
-  memoria.scrivi(CHIAVI.profilo, Object.keys(profilo).length ? profilo : null);
-  stato.profilo = profilo;
+  const profilo = salvaSulTelefono(CHIAVI.profilo, (prima) => {
+    const nuovo = pulito({ ...(oggetto(prima) || {}), ...campi });
+    return Object.keys(nuovo).length ? nuovo : null;
+  }, stato.profilo);
+  stato.profilo = oggetto(profilo) || {};
 }
 
-// La storia degli esiti (comesto.esiti.v1). cambia riceve la mappa e la modifica.
+// La storia degli esiti (comesto.esiti.v1). cambia riceve la mappa e la modifica, e con false non
+// cambia niente.
 function aggiornaStoria(cambia) {
   if (stato.demo && stato.demoDati) {
     cambia(stato.demoDati.storia);
     return;
   }
-  const storia = memoria.leggi(CHIAVI.esiti);
-  if (cambia(storia) === false) return;
-  memoria.scrivi(CHIAVI.esiti, storia);
-  stato.storia = storia;
+  stato.storia = salvaSulTelefono(CHIAVI.esiti, cambia, stato.storia);
 }
 
 function scriviObiettivo(obiettivo) {
   if (stato.demo && stato.demoDati) { stato.demoDati.obiettivo = obiettivo; return; }
-  memoria.scrivi(CHIAVI.obiettivo, obiettivo);
+  salvaSulTelefono(CHIAVI.obiettivo, () => obiettivo, stato.obiettivo);
   stato.obiettivo = obiettivo;
 }
 
 function salvaPreferenze() {
-  memoria.scrivi(CHIAVI.preferenze, stato.preferenze);
+  salvaSulTelefono(CHIAVI.preferenze, () => stato.preferenze, stato.preferenze);
 }
 
 // Le preferenze come le leggono le pagine. Sfida e data della pagina Obiettivo stanno in
@@ -203,34 +216,10 @@ function cambiaObiettivo(nome, valore) {
 
 // --- lo stato del giorno, che valuta riceve (4.2, passo 1) ---
 
-// Il viaggio in corso dal diario. «Sono in viaggio», «Sì, parto» e la proposta segnano il giorno
-// d'inizio con inViaggio, «Sono arrivato» il giorno della fine con arrivato.
-function viaggioDelDiario(diario, uscite, oggi) {
-  const inizi = Object.keys(diario || {}).filter((d) => d <= oggi && oggetto(diario[d]) && oggetto(diario[d].inViaggio)).sort();
-  if (!inizi.length) return null;
-  const inizio = inizi[inizi.length - 1];
-  const dati = diario[inizio].inViaggio;
-  const arrivi = Object.keys(diario).filter((d) => d >= inizio && d <= oggi && oggetto(diario[d]) && diario[d].arrivato).sort();
-  return {
-    inizio,
-    fine: arrivi.length ? arrivi[0] : fineDaSola(inizio, uscite, oggi),
-    tipo: typeof dati.tipo === "string" ? dati.tipo : "viaggio",
-    giorni: Number.isInteger(dati.giorni) && dati.giorni > 0 ? dati.giorni : null,
-  };
-}
-
-// Un viaggio che nessuno chiude finisce da solo dopo 2 giorni di fila senza nessuna attività, così
-// un «Sono arrivato» dimenticato non spegne le notti per settimane [stima nostra, prudente].
-function fineDaSola(inizio, uscite, oggi) {
-  const conAttivita = new Set((uscite || []).map((u) => u.d));
-  let ultimo = null;
-  let vuoti = 0;
-  for (let d = inizio; d < oggi; d = aggiungiGiorni(d, 1)) {
-    if (conAttivita.has(d)) { ultimo = d; vuoti = 0; continue; }
-    vuoti += 1;
-    if (vuoti >= SEMAFORO.viaggio.propostaGiorni) return ultimo || inizio;
-  }
-  return null;
+// I viaggi del diario li ricostruisce viaggiDelDiario di js/semaforo.js, che li usa anche per i
+// giorni di guardia. Il viaggio di oggi è l'ultimo.
+function viaggioDelDiario(viaggi) {
+  return viaggi.length ? viaggi[viaggi.length - 1] : null;
 }
 
 // La data di partenza dell'obiettivo, oppure null. I giorni alla partenza contano solo se non è passata.
@@ -239,11 +228,24 @@ function partenzaDi(obiettivo) {
   return ob && typeof ob.partenza === "string" && DATA.test(ob.partenza) ? ob.partenza : null;
 }
 
+// I giorni dell'evento, per la riga del medico (4.9). Le sfide della pagina Obiettivo di prima dicono
+// «7-10 giorni» e «due settimane e oltre», ma l'obiettivo libero della migrazione tiene al massimo 3
+// giorni, quindi vale il lato alto della sfida (MEMORIA.sfide), la lettura prudente.
 function giorniEventoDi(obiettivo) {
   const ob = oggetto(obiettivo);
   if (!ob) return null;
-  if (ob.daSfida && GIORNI_SFIDA[ob.daSfida]) return GIORNI_SFIDA[ob.daSfida];
+  const sfida = ob.daSfida && MEMORIA.sfide[ob.daSfida];
+  if (sfida) return sfida.giorniEvento;
   return Number.isInteger(ob.giorni) && ob.giorni > 0 ? ob.giorni : null;
+}
+
+// I giorni per la modalità evento con «Sì, parto» (4.5). Una sfida senza un lato alto, come «Due
+// settimane e oltre», non ne fissa nessuno, così la modalità resta accesa fino a «Sono arrivato» o
+// ai giorni senza attività e non si spegne a metà viaggio.
+function giorniDelViaggioDi(obiettivo) {
+  const ob = oggetto(obiettivo);
+  if (ob && MEMORIA.sfideSenzaFine.includes(ob.daSfida)) return null;
+  return giorniEventoDi(obiettivo);
 }
 
 function etaDi(profilo) {
@@ -252,18 +254,13 @@ function etaDi(profilo) {
 }
 
 // La proposta automatica della modalità evento (4.5). Il viaggio comincia dal primo dei giorni lunghi
-// di fila, e un «No» vale per tutta quella fila.
-function propostaDiOggi(m, evento, obiettivo) {
+// di fila fuori dai viaggi già segnati, e un «No» vale per tutta quella fila.
+function propostaDiOggi(m, evento, obiettivo, viaggi) {
   if (evento) return null;
   const ob = oggetto(obiettivo);
   const oreH = ob && typeof ob.ore === "number" && ob.ore > 0 ? ob.ore : null;
-  if (!propostaViaggio(m.uscite, m.oggi, oreH)) return null;
-  const V = SEMAFORO.viaggio;
-  const soglia = oreH ? V.propostaQuotaH * oreH : V.propostaOre;
-  let inizio = aggiungiGiorni(m.oggi, -V.propostaGiorni);
-  for (let k = 0; k < GIORNI_USCITE && oreBiciDelGiorno(m.uscite, aggiungiGiorni(inizio, -1)) >= soglia; k++) {
-    inizio = aggiungiGiorni(inizio, -1);
-  }
+  const inizio = inizioProposta(m.uscite, m.oggi, oreH, viaggi);
+  if (!inizio) return null;
   for (let d = inizio; d <= m.oggi; d = aggiungiGiorni(d, 1)) {
     if (oggetto(m.diario[d]) && m.diario[d].propostaNo) return null;
   }
@@ -305,7 +302,8 @@ function ricalcola() {
     atleta: g.atleta, benessere: g.benessere, uscite: g.uscite,
     diario: p.diario, storia, profilo: p.profilo, piano: null,
   }, oggi);
-  const viaggio = viaggioDelDiario(m.diario, m.uscite, oggi);
+  const viaggi = viaggiDelDiario(m.diario, m.uscite, oggi);
+  const viaggio = viaggioDelDiario(viaggi);
   const evento = eventoDiOggi(viaggio, oggi);
   const partenza = partenzaDi(p.obiettivo);
   const mancano = partenza ? giorniTra(oggi, partenza) : null;
@@ -314,7 +312,7 @@ function ricalcola() {
   const malattia = statoMalattia(m.diario, m.storia, oggi);
   const contesto = {
     evento,
-    guardia: giorniDiGuardia(m.storia, m.piano, m.uscite, oggi, { eta: etaDi(profilo) }),
+    guardia: giorniDiGuardia(m.storia, m.piano, m.uscite, oggi, { eta: etaDi(profilo), viaggi }),
     rientro: malattia.rientro,
     giorniPartenza,
     giorniEvento: giorniEventoDi(p.obiettivo),
@@ -340,11 +338,12 @@ function ricalcola() {
     evento,
     giorniPartenza,
     malattia,
+    cuore: statoCuore(m.diario, m.storia, oggi),
     arrivatoOggi: Boolean(oggetto(m.diario[oggi]) && m.diario[oggi].arrivato),
     proposta: null,
     carte: [],
   };
-  giorno.proposta = propostaDiOggi(m, evento, p.obiettivo);
+  giorno.proposta = propostaDiOggi(m, evento, p.obiettivo, viaggi);
   giorno.carte = carteDiOggi(m, esito, giorno, p);
   if (stato.ui.carta === null && giorno.carte.length) stato.ui.carta = giorno.carte[0];
   giorno.carta = giorno.carte.includes(stato.ui.carta) ? stato.ui.carta : null;
@@ -489,9 +488,14 @@ function mostra({ fuoco = false } = {}) {
   else if (!stato.modello) vista = vistaCaricamento();
   else vista = def.disegna(ctx);
 
-  // Si ridisegna la pagina intera: si tiene il punto in cui eri e l'elemento col fuoco.
+  // Si ridisegna la pagina intera: si tiene il punto in cui eri e l'elemento col fuoco, alla stessa
+  // altezza sullo schermo anche se sopra la carta è cambiata.
   const scorrimento = window.scrollY;
-  const attivo = document.activeElement && document.activeElement.id;
+  const prima = document.activeElement;
+  const eraDentro = Boolean(prima && prima !== principale && principale.contains(prima));
+  const attivo = eraDentro ? prima.id : "";
+  const altezzaPrima = eraDentro ? prima.getBoundingClientRect().top : null;
+  const sezionePrima = eraDentro && prima.closest("section[id]") ? prima.closest("section[id]").id : "";
   principale.replaceChildren(vista);
   document.title = r === "benvenuto" ? "Come sto" : `${def.titolo} · Come sto`;
   principale.classList.toggle("in-aggiornamento", stato.caricando && Boolean(stato.modello));
@@ -516,9 +520,24 @@ function mostra({ fuoco = false } = {}) {
     }
   } else {
     window.scrollTo(0, scorrimento);
-    if (attivo) {
-      const di = document.getElementById(attivo);
-      if (di && principale.contains(di)) di.focus({ preventScroll: true });
+    if (!eraDentro) return;
+    const di = attivo ? document.getElementById(attivo) : null;
+    if (di && principale.contains(di)) {
+      di.focus({ preventScroll: true });
+      const spostato = di.getBoundingClientRect().top - altezzaPrima;
+      if (Math.abs(spostato) > 1) window.scrollBy(0, spostato);
+      return;
+    }
+    // Il tasto premuto non c'è più. Il fuoco va al titolo della stessa sezione, in Impostazioni, o al
+    // titolo della carta di oggi, così chi usa la tastiera non riparte dall'inizio della pagina (7.4).
+    const sezione = sezionePrima ? document.getElementById(sezionePrima) : null;
+    const ripiego = (sezione && principale.contains(sezione) && sezione.querySelector("h2"))
+      || document.getElementById("semaforo-titolo") || principale.querySelector("h1");
+    if (ripiego) {
+      ripiego.setAttribute("tabindex", "-1");
+      ripiego.focus({ preventScroll: true });
+      const riquadro = ripiego.getBoundingClientRect();
+      if (riquadro.top < 0 || riquadro.bottom > window.innerHeight) ripiego.scrollIntoView({ block: "center" });
     }
   }
 }
@@ -552,6 +571,14 @@ function lasciaQui() {
   stato.atletaPronto = null;
   stato.serveConsenso = false;
   stato.ui = uiIniziale();
+  // Con la memoria che non tiene le risposte stanno solo nella pagina, e se ne vanno con chi esce.
+  if (!memoria.tiene()) {
+    stato.preferenze = {};
+    stato.profilo = {};
+    stato.diario = {};
+    stato.storia = {};
+    stato.obiettivo = null;
+  }
 }
 
 // La scheda comincia a usare una credenziale salvata. Se non è valida la si toglie dalla memoria
@@ -918,7 +945,7 @@ const azioni = {
     if (!m || !g) return;
     if (id === "parti") {
       if (risposta === "si") {
-        azioni.inViaggio({ tipo: "evento", giorni: giorniEventoDi(persona().obiettivo) });
+        azioni.inViaggio({ tipo: "evento", giorni: giorniDelViaggioDi(persona().obiettivo) });
         return;
       }
       aggiornaDiario(m.oggi, { parti: "no" });
@@ -971,6 +998,8 @@ const azioni = {
     if (diario) aggiornaDiario(m.oggi, diario);
     stato.ui.modificaDomande = false;
     stato.ui.modificaViaggio = false;
+    stato.ui.bozzaMattino = null;
+    stato.ui.bozzaViaggio = null;
     stato.appenaSalvato = true;
     aggiorna();
   },

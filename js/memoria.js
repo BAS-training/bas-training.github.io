@@ -229,6 +229,9 @@ export function creaMemoria(locale, { sessione = null, adesso = () => Date.now()
     const t = Number(adesso());
     return istanteValido(t) ? t : 0;
   };
+  // Diventa falso dopo una scrittura non riuscita, con la memoria assente, bloccata o piena, e torna
+  // vero alla prima che riesce. Finché è falso vale quello che l'app tiene nella pagina (cambia).
+  let tieneLaMemoria = true;
 
   // --- la memoria del browser, sempre dentro try e catch ---
 
@@ -334,6 +337,32 @@ export function creaMemoria(locale, { sessione = null, adesso = () => Date.now()
 
   function togli(chiave) {
     return PER_CHIAVE.has(chiave) && togliDa(locale, chiave);
+  }
+
+  // Cambia il valore di una chiave della tabella e lo salva. fn riceve una copia del valore e lo
+  // modifica (e restituisce niente o true), oppure ne restituisce uno nuovo, anche null per toglierlo,
+  // e con false non cambia niente. Si parte da quello che
+  // c'è sulla memoria, salvo quando la memoria non tiene: allora si parte da inPagina, quello che l'app
+  // ha già in pagina, così con la memoria piena o assente le risposte della stessa apertura non si
+  // perdono una dopo l'altra (6.6). Restituisce { valore, salvato }.
+  function cambia(chiave, fn, inPagina = undefined) {
+    const voce = PER_CHIAVE.get(chiave);
+    if (!voce) return { valore: inPagina === undefined ? null : inPagina, salvato: false };
+    let partenza;
+    if (!tieneLaMemoria && inPagina !== undefined) {
+      try { partenza = inPagina === null ? vuoto(voce.forma) : JSON.parse(JSON.stringify(inPagina)); } catch { partenza = leggi(chiave); }
+    } else partenza = leggi(chiave);
+    const risultato = fn(partenza);
+    if (risultato === false) return { valore: partenza, salvato: tieneLaMemoria };
+    const valore = risultato === undefined || risultato === true ? partenza : risultato;
+    const salvato = scrivi(chiave, valore);
+    tieneLaMemoria = salvato;
+    return { valore, salvato };
+  }
+
+  // Se la memoria tiene, cioè se l'ultima scrittura con cambia è riuscita.
+  function tiene() {
+    return tieneLaMemoria;
   }
 
   // All'avvio. Sposta in .guasto le chiavi con una versione sconosciuta e quelle rotte, poi porta
@@ -483,8 +512,10 @@ export function creaMemoria(locale, { sessione = null, adesso = () => Date.now()
         if (togliDa(m, k) && testo(m, k) === null && !tolte.includes(k)) tolte.push(k);
       }
     }
+    // Dopo il «cancella tutto» non c'è più niente da tenere in pagina.
+    tieneLaMemoria = true;
     return tolte;
   }
 
-  return Object.freeze({ leggi, scrivi, togli, migra, pulisci, copia, riprendi, esciCancellaTutto });
+  return Object.freeze({ leggi, scrivi, togli, migra, pulisci, copia, riprendi, esciCancellaTutto, cambia, tiene });
 }

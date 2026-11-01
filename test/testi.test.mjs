@@ -241,6 +241,50 @@ test("niente etichette sulla persona accanto alle ore", () => {
   assert.equal(sbagliati.length, 0, elenco(sbagliati));
 });
 
+test("niente etichette sulla persona, nemmeno senza le ore accanto", () => {
+  // «chi è molto allenato» o «sei allenato» sono etichette, «quanto ti sei allenato» no.
+  const PERSONA = "(molto |poco |ben )?(allenat[oaie]|principiant[ei]|amator[ei])\\b";
+  const ETICHETTA = new RegExp(`\\bchi è ${PERSONA}|(?<!\\bti )\\bsei ${PERSONA}|\\bsei in forma\\b`, "i");
+  assert.equal(ETICHETTA.test("succede a chi è molto allenato"), true, "l'espressione funziona");
+  assert.equal(ETICHETTA.test("quanto ti sei allenato"), false);
+  const sbagliati = TUTTI.filter((t) => ETICHETTA.test(t.testo));
+  assert.equal(sbagliati.length, 0, elenco(sbagliati));
+});
+
+test("Guida, domande frequenti, Privacy e Impostazioni dicono quello che l'app fa", () => {
+  const T = moduli["testi.js"];
+  const guida = T.GUIDA.semaforo.paragrafi.join(" ");
+  // il carico molto alto per tre mattine dà Rosso da solo (4.2, passo 8)
+  assert.match(guida, /Il carico da solo arriva al massimo al giallo, salvo tre mattine di fila molto sopra il solito\./);
+  const rosso = T.DOMANDE_FREQUENTI.find((f) => /rosso/.test(f.d)).r;
+  assert.match(rosso, /tre mattine/);
+  assert.match(rosso, /Con un dolore, un infortunio, «Sono a pezzi», la febbre o un sintomo di cuore niente bici\./);
+  // i tetti sono tetti, il rosso resta possibile
+  const giallo = T.GUIDA_LIVELLI.find((l) => l.livello === "giallo").testo;
+  assert.match(giallo, /non va oltre il giallo/);
+  assert.ok(!/E sempre nei giorni dopo/.test(giallo), giallo);
+  const fatiche = T.GUIDA.sezioni.find((s) => /fatiche volute/.test(s.titolo)).paragrafi.join(" ");
+  assert.match(fatiche, /per una settimana il semaforo non va oltre il giallo/);
+  // l'energia in viaggio va su intervals.icu, il resto del viaggio resta sul telefono
+  const righe = T.IMPOSTAZIONI.dati.righe(400);
+  assert.ok(righe.some((r) => /energia/.test(r) && /intervals\.icu/.test(r)), righe.join(" "));
+  assert.ok(righe.some((r) => /quanto ha pesato ogni voce/.test(r) && /stop/.test(r)), righe.join(" "));
+  assert.ok(!righe.some((r) => /le domande in viaggio/.test(r)), righe.join(" "));
+  const privacy = T.PRIVACY.sezioni.flatMap((s) => s.punti).map((p) => (typeof p === "string" ? p : `${p.chiave} ${p.intervals}`));
+  const scrive = privacy.filter((p) => /Non scrive mai/.test(p));
+  assert.equal(scrive.length, 1);
+  assert.ok(!/le domande in viaggio/.test(scrive[0]), scrive[0]);
+  assert.ok(privacy.some((p) => /In viaggio/.test(p) && /energia/.test(p)));
+  assert.ok(privacy.some((p) => /quanto ha pesato ogni voce/.test(p)));
+  // la pagina Collega parla delle quattro settimane della carta «Ancora pochi dati»
+  assert.match(T.COLLEGA.attacco, /quattro settimane/);
+  assert.match(T.LIVELLI.nessuno.consiglio, /quattro settimane/);
+  assert.ok(!readFileSync(join(VISTE, "pagine.js"), "utf8").includes("diventa completo in due settimane"));
+  const readme = readFileSync(join(RADICE, "README.md"), "utf8");
+  assert.ok(!/le domande in viaggio, l'aritmia e la casella del ciclo non vanno nemmeno su intervals\.icu/.test(readme));
+  assert.ok(readme.includes(`**Giallo, giornata tranquilla.** ${giallo}`), "il README riporta i livelli della Guida");
+});
+
 test("niente decimali nelle durate", () => {
   const sbagliati = TUTTI.filter((t) => /\b\d+[.,]\d+\s*(ore|ora|minuti|min|h)\b/i.test(t.testo));
   assert.equal(sbagliati.length, 0, elenco(sbagliati));

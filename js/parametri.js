@@ -380,7 +380,7 @@ export const SEMAFORO = congela({
     giorniDopoMalattiaLunga: 7,   // regola 5.18, stima nostra, prudente
     malattiaLungaOltre: 7,        // giorni di malattia, regola 5.18
     oreSenzaFebbre: 24,           // senza farmaci per la febbre, regola 5.18
-    malattiaRiportataGiorni: 14,  // senza «Non ho più febbre» lo stop resta fino a 14 giorni dall'ultimo sintomo, come le carte che scadono, stima nostra, prudente
+    malattiaRiportataGiorni: 14,  // senza «Non ho più febbre» lo stop resta fino a 14 giorni dall'ultimo sintomo, come le carte che scadono, poi la malattia si chiude come lunga, con il rientro di 7 giorni e il medico, stima nostra, prudente
   },
   ultimiGiorni: 7,                // il Giallo leggero vale Giallo, regola 5.19, stima nostra, prudente
   crescitaRapidaGiorni: 7,        // al massimo Giallo leggero, regola 1.9
@@ -393,9 +393,8 @@ export const SEMAFORO = congela({
     battitoSopra: 5,              // da 3 notti con stanchezza, presto e senza urgenza, regola 5.17
     battitoNotti: 3,              // regola 5.17
     malattiaGiorni: 7,            // oltre, prima di riprendere serve il medico, la regola dice 7-10, stima nostra, prudente
-    dopoVirusGiorni: 14,          // un sintomo di cuore entro 14 giorni da una malattia, regola 5.17, stima nostra
-    palpitazioniVolte: 2,         // palpitazioni ripetute, in 2 giorni su 14, regola 5.17, stima nostra
-    palpitazioniGiorni: 14,       // stima nostra
+    // Ogni sintomo di cuore, compresi le palpitazioni ripetute e i sintomi al petto dopo un virus, tiene
+    // il Rosso e l'invito finché la persona non dice di aver sentito il medico (regole 5.10 e 5.17).
   },
   viaggio: {
     sonnoOrologioMinuti: 45,      // sonno vero = orologio meno 45 minuti, uguale con anelli e fasce, regola 3.10
@@ -408,6 +407,7 @@ export const SEMAFORO = congela({
     stomacoGialloOre: 2,          // regola 3.14
     stomacoRossoOre: 4,           // la regola dice 4-6 ore, l'app usa 4, regola 3.14
     giorniInPiu: 1,               // la modalità evento resta accesa G giorni più uno, 4.5
+    giorniVuotiFine: 2,           // un viaggio che nessuno chiude finisce da solo dopo 2 giorni di fila senza attività, stima nostra, prudente
     propostaGiorni: 2,            // giorni di fila con almeno 0,5 × H, 4.5, dalla proposta dati
     propostaQuotaH: 0.5,          // 4.5
     propostaOre: 4,               // senza un obiettivo, 4.5
@@ -501,13 +501,17 @@ export const MEMORIA = congela({
   cacheGiorniInPiu: 3,            // si rileggono i giorni nuovi più 3, stima nostra
   // Le sfide della pagina Obiettivo di prima diventano un obiettivo libero con la stessa data (6.6 e 9.7).
   // Le ore sono quelle della giornata che la pagina usava (oreTappa), per eccesso all'ora intera, i giorni
-  // il lato alto, al massimo i 3 dell'obiettivo libero (1.9), stima nostra, prudente.
+  // il lato alto, al massimo i 3 dell'obiettivo libero (1.9), stima nostra, prudente. giorniEvento sono i
+  // giorni del viaggio per la modalità evento e per la riga del medico, il lato alto della sfida.
   sfide: {
-    giornata: { libero: "ore", giorni: 1, ore: 5 },       // «4-5 ore in sella», un giro lungo
-    weekend: { libero: "giorni", giorni: 3, ore: 7 },     // «2-3 giorni, 6-8 ore al giorno»
-    settimana: { libero: "giorni", giorni: 3, ore: 8 },   // «7-10 giorni, 7-9 ore al giorno»
-    grande: { libero: "giorni", giorni: 3, ore: 10 },     // «due settimane e oltre, 9-11 ore al giorno»
+    giornata: { libero: "ore", giorni: 1, ore: 5, giorniEvento: 1 },        // «4-5 ore in sella», un giro lungo
+    weekend: { libero: "giorni", giorni: 3, ore: 7, giorniEvento: 3 },      // «2-3 giorni, 6-8 ore al giorno»
+    settimana: { libero: "giorni", giorni: 3, ore: 8, giorniEvento: 10 },   // «7-10 giorni, 7-9 ore al giorno»
+    grande: { libero: "giorni", giorni: 3, ore: 10, giorniEvento: 14 },     // «due settimane e oltre, 9-11 ore al giorno»
   },
+  // Le sfide senza un lato alto. Con «Sì, parto» la modalità evento resta accesa fino a «Sono arrivato»
+  // o ai giorni senza attività, e i 14 giorni valgono solo per la riga del medico, stima nostra, prudente.
+  sfideSenzaFine: ["grande"],
   sfidaSenzaScelta: "weekend",    // quella che la pagina di prima mostrava senza una scelta salvata
 });
 

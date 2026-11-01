@@ -8,8 +8,10 @@ const ATTESA_MASSIMA = 20000; // millisecondi, poi si rinuncia e si avvisa
 
 // Si chiedono solo i campi che servono: ogni mattina sul telefono sono 17 volte meno dati.
 // avgSleepingHR è la FC media del sonno, che il semaforo preferisce al battito a riposo (4.3).
-const CAMPI_BENESSERE = "id,ctl,atl,atlLoad,ctlLoad,restingHR,avgSleepingHR,hrv,hrvSDNN,sleepSecs,sleepScore,injury,fatigue,soreness";
-const CAMPI_USCITE = "id,start_date_local,type,name,source,moving_time,distance,total_elevation_gain,icu_training_load,average_heartrate";
+// device_watts dice se la potenza arriva da un misuratore e icu_rpe è lo sforzo segnato, per quanto
+// fidarsi del carico (4.7). Sono campi delle attività, non permessi in più (6.7).
+export const CAMPI_BENESSERE = "id,ctl,atl,atlLoad,ctlLoad,restingHR,avgSleepingHR,hrv,hrvSDNN,sleepSecs,sleepScore,injury,fatigue,soreness";
+export const CAMPI_USCITE = "id,start_date_local,type,name,source,moving_time,distance,total_elevation_gain,icu_training_load,average_heartrate,device_watts,icu_rpe";
 
 export class ErroreApi extends Error {
   constructor(tipo, messaggio) {

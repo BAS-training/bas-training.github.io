@@ -635,6 +635,11 @@ input[type="date"], input[type="password"], input[type="text"] {
 }
 .pannello-febbre { background: var(--verde-fondo); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
 .gruppo-cuore legend { color: var(--rosso-testo); }
+/* quello che le caselle hanno deciso, subito sotto la casella spuntata */
+.pannello-esito { background: var(--giallo-fondo); border-radius: 12px; padding: 12px 14px; color: var(--inchiostro); }
+.pannello-esito-stop { background: var(--rosso-fondo); }
+.pannello-esito-stop strong { color: var(--rosso-testo); }
+.pannello-esito-cuore { border-left: 4px solid var(--rosso); }
 
 /* «Ieri sera…», la riga chiusa delle cause */
 .carta.cause, .carta.perche { display: block; }

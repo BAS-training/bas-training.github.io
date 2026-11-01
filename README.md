@@ -28,13 +28,14 @@ L'app si apre da **https://bas-training.github.io/** e senza account si può gua
 | `comesto.preferenze` | il periodo dei grafici e una riga del medico già mostrata | finché la persona esce e cancella tutto |
 | `comesto.profilo.v1` | fascia d'età, dispositivo della notte, giorno del cambio di dispositivo, aritmia nota, fascia cardio, casella del ciclo | finché la persona esce e cancella tutto |
 | `comesto.obiettivo.v1` | la sfida e la data della pagina Obiettivo, portate qui dalla migrazione | fino a 3 mesi dopo l'evento |
-| `comesto.mattino.v1` | per ogni giorno «Sto male», le cause di «Ieri sera…», la domanda di controllo e quella sulla pedalata, le domande in viaggio, l'inizio e la fine di un viaggio | 400 giorni |
+| `comesto.mattino.v1` | per ogni giorno «Sto male», la risposta «Il medico mi ha detto che posso riprendere», le cause di «Ieri sera…», la domanda di controllo e quella sulla pedalata, il sonno e «Qualcosa non va?» in viaggio, l'inizio e la fine di un viaggio | 400 giorni |
 | `comesto.esiti.v1` | per ogni giorno il livello del semaforo, i punti delle voci, i tetti, lo stop e la modalità evento | 400 giorni |
 | `comesto.consenso` | versione e data del testo del consenso | si cancella con Esci |
 
 - All'avvio la memoria sposta in una chiave con `.guasto` in fondo quello che non si legge, porta sfida e data della pagina Obiettivo in `comesto.obiettivo.v1` e toglie le voci oltre i 400 giorni.
 - «Esci e cancella tutto da questo dispositivo» toglie tutte le chiavi `comesto.`, credenziali comprese, da `localStorage` e da `sessionStorage`. Con «Entra con intervals.icu» toglie anche il permesso su intervals.icu, come Esci.
-- Nessun dato arriva ad AdventureLab. I sintomi di «Sto male», le cause, le domande in viaggio, l'aritmia e la casella del ciclo non vanno nemmeno su intervals.icu.
+- Se la memoria del browser manca o è piena, le risposte restano nella pagina finché è aperta, e la pagina lo dice una volta.
+- Nessun dato arriva ad AdventureLab. I sintomi di «Sto male», le cause, il sonno e «Qualcosa non va?» in viaggio, l'aritmia e la casella del ciclo non vanno nemmeno su intervals.icu.
 
 ## Il semaforo
 
@@ -49,14 +50,14 @@ L'app si apre da **https://bas-training.github.io/** e senza account si può gua
 | Energia | Tanta o normale. | Poca. | Sono a pezzi. Il semaforo diventa rosso comunque. |
 | Gambe | Fresche o normali. | Un po' indolenzite. Molto doloranti conta il doppio, e il semaforo chiede se ti cambiano la pedalata. | Molto doloranti, con la pedalata che cambia o peggiora pedalando. |
 | Acciacchi, oggi o ieri | Niente. | Un fastidio. Un dolore che non cambia la pedalata conta il doppio. | Un infortunio, o un dolore che cambia la pedalata. Senza risposta un dolore vale come rosso. |
-| Sto male | Niente segnato. | Solo naso che cola o gola appena irritata. Il semaforo non va oltre il giallo. | Febbre, brividi, dolori in tutto il corpo, tosse con il petto chiuso, mal di pancia. Ogni sintomo di cuore, con l'invito dal medico. |
+| Sto male | Niente segnato. | Solo naso che cola o gola appena irritata. Il semaforo non va oltre il giallo. | Febbre, brividi, dolori in tutto il corpo, tosse con il petto chiuso, mal di pancia. Ogni sintomo di cuore, con l'invito dal medico, e il rosso resta finché il medico non ti dice che puoi riprendere. |
 
 I livelli sono quattro, più «Ancora pochi dati» nelle prime settimane.
 
 - **Verde, via libera.** Nessun segnale di stanchezza.
 - **Giallo, senza esagerare.** Un segnale piccolo.
-- **Giallo, giornata tranquilla.** Due segnali piccoli o uno che conta il doppio. E sempre nei giorni dopo un weekend lungo, una prova, un'uscita grande o un viaggio, e quando riparti dopo la febbre.
-- **Rosso, oggi recupera.** Più segnali che vanno d'accordo, da più notti o con le tue risposte. E sempre con un dolore, un infortunio, la febbre, un sintomo di cuore o quando dici di essere a pezzi. Una notte storta da sola non dà mai rosso.
+- **Giallo, giornata tranquilla.** Due segnali piccoli o uno che conta il doppio. Nei giorni dopo un weekend lungo, una prova, un'uscita grande o un viaggio, e quando riparti dopo la febbre, il semaforo non va oltre il giallo.
+- **Rosso, oggi recupera.** Più segnali che vanno d'accordo, da più notti o con le tue risposte, o il carico molto più alto del solito per tre mattine di fila. E sempre con un dolore, un infortunio, la febbre, un sintomo di cuore o quando dici di essere a pezzi. Una notte storta da sola non dà mai rosso.
 
 La decisione segue l'ordine di 4.2.
 
@@ -64,7 +65,7 @@ La decisione segue l'ordine di 4.2.
 2. **I soli sintomi sopra il collo** portano almeno al Giallo, con al massimo un'ora facile.
 3. **In modalità evento** HRV, battito e carico non danno punti. Decidono il sonno vero (l'orologio meno 45 minuti), il gonfiore, mani, sedere e collo, lo stomaco e l'energia, e sotto la carta ci sono sempre tre promemoria.
 4. **Le caselle di «Ieri sera…»** danno al massimo 1 punto a HRV, battito e sonno, e la notte esce dal normale.
-5. **I punti** si sommano. Il Rosso arriva solo con la concordanza (un punto dalle risposte o dal carico, una voce che aveva punti anche ieri, o una regola che guarda già più notti) e almeno 4 punti, due segnali forti o un segnale forte con poca energia, oppure con il carico molto alto da 3 mattine fuori dai viaggi e dai giorni di guardia. Altrimenti 0 punti Verde, 1 Giallo leggero, da 2 Giallo.
+5. **I punti** si sommano. Il Rosso arriva solo con la concordanza (un punto dalle risposte o dal carico, una voce che aveva punti anche ieri, o una regola che guarda già più notti e resta vera anche senza la notte di oggi) e almeno 4 punti, due segnali forti o un segnale forte con poca energia, oppure con il carico molto alto da 3 mattine fuori dai viaggi e dai giorni di guardia. Altrimenti 0 punti Verde, 1 Giallo leggero, da 2 Giallo.
 6. **Le sensazioni ottime** migliorano di un gradino solo se tutti i punti vengono dalla notte, e mai con un segnale forte.
 7. **I tetti** vincono sempre. Giallo nei giorni di guardia, cioè 2 giorni dopo un weekend lungo, una prova o un'uscita grande, 3 dopo un blocco, 7, 10 o 14 dopo un viaggio di 2-5, 6-10 o più giorni. Giallo nei 4 giorni di rientro dopo una malattia, 7 se è durata più di una settimana. Negli ultimi 7 giorni prima della partenza il Giallo leggero vale come Giallo.
 
@@ -74,8 +75,11 @@ Altre regole del rilascio 1.
 - **Le esclusioni.** Le notti con una casella delle cause, con «Sto male», della malattia, dei viaggi, delle 72 ore dopo una fatica voluta e di prima di un cambio di dispositivo non entrano nel normale.
 - **Il carico** guarda Fitness e Fatica di ieri sera, così un giro fatto stamattina non cambia il consiglio del mattino. Con la Fitness sotto 5 non vota, da 50 anni usa una Fatica lenta a 10 giorni.
 - **La domanda di controllo.** Con un segnale forte, e con battito alto e HRV bassa da due notti, prima del livello compare «Prima di decidere, una domanda», con «No, niente», «Sì» e «C'è un motivo». Con «Molto doloranti» o «Un dolore» compare subito «Ti cambia la pedalata o peggiora pedalando?».
-- **La malattia.** Dopo uno stop per malattia lo stop resta finché la persona non segna «Non ho più febbre da 24 ore, senza farmaci per la febbre», al massimo 14 giorni dall'ultimo sintomo. Da lì parte il rientro.
-- **La modalità evento** si accende con «Sono in viaggio», con «Sì, parto» il giorno della data dell'Obiettivo, oppure con la proposta che compare da sola dopo 2 giorni di fila con almeno 4 ore di bici, o metà delle ore al giorno dell'Obiettivo. Finisce con «Sono arrivato», dopo i giorni previsti più uno, oppure dopo 2 giorni di fila senza nessuna attività.
+- **La malattia.** Dopo uno stop per malattia lo stop resta finché la persona non segna «Non ho più febbre da 24 ore, senza farmaci per la febbre», al massimo 14 giorni dall'ultimo sintomo. Da lì parte il rientro. Se la risposta non arriva, dopo i 14 giorni la malattia si chiude come lunga, perché la sua durata non si conosce.
+- **Il medico prima di riprendere.** Dopo una malattia di più di 7 giorni, o con la febbre e il petto chiuso, il consiglio è riposo o una camminata, mai un giro, finché la persona non segna «Il medico mi ha detto che posso riprendere», e i 7 giorni del rientro contano da lì.
+- **Il cuore.** Un sintomo di cuore, compreso l'avviso di ritmo irregolare dell'orologio, dà Rosso quel giorno e anche nei giorni dopo, con l'invito dal medico, finché la persona non segna «Il medico mi ha detto che posso riprendere». Il testo dello stop compare anche nel pannello, sotto la casella spuntata.
+- **La modalità evento** si accende con «Sono in viaggio», con «Sì, parto» il giorno della data dell'Obiettivo, oppure con la proposta che compare da sola dopo 2 giorni di fila con almeno 4 ore di bici, o metà delle ore al giorno dell'Obiettivo, fuori dai viaggi già segnati. Finisce con «Sono arrivato», dopo i giorni previsti più uno, oppure dopo 2 giorni di fila senza nessuna attività. Con la sfida «Due settimane e oltre» i giorni previsti non ci sono, e la modalità resta accesa fino all'arrivo.
+- **I giorni di guardia dopo un viaggio** si contano dal viaggio del diario, dal primo all'ultimo giorno, anche se l'app è rimasta chiusa qualche giorno.
 - **Quanto fidarsi.** Alto, medio o basso, il più basso fra carico e notte. Si legge sotto «Perché», e accanto al colore solo quando è basso.
 - **Al massimo una carta in più** per apertura. Nel rilascio 1 sono «Oggi parti?», la proposta del viaggio e «Hai cambiato orologio o anello?».
 

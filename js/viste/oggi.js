@@ -36,6 +36,21 @@ const oggi = (m) => m.giorni[m.giorni.length - 1];
 const diarioDiOggi = (m) => (m.diario && m.diario[m.oggi]) || {};
 const lista = (v) => (Array.isArray(v) ? v : []);
 
+// Il gruppo di «Sto male» di ogni casella, per mostrare l'esito sotto la casella giusta.
+const GRUPPO_DI = new Map(STO_MALE.gruppi.flatMap((x) => x.caselle.map((c) => [c.id, x.id])));
+
+// Si aspetta la risposta «Il medico mi ha detto che posso riprendere», dal giorno dopo un sintomo di
+// cuore e dopo una malattia che chiede il medico (4.9).
+function aspettaIlMedico(m, g) {
+  const cuore = g.cuore && g.cuore.aperto && g.cuore.ultimo < m.oggi;
+  return Boolean(cuore || (g.malattia && g.malattia.attesa));
+}
+
+function tastoMedico(ctx, id) {
+  return h("button", { class: "bottone", type: "button", id, on: { click: () => ctx.azioni.diario({ medicoSentito: true }) } },
+    STO_MALE.medicoSentito);
+}
+
 function rispostePronte(m, g) {
   const o = oggi(m);
   if (g.evento) return Boolean(o.fatica && diarioDiOggi(m).viaggio);
@@ -111,6 +126,7 @@ function cartaSemaforo(ctx) {
     tasti.push(h("button", { class: "bottone", type: "button", id: "senza-febbre",
       on: { click: () => ctx.azioni.diario({ senzaFebbre: true }) } }, STO_MALE.senzaFebbre));
   }
+  if (aspettaIlMedico(m, g)) tasti.push(tastoMedico(ctx, "medico-sentito"));
   if (inViaggio && !g.arrivatoOggi) {
     const appenaPartito = g.viaggio && g.viaggio.inizio === m.oggi;
     tasti.push(h("button", { class: "bottone bottone-secondario", type: "button", id: "arrivato",
@@ -156,10 +172,17 @@ function modulo(ctx, { titolo, attacco, campi, raccogli }) {
       h("button", { class: "bottone", type: "submit", id: "salva-risposte" }, MATTINO.salva),
       ctx.demo ? h("span", { class: "piccolo" }, MATTINO.demo) : null),
     stato);
+  // raccogli dà le risposte, null senza nessuna risposta, oppure { errore, fuoco } con una risposta
+  // che manca e il campo da cui ripartire.
   form.addEventListener("submit", async (evento) => {
     evento.preventDefault();
     const dati = raccogli(form);
     if (!dati) { stato.textContent = MATTINO.almenoUna; return; }
+    if (dati.errore) {
+      stato.textContent = dati.errore;
+      if (dati.fuoco) dati.fuoco.focus();
+      return;
+    }
     const bottone = form.querySelector("button[type=submit]");
     bottone.disabled = true;
     stato.textContent = MATTINO.salvo;
@@ -187,11 +210,15 @@ function riepilogo(titolo, righe, cambia) {
 
 // Le tre domande del mattino. Le risposte vanno su intervals.icu, nel giorno di oggi. Con «Molto
 // doloranti» o «Un dolore» compare subito la domanda sulla pedalata, che resta sul telefono (4.4).
+// Le scelte non ancora salvate stanno in ctx.ui.bozzaMattino, così un ridisegno della pagina, per
+// esempio dopo una casella di «Sto male», non le perde.
 function domandeMattino(ctx) {
   const m = ctx.modello;
   const g = oggi(m);
   const risposte = { fatica: g.fatica, dolori: g.dolori, infortunio: g.infortunio };
   const pedalata = diarioDiOggi(m).pedalata || null;
+  const bozza = ctx.ui.bozzaMattino;
+  const scelto = (campo) => (bozza ? bozza[campo] : risposte[campo] || null);
   if (DOMANDE_MATTINO.every((d) => risposte[d.campo]) && !ctx.ui.modificaDomande) {
     const righe = DOMANDE_MATTINO.map((d) => [d.testo, d.opzioni[risposte[d.campo] - 1] || MATTINO.nessuna]);
     if (pedalata && (risposte.dolori === 4 || risposte.infortunio === 3)) {
@@ -202,7 +229,7 @@ function domandeMattino(ctx) {
 
   const domandaPedalata = h("fieldset", { class: "domanda domanda-in-piu" },
     h("legend", {}, CONTROLLO.pedalata.domanda),
-    scelteRadio("pedalata", CONTROLLO.pedalata.scelte, pedalata),
+    scelteRadio("pedalata", CONTROLLO.pedalata.scelte, bozza ? bozza.pedalata : pedalata),
     h("p", { class: "piccolo" }, CONTROLLO.pedalataDove));
   const servePedalata = (form) => {
     const gambe = form.querySelector("input[name=gambe]:checked");
@@ -212,7 +239,7 @@ function domandeMattino(ctx) {
   const campi = [
     ...DOMANDE_MATTINO.map((d) => h("fieldset", { class: "domanda" },
       h("legend", {}, d.testo),
-      scelteRadio(d.nome, d.opzioni, risposte[d.campo] || null))),
+      scelteRadio(d.nome, d.opzioni, scelto(d.campo)))),
     domandaPedalata,
   ];
   const form = modulo(ctx, {
@@ -231,12 +258,24 @@ function domandeMattino(ctx) {
     },
   });
   domandaPedalata.hidden = !servePedalata(form);
-  form.addEventListener("change", () => { domandaPedalata.hidden = !servePedalata(form); });
+  form.addEventListener("change", () => {
+    domandaPedalata.hidden = !servePedalata(form);
+    const valore = (nome) => {
+      const x = form.querySelector(`input[name="${nome}"]:checked`);
+      return x ? x.value : null;
+    };
+    const bozzaNuova = {};
+    for (const d of DOMANDE_MATTINO) bozzaNuova[d.campo] = valore(d.nome) === null ? null : Number(valore(d.nome));
+    bozzaNuova.pedalata = valore("pedalata");
+    ctx.ui.bozzaMattino = bozzaNuova;
+  });
   return form;
 }
 
 // Le tre domande in viaggio (4.5). L'energia va su intervals.icu come al solito, il sonno e «Qualcosa
-// non va?» restano sul telefono. Ogni casella apre al massimo una scelta in più.
+// non va?» restano sul telefono. Ogni casella apre al massimo una scelta in più, che parte vuota e va
+// scelta prima di salvare, perché la scelta cambia il colore. Le scelte non ancora salvate stanno in
+// ctx.ui.bozzaViaggio, come per le domande di casa.
 function domandeViaggio(ctx) {
   const m = ctx.modello;
   const g = oggi(m);
@@ -245,6 +284,7 @@ function domandeViaggio(ctx) {
   const problemi = prima.problemi || {};
   const chiedeSonno = !g.sonno;
   const energia = D.energia.scelte;
+  const bozza = ctx.ui.bozzaViaggio;
 
   if (g.fatica && diarioDiOggi(m).viaggio && !ctx.ui.modificaViaggio) {
     const segnati = D.problemi.caselle.filter((c) => problemi[c.id] && c.id !== "niente").map((c) => {
@@ -257,14 +297,16 @@ function domandeViaggio(ctx) {
     return riepilogo(VIAGGIO.risposte, righe, () => ctx.azioni.ui("modificaViaggio", true));
   }
 
+  const salvatoAcceso = (c) => (c.id === "niente" ? Object.keys(problemi).length === 0 && Boolean(diarioDiOggi(m).viaggio) : Boolean(problemi[c.id]));
+  const salvataScelta = (c) => (problemi[c.id] && problemi[c.id] !== true ? problemi[c.id] : null);
   const caselle = D.problemi.caselle.map((c) => {
     const id = `problema-${c.id}`;
-    const acceso = c.id === "niente" ? Object.keys(problemi).length === 0 && Boolean(diarioDiOggi(m).viaggio) : Boolean(problemi[c.id]);
+    const acceso = bozza ? bozza.caselle.includes(c.id) : salvatoAcceso(c);
     const casella = h("input", { type: "checkbox", id, name: "problema", value: c.id, checked: acceso });
     const altre = c.scelte
       ? h("fieldset", { class: "domanda-sotto", hidden: !acceso },
         h("legend", { class: "nascosto" }, c.testo),
-        scelteRadio(`problema-${c.id}-scelta`, c.scelte, problemi[c.id] && problemi[c.id] !== true ? problemi[c.id] : c.scelte[0].id))
+        scelteRadio(`problema-${c.id}-scelta`, c.scelte, bozza ? bozza.scelte[c.id] || null : salvataScelta(c)))
       : null;
     return { c, casella, altre, elemento: h("div", { class: "casella-con-scelta" },
       h("span", { class: "scelta casella" }, casella, h("label", { for: id }, c.testo)),
@@ -282,15 +324,16 @@ function domandeViaggio(ctx) {
   const campi = [
     h("fieldset", { class: "domanda" },
       h("legend", {}, D.energia.testo),
-      scelteRadio("viaggio-energia", energia, g.fatica || null)),
+      scelteRadio("viaggio-energia", energia, bozza ? bozza.energia : g.fatica || null)),
     chiedeSonno ? h("fieldset", { class: "domanda" },
       h("legend", {}, D.sonno.testo),
-      scelteRadio("viaggio-sonno", D.sonno.scelte, prima.sonno || null)) : null,
+      scelteRadio("viaggio-sonno", D.sonno.scelte, bozza ? bozza.sonno : prima.sonno || null)) : null,
     h("fieldset", { class: "domanda" },
       h("legend", {}, D.problemi.testo),
       h("div", { class: "caselle-viaggio" }, caselle.map((x) => x.elemento))),
   ];
-  return modulo(ctx, {
+  const sceltaDi = (f, x) => f.querySelector(`input[name="problema-${x.c.id}-scelta"]:checked`);
+  const form = modulo(ctx, {
     titolo: VIAGGIO.titoloDomande,
     attacco: chiedeSonno ? VIAGGIO.attaccoDomande : VIAGGIO.attaccoDomandeCorto,
     campi,
@@ -304,8 +347,9 @@ function domandeViaggio(ctx) {
         qualcosa = true;
         if (x.c.id === "niente") continue;
         if (!x.altre) { scelti[x.c.id] = true; continue; }
-        const scelta = f.querySelector(`input[name="problema-${x.c.id}-scelta"]:checked`);
-        scelti[x.c.id] = scelta ? scelta.value : x.c.scelte[0].id;
+        const scelta = sceltaDi(f, x);
+        if (!scelta) return { errore: VIAGGIO.sceltaMancante(x.c.testo), fuoco: x.altre.querySelector("input") };
+        scelti[x.c.id] = scelta.value;
       }
       if (!e && !s && !qualcosa) return null;
       const viaggio = { problemi: scelti };
@@ -313,17 +357,38 @@ function domandeViaggio(ctx) {
       return { risposte: e ? { fatica: Number(e.value) } : {}, diario: { viaggio } };
     },
   });
+  form.addEventListener("change", () => {
+    const e = form.querySelector("input[name=viaggio-energia]:checked");
+    const s = form.querySelector("input[name=viaggio-sonno]:checked");
+    const scelte = {};
+    for (const x of caselle) {
+      const scelta = x.altre ? sceltaDi(form, x) : null;
+      if (scelta) scelte[x.c.id] = scelta.value;
+    }
+    ctx.ui.bozzaViaggio = {
+      energia: e ? Number(e.value) : null,
+      sonno: s ? s.value : null,
+      caselle: caselle.filter((x) => x.casella.checked).map((x) => x.c.id),
+      scelte,
+    };
+  });
+  return form;
 }
 
 // --- «Sto male» e «Ieri sera…» ---
 
-function caselle(nome, elenco, scelte, cambia) {
+// cambia(contenitore, valore) riceve anche la casella toccata. dopo { id, elemento } mette un elemento
+// subito sotto quella casella.
+function caselle(nome, elenco, scelte, cambia, dopo = null) {
   return h("div", { class: "scelte caselle" }, elenco.map((c) => {
     const id = `${nome}-${c.id}`;
-    return h("span", { class: "scelta casella" },
-      h("input", { type: "checkbox", id, name: nome, value: c.id, checked: scelte.includes(c.id),
-        on: { change: (e) => cambia(e.target.closest("details, form, section")) } }),
-      h("label", { for: id }, c.testo));
+    return [
+      h("span", { class: "scelta casella" },
+        h("input", { type: "checkbox", id, name: nome, value: c.id, checked: scelte.includes(c.id),
+          on: { change: (e) => cambia(e.target.closest("details, form, section"), c.id) } }),
+        h("label", { for: id }, c.testo)),
+      dopo && dopo.id === c.id ? dopo.elemento : null,
+    ];
   }));
 }
 
@@ -331,14 +396,40 @@ function spuntate(contenitore, nome) {
   return [...contenitore.querySelectorAll(`input[name="${nome}"]:checked`)].map((x) => x.value);
 }
 
+// Dove mostrare nel pannello quello che le caselle di oggi hanno deciso, cioè subito sotto la casella
+// appena spuntata del gruppo che decide, oppure sotto la prima spuntata di quel gruppo, così l'ordine
+// di fermarsi e il 112 arrivano dove la persona sta guardando (4.4 e 4.9). Per il cuore è un avviso,
+// che il lettore di schermo legge subito.
+function esitoNelPannello(e, segnati, toccata) {
+  const gruppi = new Set(segnati.map((id) => GRUPPO_DI.get(id)));
+  let qui = null;
+  if (e.stop === "cuore" && gruppi.has("cuore")) qui = { gruppo: "cuore", avviso: true };
+  else if (e.stop === "malattia" && gruppi.size) qui = { gruppo: gruppi.has("malattia") ? "malattia" : [...gruppi][0], avviso: false };
+  else if (!e.stop && gruppi.has("collo") && e.tetti.some((t) => t.chiave === "sopraIlCollo")) qui = { gruppo: "collo", avviso: false };
+  if (!qui) return null;
+  const delGruppo = segnati.filter((id) => GRUPPO_DI.get(id) === qui.gruppo);
+  qui.casella = delGruppo.includes(toccata) ? toccata : delGruppo[0];
+  return qui;
+}
+
 // Un tasto sempre visibile sotto la carta, non una domanda in più (4.4).
 function pannelloStoMale(ctx) {
   const m = ctx.modello;
+  const e = ctx.esito;
   const dia = diarioDiOggi(m);
   const segnati = lista(dia.stoMale);
   const g = ctx.giorno;
   const malattiaDiPrima = g.malattia && g.malattia.inCorso && g.malattia.dal < m.oggi && dia.controllo !== "si"
     && !segnati.some((id) => SINTOMI_MALATTIA.has(id));
+  const qui = esitoNelPannello(e, segnati, ctx.ui.toccataStoMale);
+  const esito = qui
+    ? h("div", { class: ["pannello-esito", e.stop && "pannello-esito-stop", qui.avviso && "pannello-esito-cuore"], role: qui.avviso ? "alert" : "status" },
+      h("p", {}, h("strong", {}, `${e.titolo}. `), e.consiglio))
+    : null;
+  const cambia = (contenitore, casella) => {
+    ctx.ui.toccataStoMale = casella;
+    ctx.azioni.diario({ stoMale: spuntate(contenitore, "sto-male") });
+  };
   const pannello = h("details", { class: "sto-male", open: ctx.ui.stoMale || null },
     h("summary", { class: "bottone bottone-secondario sto-male-tasto" }, STO_MALE.tasto,
       segnati.length ? h("span", { class: "conta" }, STO_MALE.segnati(segnati.length)) : null),
@@ -348,9 +439,13 @@ function pannelloStoMale(ctx) {
         h("p", {}, h("strong", {}, STO_MALE.febbrePassata)),
         h("button", { class: "bottone", type: "button", id: "senza-febbre-pannello",
           on: { click: () => ctx.azioni.diario({ senzaFebbre: true }) } }, STO_MALE.senzaFebbre)) : null,
+      aspettaIlMedico(m, g) ? h("div", { class: "pannello-febbre" },
+        h("p", {}, h("strong", {}, STO_MALE.medicoDomanda)),
+        tastoMedico(ctx, "medico-sentito-pannello")) : null,
       STO_MALE.gruppi.map((gruppo) => h("fieldset", { class: ["domanda", `gruppo-${gruppo.id}`] },
         h("legend", {}, gruppo.titolo),
-        caselle("sto-male", gruppo.caselle, segnati, (contenitore) => ctx.azioni.diario({ stoMale: spuntate(contenitore, "sto-male") }))))));
+        caselle("sto-male", gruppo.caselle, segnati, cambia,
+          qui && qui.gruppo === gruppo.id ? { id: qui.casella, elemento: esito } : null)))));
   pannello.addEventListener("toggle", () => { ctx.ui.stoMale = pannello.open; });
   return pannello;
 }
@@ -407,17 +502,26 @@ function cartaInPiu(ctx) {
 
 // --- il «Perché», chiuso (4.8), con «Quanto fidarti oggi» quando la fiducia non è alta (4.7) ---
 
-function riga(nome, testo, colore) {
+// esito, se c'è, è la scritta propria della voce, per esempio «da rispondere» per una domanda senza
+// risposta, che conta sempre per intero e non è «non conta oggi» (4.3).
+function riga(nome, testo, colore, esito = null) {
   return h("li", { class: ["voce", `voce-${colore}`] },
     h("span", { class: "voce-pallino", "aria-hidden": "true" }),
-    h("span", { class: "voce-nome" }, nome, h("span", { class: "voce-esito" }, ESITO_VOCE[colore])),
+    h("span", { class: "voce-nome" }, nome, h("span", { class: "voce-esito" }, ESITO_VOCE[esito] || ESITO_VOCE[colore])),
     h("span", { class: "voce-testo" }, testo));
+}
+
+// Un details che resta aperto o chiuso anche quando la pagina si ridisegna, con lo stato in ctx.ui.
+function apribile(ctx, chiave, attributi, ...figli) {
+  const d = h("details", { ...attributi, open: ctx.ui[chiave] || null }, ...figli);
+  d.addEventListener("toggle", () => { ctx.ui[chiave] = d.open; });
+  return d;
 }
 
 function perche(ctx) {
   const e = ctx.esito;
   const inViaggio = Boolean(ctx.giorno.evento);
-  const righe = e.voci.map((v) => riga(v.nome, v.testo, colorePallino(v)));
+  const righe = e.voci.map((v) => riga(v.nome, v.testo, colorePallino(v), v.esito));
   for (const t of e.tetti) righe.push(riga(TETTI[t.chiave] || t.chiave, t.perche, "giallo"));
   const note = [
     inViaggio ? e.nota : null,
@@ -429,7 +533,7 @@ function perche(ctx) {
       h("h3", {}, FIDUCIA.titolo),
       h("p", {}, h("strong", {}, `${FIDUCIA.livelli[f.indice]}. `), [...f.righe, FIDUCIA.risposte].join(" ")))
     : null;
-  return h("details", { class: "carta perche", id: "perche" },
+  return apribile(ctx, "perche", { class: "carta perche", id: "perche" },
     h("summary", {}, OGGI.perche),
     h("ul", { class: "voci" }, righe),
     note.map((t) => h("p", { class: "perche-nota" }, t)),
@@ -452,7 +556,7 @@ function tessera({ chiave, nome, valore, unita, sotto, colore, serie, classeSeri
     spiegazione(testo));
 }
 
-function numeriDelGiorno(m, esito) {
+function numeriDelGiorno(ctx, m, esito) {
   const T = NUMERI_OGGI;
   const g = m.giorni;
   const o = oggi(m);
@@ -510,7 +614,7 @@ function numeriDelGiorno(m, esito) {
       serie: g.slice(-29, -1).map((x) => (x.ctl > 0 && x.atl !== null ? x.atl / x.ctl : null)), classeSerie: "s2",
     }));
 
-  return h("details", { class: "numeri-oggi" },
+  return apribile(ctx, "numeri", { class: "numeri-oggi", id: "numeri-oggi" },
     h("summary", {}, T.titolo),
     h("div", { class: "numeri-dentro" },
       h("p", { class: "sezione-testo" }, notteMai ? T.attaccoSenzaNotte : T.attacco),
@@ -568,5 +672,5 @@ export function vistaOggi(ctx) {
     cartaInPiu(ctx),
     perche(ctx),
     h("p", { class: "semaforo-piede" }, h("a", { href: "#guida" }, OGGI.comeNasce)),
-    numeriDelGiorno(m, e));
+    numeriDelGiorno(ctx, m, e));
 }

@@ -5,7 +5,7 @@
 import { h, icona } from "../dom.js?v=202610312043";
 import {
   SPIEGAZIONI, GUIDA_SEMAFORO, GUIDA_LIVELLI, GUIDA_COLONNE, GUIDA, DISPOSITIVI, DOMANDE_FREQUENTI,
-  DOMANDA_ESCI_CON_INTERVALS, LIMITI, CONSENSO, PRIVACY,
+  DOMANDA_ESCI_CON_INTERVALS, LIMITI, CONSENSO, PRIVACY, COLLEGA,
 } from "../testi.js?v=202610312043";
 import { intestazione, luceSemaforo } from "./comuni.js?v=202610312043";
 import { OAUTH_ATTIVO } from "../config.js?v=202610312043";
@@ -229,8 +229,7 @@ export function vistaCollega(ctx) {
   }
 
   return h("div", { class: "vista" },
-    intestazione("Collega i tuoi dati", "Tre passi, una volta sola",
-      "Ci vogliono cinque minuti. Il semaforo parte dalla prima notte e dal primo giro registrati, e diventa completo in due settimane."),
+    intestazione("Collega i tuoi dati", "Tre passi, una volta sola", COLLEGA.attacco),
 
     // tabindex -1 perché al ritorno da intervals.icu con un errore il fuoco viene messo qui.
     errore ? h("div", { class: "banner banner-errore", role: "alert", id: "errore-accesso", tabindex: "-1" },

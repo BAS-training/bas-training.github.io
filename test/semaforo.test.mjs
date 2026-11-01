@@ -1,21 +1,25 @@
 // Prove del semaforo a punti (capitolo 4 e 9.5 della specifica) e del modello che lo nutre.
 // Si lanciano con  node --test test/semaforo.test.mjs
-// Le persone sono inventate (Lucia, Marco, Anna) e i numeri sono costruiti, non presi da nessuno.
+// Le persone sono inventate (Lucia, Marco, Luca, Anna, Paolo) e i numeri sono costruiti, non presi da nessuno.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
   aggiungiGiorni, giorniTra, giornoSettimana, calendario, baseHrv, baseFc, costruisciModello, notteValida,
   proiettaFitness, fitnessAllaPartenza, salitaSettimanale, caricoSettimanaPer, puntiPerOra, settimane,
-  normalizzaUscite, oggiNelFuso, decadimento, GIORNI_STORICO, GIORNI_USCITE,
+  normalizzaUscite, oggiNelFuso, decadimento, mattinoDelGiorno, GIORNI_STORICO, GIORNI_USCITE,
 } from "../js/modello.js";
 import {
   valuta, valutaInViaggio, giorniDiGuardia, fiducia, stop, puntiHrv, puntiFc, puntiSonno, puntiDomande,
-  puntiCarico, statoMalattia, eventoDiOggi, propostaViaggio, partenza, zonaFreschezza, usciteGrandi, LIVELLI,
+  puntiCarico, statoMalattia, statoCuore, eventoDiOggi, propostaViaggio, inizioProposta, viaggiDelDiario,
+  partenza, zonaFreschezza, usciteGrandi, fasciaBattito, LIVELLI, ESITO_VOCE,
 } from "../js/semaforo.js";
 import {
-  VOCI, STOP, MEDICO, MESSAGGI, NOTE, PERCHE, CARICO_TRE_MATTINE, CONTROLLO, VIAGGIO, GUIDA_SEMAFORO, durataInParole,
+  VOCI, STOP, MEDICO, MESSAGGI, NOTE, PERCHE, CARICO_TRE_MATTINE, CONTROLLO, VIAGGIO, GUIDA_SEMAFORO, STO_MALE,
+  FIDUCIA, durataInParole,
 } from "../js/testi.js";
+import { SEMAFORO, PIANO, MEMORIA } from "../js/parametri.js";
+import { CAMPI_USCITE } from "../js/api.js";
 import { numero, segno, durata } from "../js/formato.js";
 import { generaDemo } from "../js/demo.js";
 
@@ -309,16 +313,22 @@ test("punti HRV: z7 a −0,6, notte a −1,2, notte a −2,1, z7 basso da 3 matt
   assert.equal(tre.piuNotti, true);
 });
 
-test("una notte sola: −1,8 dà Giallo leggero, −2,3 Giallo con la domanda di controllo, −3 mai Rosso", () => {
+test("una notte sola: −1,8 dà Giallo leggero, −2,3 Giallo con la domanda di controllo, −3 e più giù mai Rosso", () => {
   const a = valuta(conHrvZ(-1.8));
   assert.equal(a.livello, "giallo-leggero");
   const b = valuta(conHrvZ(-2.3));
   assert.equal(b.livello, "giallo");
   assert.deepEqual(b.controllo.map((x) => x.chiave), ["malattia"]);
   assert.equal(b.controllo[0].domanda, CONTROLLO.malattia.domanda);
-  const c = valuta(conHrvZ(-3));
-  assert.equal(c.livello, "giallo");
-  assert.equal(c.concordanza, false);
+  // Da −3,5 la notte da sola porta la media di 7 notti sotto −0,5, e non deve bastare (regola 5.15).
+  for (const z of [-3, -3.5, -4]) {
+    const c = valuta(conHrvZ(z));
+    const hrv = voceDi(c, "hrv");
+    if (z <= -3.5) assert.ok(hrv.lettura.z7 < -0.5 && hrv.lettura.z7Prima > -0.5, `${z} ${hrv.lettura.z7} ${hrv.lettura.z7Prima}`);
+    assert.equal(hrv.piuNotti, false, String(z));
+    assert.equal(c.livello, "giallo", String(z));
+    assert.equal(c.concordanza, false, String(z));
+  }
 });
 
 test("Rosso vero: media bassa da 3 mattine, notte sotto −1 ed energia «Poca»", () => {
@@ -329,22 +339,59 @@ test("Rosso vero: media bassa da 3 mattine, notte sotto −1 ed energia «Poca»
 });
 
 test("senza concordanza: 4 punti tutti dalla notte di oggi danno Giallo, HRV e battito bassi con il carico basso la nota del malanno", () => {
-  const a = valuta(conHrvZ(-2.5, { oggi: { sleepSecs: 4.5 * ORA } }));
-  assert.equal(a.P, 4);
-  assert.equal(a.concordanza, false);
-  assert.equal(a.livello, "giallo");
+  // Con −3,5 e −4 la notte da sola sposta anche la media di 7 notti, e la media della settimana del
+  // sonno va sotto 6 ore e mezza solo per stanotte. Le regole su più notti non devono valere.
+  for (const z of [-2.5, -3.5, -4]) {
+    const a = valuta(conHrvZ(z, { oggi: { sleepSecs: 4.5 * ORA } }));
+    assert.equal(a.P, 4, String(z));
+    assert.equal(a.forti, 2, String(z));
+    assert.equal(a.concordanza, false, String(z));
+    assert.equal(a.livello, "giallo", String(z));
+  }
 
-  const b = valuta(conHrvZ(-2.5, { oggi: { restingHR: 54 } }));
-  assert.equal(voceDi(b, "fc").punti, 2);
-  assert.equal(voceDi(b, "carico").punti, 0);
-  assert.equal(b.livello, "giallo");
-  assert.equal(b.nota, NOTE.malanno);
+  for (const z of [-2.5, -3.5]) {
+    const b = valuta(conHrvZ(z, { oggi: { restingHR: 54 } }));
+    assert.equal(voceDi(b, "fc").punti, 2);
+    assert.equal(voceDi(b, "carico").punti, 0);
+    assert.equal(b.concordanza, false, String(z));
+    assert.equal(b.livello, "giallo", String(z));
+    assert.equal(b.nota, NOTE.malanno);
+  }
+
+  // Marco dorme 7 ore. Una notte di 3 ore porta la media della settimana sotto 6 ore e mezza, ma solo
+  // per stanotte. Con il battito +5 sono 4 punti e due segnali forti, e resta Giallo.
+  const sette = notti(90, OGGI, () => ({ sleepSecs: 7 * ORA }));
+  const c = valuta(scena({ benessere: sette, oggi: { sleepSecs: 3 * ORA, restingHR: 53 } }));
+  assert.equal(voceDi(c, "sonno").punti, 2);
+  assert.equal(voceDi(c, "sonno").piuNotti, false);
+  assert.equal(voceDi(c, "fc").punti, 2);
+  assert.equal(c.concordanza, false);
+  assert.equal(c.livello, "giallo");
 });
 
 test("con concordanza: lo stesso, ma ieri il battito era già alto, dà Rosso", () => {
   const e = valuta(conHrvZ(-2.5, { oggi: { restingHR: 54 }, modifica: { 1: { restingHR: 54 } } }));
   assert.equal(e.concordanza, true);
   assert.equal(e.livello, "rosso");
+  // La settimana corta anche senza stanotte guarda davvero più notti, e con il battito +5 dà Rosso.
+  const corte = notti(90, OGGI, (k) => ({ sleepSecs: (k <= 6 ? 6.2 : 7.5) * ORA }));
+  const f = valuta(scena({ benessere: corte, oggi: { sleepSecs: 4.5 * ORA, restingHR: 53 } }));
+  assert.equal(voceDi(f, "sonno").piuNotti, true);
+  assert.equal(f.concordanza, true);
+  assert.equal(f.livello, "rosso");
+});
+
+test("la media bassa da 3 mattine guarda le mattine di SEMAFORO.hrv.mattineDiFila", () => {
+  // Notti a −4 DS, una ogni mattina dalla prima delle mattine di fila. Ogni media di 7 notti che ne
+  // contiene una va sotto −0,5, quella prima no.
+  const N = SEMAFORO.hrv.mattineDiFila;
+  const bassa = (quante) => {
+    const modifica = nottiA(-4, quante - 1);
+    return puntiHrv(conHrvZ(-1.2, { modifica }));
+  };
+  assert.equal(bassa(N).lettura.treMattine, true, `${N} mattine`);
+  assert.equal(bassa(N).punti, 2);
+  assert.equal(bassa(N - 1).lettura.treMattine, false, `${N - 1} mattine`);
 });
 
 test("calo atteso: dopo un'uscita di 4 ore e mezza ieri una notte a −1,5 non dà punti", () => {
@@ -486,43 +533,141 @@ test("Sto male: la febbre ferma, il dolore al petto dà Rosso con il cuore e il 
   assert.match(petto.consiglio, /112/);
   assert.ok(petto.medico.some((x) => x.quando === "subito"));
 
+  // Con i soli sintomi sopra il collo la carta dice una durata sola, al massimo un'ora (regola 5.10).
   const naso = valuta(scena({ diario: { [OGGI]: { stoMale: ["naso"] } } }));
   assert.equal(naso.stop, null);
   assert.equal(naso.livello, "giallo");
-  assert.ok(naso.aggiunte.includes("Se esci, al massimo un'ora facile, a ritmo da chiacchiera."));
+  assert.equal(naso.consiglio, STO_MALE.consiglio);
+  const carta = [naso.consiglio, ...naso.aggiunte].join(" ");
+  assert.ok(carta.includes("Se esci, al massimo un'ora facile, a ritmo da chiacchiera."));
+  assert.equal(carta.split("al massimo un'ora").length, 2, "una volta sola");
+  assert.ok(!/un'ora e mezza|mezz'ora a/.test(carta), carta);
+  // il secondo giorno dopo un'uscita grande, con il naso che cola, il giro facile è quello di un'ora
+  const dopo = valuta(scena({ uscite: giri(90, OGGI, [giro(2, 5.2)]), diario: { [OGGI]: { stoMale: ["naso"] } } }));
+  assert.ok(dopo.tetti.some((t) => t.chiave === "guardia"));
+  assert.ok(dopo.consiglio.includes(STO_MALE.sopraIlCollo), dopo.consiglio);
+  assert.ok(!/un'ora e mezza/.test([dopo.consiglio, ...dopo.aggiunte].join(" ")));
 
   const ritmo = valuta(scena({ diario: { [OGGI]: { stoMale: ["avvisoRitmo"] } } }));
   assert.ok(ritmo.medico.some((x) => x.testo === MEDICO.primaDiRiprendere));
 });
 
-test("dopo lo stop per malattia, senza «Non ho più febbre» lo stop resta, fino a 14 giorni", () => {
+test("cuore: il giorno dopo un sintomo di cuore il semaforo resta Rosso con l'invito, finché il medico non dice che puoi riprendere", () => {
+  // Marco venerdì segna un sintomo di cuore, sabato apre l'app senza segnare niente.
+  for (const id of ["avvisoRitmo", "petto", "svenimento", "palpitazioni"]) {
+    const sabato = valuta(scena({ diario: { [giorniFa(1)]: { stoMale: [id] } } }));
+    assert.equal(sabato.stop, "cuore", id);
+    assert.equal(sabato.livello, "rosso", id);
+    assert.equal(sabato.consiglio, STOP.cuoreRiportato, id);
+    assert.equal(sabato.perche, PERCHE.stop.cuoreRiportato, id);
+    assert.ok(sabato.medico.some((x) => x.chiave === "riprendere" && x.testo === MEDICO.primaDiRiprendere), id);
+    assert.equal(sabato.registro.riportato, true, "il giorno riportato non allunga l'episodio");
+  }
+  // senza la risposta non scade, nemmeno dopo tre settimane
+  assert.equal(valuta(scena({ diario: { [giorniFa(20)]: { stoMale: ["avvisoRitmo"] } } })).livello, "rosso");
+  // con «Il medico mi ha detto che posso riprendere» il semaforo torna a leggere la giornata
+  const visto = valuta(scena({ diario: { [giorniFa(1)]: { stoMale: ["avvisoRitmo"] }, [OGGI]: { medicoSentito: true } } }));
+  assert.equal(visto.stop, null);
+  assert.equal(visto.livello, "verde");
+  assert.ok(!visto.medico.some((x) => x.chiave === "riprendere"));
+  // la risposta vale solo dopo l'ultimo sintomo, e un sintomo nuovo riapre l'episodio
+  const diario = { [giorniFa(5)]: { stoMale: ["petto"] }, [giorniFa(3)]: { medicoSentito: true }, [giorniFa(1)]: { stoMale: ["palpitazioni"] } };
+  assert.deepEqual(statoCuore(diario, {}, OGGI), { aperto: true, dal: giorniFa(1), ultimo: giorniFa(1) });
+  assert.equal(statoCuore({ [OGGI]: { stoMale: ["petto"], medicoSentito: true } }, {}, OGGI).aperto, true);
+  // anche dalla storia, con lo stop di cuore di un giorno passato
+  assert.equal(statoCuore({}, { [giorniFa(2)]: { livello: "rosso", stop: "cuore", riportato: false } }, OGGI).aperto, true);
+  assert.equal(statoCuore({}, { [giorniFa(2)]: { livello: "rosso", stop: "cuore", riportato: true } }, OGGI).aperto, false);
+  // in viaggio lo stop resta
+  assert.equal(valuta(scena({ diario: { [giorniFa(1)]: { stoMale: ["avvisoRitmo"] } } }), { evento: { tipo: "viaggio", giorno: 2, giorni: 4 } }).stop, "cuore");
+});
+
+test("dopo lo stop per malattia, senza «Non ho più febbre» lo stop resta 14 giorni, poi la malattia si chiude come lunga", () => {
   const ieri = valuta(scena({ diario: { [giorniFa(1)]: { stoMale: ["febbre"] } } }));
   assert.equal(ieri.stop, "malattia");
   assert.equal(ieri.registro.riportato, true);
   assert.equal(ieri.perche, PERCHE.stop.malattiaRiportata);
+  // alla scadenza niente più stop, ma il rientro con il medico, perché la durata non si conosce
   const scaduto = valuta(scena({ diario: { [giorniFa(15)]: { stoMale: ["febbre"] } } }));
   assert.equal(scaduto.stop, null);
+  assert.equal(scaduto.livello, "giallo");
+  assert.ok(scaduto.tetti.some((t) => t.chiave === "rientro"));
+  assert.ok(scaduto.medico.some((x) => x.testo === MEDICO.primaDiRiprendere));
+  assert.equal(scaduto.consiglio, MEDICO.attesa);
+  assert.equal(scaduto.perche, PERCHE.attesa);
+  // Paolo, febbre per 9 mattine, poi due settimane senza aprire l'app. Il sedicesimo giorno dopo.
+  const diarioPaolo = {};
+  for (let k = 24; k >= 16; k--) diarioPaolo[giorniFa(k)] = { stoMale: ["febbre"] };
+  const s = statoMalattia(diarioPaolo, {}, OGGI);
+  assert.equal(s.inCorso, false);
+  assert.equal(s.attesa, true);
+  assert.deepEqual([s.rientro.attesa, s.rientro.giorni, s.rientro.giorno], [true, 7, 2]);
+  const paolo = valuta(scena({ diario: diarioPaolo }));
+  assert.equal(paolo.livello, "giallo");
+  assert.ok(paolo.medico.some((x) => x.testo === MEDICO.primaDiRiprendere));
+  // con la risposta sul medico i 7 giorni del rientro contano da lì
+  const sentito = valuta(scena({ diario: { ...diarioPaolo, [giorniFa(1)]: { medicoSentito: true } } }));
+  assert.equal(sentito.livello, "giallo");
+  assert.equal(sentito.perche, PERCHE.rientro(2, 7));
+  assert.equal(sentito.consiglio, LIVELLI.giallo.consiglio);
+  assert.ok(!sentito.medico.some((x) => x.chiave === "riprendere"));
   // uno stop riportato e salvato nella storia non allunga la malattia
   const storia = {};
   for (let k = 1; k <= 13; k++) storia[giorniFa(k)] = { livello: "rosso", stop: "malattia", riportato: true };
-  const s = statoMalattia({ [giorniFa(14)]: { stoMale: ["febbre"] } }, storia, OGGI);
-  assert.equal(s.inCorso, true);
+  assert.equal(statoMalattia({ [giorniFa(14)]: { stoMale: ["febbre"] } }, storia, OGGI).inCorso, true);
   assert.equal(statoMalattia({ [giorniFa(16)]: { stoMale: ["febbre"] } }, storia, OGGI).inCorso, false);
 });
 
-test("rientro: il secondo giorno dopo la febbre è Giallo, e con 9 giorni di malattia anche il sesto", () => {
+test("rientro: il secondo giorno dopo la febbre è Giallo, e con 9 giorni di malattia si aspetta il medico", () => {
   const breve = valuta(scena({ diario: { [giorniFa(3)]: { stoMale: ["febbre"] }, [giorniFa(1)]: { senzaFebbre: true } } }));
   assert.equal(breve.stop, null);
   assert.equal(breve.livello, "giallo");
   assert.ok(breve.tetti.some((t) => t.chiave === "rientro"));
   assert.equal(breve.perche, PERCHE.rientro(2, 4));
+  assert.equal(breve.consiglio, LIVELLI.giallo.consiglio);
 
-  const lunga = valuta(scena({ diario: { [giorniFa(14)]: { stoMale: ["febbre"] }, [giorniFa(5)]: { senzaFebbre: true } } }));
+  // Lucia, 9 giorni di febbre e il sesto giorno dopo. Con l'invito dal medico la carta non propone un giro.
+  const diario = { [giorniFa(14)]: { stoMale: ["febbre"] }, [giorniFa(5)]: { senzaFebbre: true } };
+  const lunga = valuta(scena({ diario }));
   assert.equal(lunga.livello, "giallo");
   assert.ok(lunga.medico.some((x) => x.testo === MEDICO.primaDiRiprendere));
+  assert.equal(lunga.consiglio, MEDICO.attesa);
+  assert.ok(!/giro|bici/.test(lunga.consiglio), lunga.consiglio);
+  // anche quando i numeri danno Rosso
+  const rossa = valuta(conHrvZ(-1.3, { modifica: nottiA(-1.0, 6), oggi: { fatigue: 3 }, diario }));
+  assert.equal(rossa.livello, "rosso");
+  assert.equal(rossa.consiglio, MEDICO.attesa);
+  // la risposta sul medico fa partire i 7 giorni
+  const sentito = valuta(scena({ diario: { ...diario, [OGGI]: { medicoSentito: true } } }));
+  assert.equal(sentito.perche, PERCHE.rientro(1, 7));
+  assert.equal(sentito.consiglio, LIVELLI.giallo.consiglio);
+
+  // la febbre con la tosse chiede il medico anche dopo una malattia corta
+  const petto = valuta(scena({ diario: { [giorniFa(3)]: { stoMale: ["febbre", "tosse"] }, [giorniFa(1)]: { senzaFebbre: true } } }));
+  assert.equal(petto.consiglio, MEDICO.attesa);
+  assert.ok(petto.medico.some((x) => x.chiave === "riprendere"));
 
   const finito = valuta(scena({ diario: { [giorniFa(8)]: { stoMale: ["febbre"] }, [giorniFa(5)]: { senzaFebbre: true } } }));
   assert.equal(finito.livello, "verde");
+});
+
+test("la domanda sulla pedalata non copre uno stop che resta comunque", () => {
+  // Il cuore che batte strano, la febbre o «Sono a pezzi», con le gambe molto doloranti o un dolore
+  // senza la risposta sulla pedalata. La carta è quella dello stop.
+  const casi = [
+    [{ soreness: 4, fatigue: 2, injury: 1 }, { stoMale: ["palpitazioni"] }, "cuore"],
+    [{ soreness: 4, fatigue: 3, injury: 1 }, { stoMale: ["febbre", "dolori"] }, "malattia"],
+    [{ soreness: 2, fatigue: 4, injury: 3 }, {}, "dolore"],
+    [{ soreness: 4, fatigue: 2, injury: 4 }, {}, "infortunio"],
+  ];
+  for (const [oggi, diario, tipo] of casi) {
+    const e = valuta(scena({ oggi, diario: { [OGGI]: diario } }));
+    assert.equal(e.stop, tipo, JSON.stringify(oggi));
+    assert.deepEqual(e.controllo, [], JSON.stringify(oggi));
+  }
+  // senza un altro stop la domanda c'è, perché un no cambia la giornata
+  assert.deepEqual(valuta(scena({ oggi: { injury: 3 } })).controllo.map((x) => x.chiave), ["pedalata"]);
+  // le gambe molto doloranti sono anche un segnale forte, e dopo la pedalata viene la domanda di controllo
+  assert.deepEqual(valuta(scena({ oggi: { soreness: 4 } })).controllo.map((x) => x.chiave), ["pedalata", "malattia"]);
 });
 
 test("caselle: con l'alcol un'HRV a −2,5 dà 1 punto e la notte esce dalla base", () => {
@@ -570,6 +715,25 @@ test("carico: 1,35 e 18, 1,6 e 30 da solo, per 3 mattine, da 52 anni, con la Fit
   assert.equal(fiducia(basso, basso.profilo).carico, "bassa");
   assert.equal(puntiCarico(basso).punti, 1);
   assert.notEqual(valuta(basso).livello, "rosso");
+});
+
+test("carico: se ieri manca, valgono Fitness e Fatica dell'ultimo giorno prima, mai quelle di oggi", () => {
+  // A Lucia manca il benessere di ieri, e il giro duro di stamattina porta la Fatica di oggi a 62.
+  const benessere = notti().filter((w) => w.id !== giorniFa(1));
+  const m = scena({ benessere, oggi: { ctl: 41, atl: 62 } });
+  assert.equal(m.giorni[m.giorni.length - 2].ctl, null);
+  const carico = puntiCarico(m);
+  assert.equal(carico.lettura.F, 40);
+  assert.equal(carico.lettura.A, 40);
+  assert.equal(carico.punti, 0);
+  assert.equal(valuta(m).livello, "verde");
+  // anche i numeri del mattino della pagina vengono da lì
+  assert.equal(m.mattino.ctl, 40);
+  assert.equal(mattinoDelGiorno(m.giorni, m.giorni.length - 1).d, giorniFa(2));
+  // senza nessun giorno prima il carico non vota
+  const solo = costruisciModello({ benessere: [{ id: OGGI, ctl: 41, atl: 62, hrv: 50 }], uscite: [] }, OGGI);
+  assert.equal(puntiCarico(solo).attiva, false);
+  assert.equal(solo.mattino.ctl, null);
 });
 
 test("carico da 52 anni: il rapporto usa la Fatica lenta a 10 giorni", () => {
@@ -664,6 +828,95 @@ test("giorni di guardia: un'uscita grande, i giorni, il testo e le esclusioni", 
   assert.equal(g12.giorni, 14);
   assert.equal(g12.giorno, 9);
   assert.match(g12.testo, /9 giorni fa hai finito il viaggio/);
+  // il secondo giorno dopo il giro facile dice quanto, con le durate del giro del Giallo
+  const G = PIANO.sedute.giroGiallo;
+  assert.ok(secondo.testo.includes(`Oggi un giro facile, da ${durataInParole(G.minimo)} a ${durataInParole(G.massimo)}.`), secondo.testo);
+});
+
+// Le tappe di un viaggio, una al giorno, da quanti giorni fa a quanti giorni fa, e i giri di casa solo
+// prima del viaggio, così dopo l'arrivo ci sono i giorni di riposo.
+function tappe(da, a, ore = 4.5, oggi = OGGI) {
+  const lista = giri(90, oggi).filter((u) => u.start_date_local < `${giorniFa(da, oggi)}T00`);
+  for (let k = da; k >= a; k--) {
+    lista.push({ id: `t${k}`, start_date_local: `${giorniFa(k, oggi)}T08:00:00`, type: "GravelRide", moving_time: Math.round(ore * ORA), icu_training_load: 200, average_heartrate: 120 });
+  }
+  return lista;
+}
+
+test("giorni di guardia: il viaggio si ritrova intero anche se l'app è rimasta chiusa qualche giorno", () => {
+  // Anna preme «Sono in viaggio» per 6 giorni, da 9 a 4 giorni fa, e apre l'app i giorni 1, 3 e 5.
+  const uscite = normalizzaUscite(tappe(9, 4));
+  const storia = {};
+  for (const k of [9, 7, 5]) storia[giorniFa(k)] = { livello: "verde", evento: { tipo: "viaggio", giorno: 10 - k, giorni: null }, spiegato: true };
+  const diario = { [giorniFa(9)]: { inViaggio: { tipo: "viaggio", giorni: null } } };
+  const viaggi = viaggiDelDiario(diario, uscite, OGGI);
+  assert.deepEqual(viaggi.map((v) => [v.inizio, v.fine, v.ultimoGiorno]), [[giorniFa(9), giorniFa(4), giorniFa(2)]]);
+  const g = giorniDiGuardia(storia, null, uscite, OGGI, { diario });
+  assert.equal(g.attiva, true);
+  assert.equal(g.giorni, 10);
+  assert.equal(g.giorno, 4);
+  assert.match(g.testo, /4 giorni fa hai finito il viaggio/);
+  // con la sola storia a buchi i giorni dello stesso viaggio si ritrovano lo stesso, dal numero del giorno
+  const soloStoria = giorniDiGuardia(storia, null, uscite, OGGI);
+  assert.equal(soloStoria.attiva, true);
+  assert.equal(soloStoria.tipo, "viaggio");
+  // e valuta, che usa il diario della persona, dà il tetto Giallo
+  const e = valuta(scena({ uscite: tappe(9, 4), storia, diario }));
+  assert.equal(e.livello, "giallo");
+  assert.ok(e.tetti.some((t) => t.chiave === "guardia"));
+  assert.match(e.consiglio, /4 giorni fa hai finito il viaggio/);
+
+  // Paolo, «Sì, parto» per un evento di 10 giorni, l'app aperta solo la mattina della partenza.
+  const evento = normalizzaUscite(tappe(15, 6));
+  const partenza = { [giorniFa(15)]: { livello: "verde", evento: { tipo: "evento", giorno: 1, giorni: 10 }, spiegato: true } };
+  const iscritto = { [giorniFa(15)]: { inViaggio: { tipo: "evento", giorni: 10 } } };
+  const dopo = giorniDiGuardia(partenza, null, evento, OGGI, { diario: iscritto });
+  assert.deepEqual([dopo.attiva, dopo.tipo, dopo.giorni, dopo.giorno], [true, "evento", 10, 6]);
+  // il secondo giorno dopo l'arrivo le notti non danno punti
+  const secondo = giorniDiGuardia(partenza, null, evento, giorniFa(4), { diario: iscritto });
+  assert.deepEqual([secondo.attiva, secondo.senzaPuntiNotte, secondo.tetto], [true, true, "giallo"]);
+
+  // «Sono in viaggio» per 8 giorni, l'app aperta solo il primo e l'ultimo giorno, senza il diario.
+  const otto = { [giorniFa(10)]: { evento: { tipo: "viaggio", giorno: 1 } }, [giorniFa(3)]: { evento: { tipo: "viaggio", giorno: 8 } } };
+  const g8 = giorniDiGuardia(otto, null, [], OGGI);
+  assert.deepEqual([g8.attiva, g8.giorni, g8.giorno], [true, 10, 3]);
+  // le notti del viaggio, anche quelle dei giorni senza l'app, escono dalle basi
+  assert.ok([4, 5, 6, 7, 8, 9].every((k) => g8.esclusioni.notti.includes(giorniFa(k))));
+});
+
+test("la proposta del viaggio non torna sui giorni di un viaggio già segnato", () => {
+  // Quattro giorni di 6 ore con «Sono in viaggio» dal primo e «Sono arrivato» il quarto.
+  const lunghi = normalizzaUscite([4, 3, 2, 1].map((k) => ({ id: `p${k}`, start_date_local: `${giorniFa(k)}T08:00:00`, type: "Ride", moving_time: 6 * ORA, icu_training_load: 250 })));
+  const diario = { [giorniFa(4)]: { inViaggio: { tipo: "viaggio", giorni: null } }, [giorniFa(1)]: { arrivato: true } };
+  const viaggi = viaggiDelDiario(diario, lunghi, OGGI);
+  assert.equal(propostaViaggio(lunghi, OGGI), true, "senza i viaggi del diario");
+  assert.equal(propostaViaggio(lunghi, OGGI, null, viaggi), false);
+  assert.equal(inizioProposta(lunghi, OGGI, null, viaggi), null);
+  // due giorni lunghi dopo l'arrivo sono un viaggio nuovo, che comincia dopo quello di prima
+  const dopo = aggiungiGiorni(OGGI, 2);
+  const nuovi = normalizzaUscite([...[4, 3, 2, 1].map((k) => ({ id: `p${k}`, start_date_local: `${giorniFa(k)}T08:00:00`, type: "Ride", moving_time: 6 * ORA })),
+    { id: "n1", start_date_local: `${OGGI}T08:00:00`, type: "Ride", moving_time: 6 * ORA },
+    { id: "n2", start_date_local: `${aggiungiGiorni(OGGI, 1)}T08:00:00`, type: "Ride", moving_time: 6 * ORA }]);
+  const viaggiDopo = viaggiDelDiario(diario, nuovi, dopo);
+  assert.equal(propostaViaggio(nuovi, dopo, null, viaggiDopo), true);
+  assert.equal(inizioProposta(nuovi, dopo, null, viaggiDopo), OGGI);
+  assert.equal(inizioProposta(normalizzaUscite([giro(3, 4.5), giro(2, 4.5), giro(1, 4.5)]), OGGI), giorniFa(3));
+});
+
+test("modalità evento: un viaggio senza giorni previsti resta acceso finché si pedala", () => {
+  // «Due settimane e oltre» non ha un lato alto, e con «Sì, parto» non fissa i giorni.
+  assert.ok(MEMORIA.sfideSenzaFine.includes("grande"));
+  assert.equal(MEMORIA.sfide.grande.giorniEvento, 14, "per la riga del medico");
+  const venti = normalizzaUscite(tappe(19, 0));
+  const diario = { [giorniFa(19)]: { inViaggio: { tipo: "evento", giorni: null } } };
+  const [v] = viaggiDelDiario(diario, venti, OGGI);
+  assert.deepEqual(eventoDiOggi(v, OGGI), { tipo: "evento", giorno: 20, giorni: null });
+  // con 14 giorni previsti il giorno 16 sarebbe già spento
+  assert.equal(eventoDiOggi({ ...v, giorni: 14 }, OGGI), null);
+  // l'occhiello del giorno in più non è un giorno del viaggio
+  assert.equal(VIAGGIO.giorno(4, 3), "Il giorno dopo il viaggio");
+  assert.equal(VIAGGIO.giorno(2, 4), "Giorno 2 di 4");
+  assert.equal(VIAGGIO.giorno(20, null), "Giorno 20");
 });
 
 // --- 9.5, la modalità evento ---
@@ -695,6 +948,50 @@ test("modalità evento: HRV e battito non contano, il sonno vero, il collo, il v
   // gli stop restano tutti
   assert.equal(valuta(scena({ diario: { [OGGI]: { stoMale: ["febbre"] } } }), { evento }).stop, "malattia");
   assert.equal(problemi({ ginocchia: "dolore" }).stop, "dolore");
+});
+
+test("modalità evento: con uno stop il «Perché» resta quello del viaggio, con la riga della notte", () => {
+  const evento = { tipo: "viaggio", giorno: 2, giorni: 4 };
+  const febbre = valuta(scena({ oggi: { fatigue: 2 }, diario: { [OGGI]: { stoMale: ["febbre"] } } }), { evento });
+  assert.equal(febbre.stop, "malattia");
+  assert.equal(febbre.livello, "rosso");
+  assert.equal(febbre.consiglio, STOP.malattia);
+  assert.equal(febbre.nota, VIAGGIO.notte);
+  const chiavi = febbre.voci.map((v) => v.chiave);
+  assert.ok(chiavi.includes("energia") && chiavi.includes("sonno") && chiavi.includes("hrv"));
+  assert.ok(!chiavi.includes("gambe") && !chiavi.includes("acciacchi"), chiavi.join(" "));
+  assert.equal(voceDi(febbre, "hrv").testo, VOCI.viaggio);
+});
+
+test("modalità evento: una casella spuntata senza la scelta sotto vale come la più grave", () => {
+  const evento = { tipo: "viaggio", giorno: 2, giorni: 4 };
+  const casella = (id) => valuta(scena({ diario: { [OGGI]: { viaggio: { problemi: { [id]: true } } } } }), { evento });
+  const gonfiore = casella("gonfiore");
+  assert.equal(gonfiore.livello, "rosso");
+  assert.equal(gonfiore.viaggio.medico, true);
+  assert.equal(gonfiore.consiglio, VIAGGIO.esiti.gonfiore);
+  assert.equal(casella("mani").livello, "rosso");
+  assert.equal(casella("ginocchia").stop, "dolore");
+  assert.equal(casella("collo").viaggio.fermaBici, true);
+  // la scelta lieve resta lieve
+  assert.notEqual(valuta(scena({ diario: { [OGGI]: { viaggio: { problemi: { gonfiore: "piuDiIeri" } } } } }), { evento }).livello, "rosso");
+});
+
+test("le domande senza risposta hanno la loro scritta, perché contano sempre per intero", () => {
+  assert.equal(ESITO_VOCE.daRispondere, "da rispondere");
+  const e = valuta(scena({ oggi: { soreness: 4 } }));
+  for (const chiave of ["energia", "acciacchi"]) {
+    assert.equal(voceDi(e, chiave).esito, "daRispondere", chiave);
+    assert.equal(voceDi(e, chiave).pallino, "grigio", chiave);
+  }
+  assert.equal(voceDi(e, "gambe").esito, undefined);
+  // in viaggio l'energia e il sonno da dire
+  const viaggio = valuta(scena({ oggi: { sleepSecs: null } }), { evento: { tipo: "viaggio", giorno: 2, giorni: 4 } });
+  assert.equal(voceDi(viaggio, "energia").esito, "daRispondere");
+  assert.equal(voceDi(viaggio, "sonno").esito, "daRispondere");
+  assert.equal(voceDi(viaggio, "sonno").testo, VIAGGIO.sonnoSenza);
+  // le voci che oggi davvero non votano restano «non conta oggi»
+  assert.ok(!voceDi(viaggio, "hrv").esito);
 });
 
 test("modalità evento: Garmin con 6 ore e 20 vuol dire 5 ore e 35 vere, con l'anello le ore restano", () => {
@@ -774,6 +1071,17 @@ test("medico: il battito alto da tre notti con stanchezza, e il viaggio lungo da
   const viaggio = valuta(scena(), { eta: 45, giorniEvento: 14, giorniPartenza: 25 });
   assert.ok(viaggio.medico.some((x) => x.testo === MEDICO.viaggioLungo));
   assert.ok(!valuta(scena(), { eta: 35, giorniEvento: 14, giorniPartenza: 25 }).medico.length);
+  // Luca al giorno 4 di un viaggio, con il battito alto da tre notti e poca energia. In viaggio, e nelle
+  // 72 ore dopo un weekend lungo, il battito alto è spiegato e l'invito non parte.
+  const stanco = { oggi: { restingHR: 54, fatigue: 3 }, modifica: { 1: alto, 2: alto } };
+  const inViaggio = valuta(scena(stanco), { evento: { tipo: "viaggio", giorno: 4, giorni: 6 } });
+  assert.ok(!inViaggio.medico.some((x) => x.chiave === "battito"));
+  const weekend = { [giorniFa(1)]: { livello: "verde", evento: { tipo: "weekend", giorno: 2 } } };
+  const dopoWeekend = valuta(scena({ ...stanco, storia: weekend }));
+  assert.ok(!dopoWeekend.medico.some((x) => x.chiave === "battito"));
+  // e nemmeno se una delle tre notti era in viaggio
+  const ieriInViaggio = { [giorniFa(2)]: { livello: "verde", evento: { tipo: "viaggio", giorno: 1 } } };
+  assert.ok(!valuta(scena({ ...stanco, storia: ieriInViaggio })).medico.some((x) => x.chiave === "battito"));
 });
 
 // --- 9.5, fiducia e nessun dato ---
@@ -794,6 +1102,16 @@ test("fiducia: notte e carico, il più basso dei due, e il testo accanto al colo
 
   const conPotenza = giri(90).map((u) => ({ ...u, device_watts: true }));
   assert.equal(fiducia(scena({ uscite: conPotenza }), { ftp: 200 }).carico, "alta");
+  // con la potenza ma senza la soglia letta resta media, e la riga non dice che il carico viene dal battito
+  const senzaSoglia = fiducia(scena({ uscite: conPotenza }), {});
+  assert.deepEqual([senzaSoglia.carico, senzaSoglia.motivi.carico], ["media", "potenza"]);
+  assert.ok(senzaSoglia.righe.includes(FIDUCIA.carico.potenza));
+  assert.ok(!senzaSoglia.righe.some((t) => /battito/.test(t)), senzaSoglia.righe.join(" "));
+  // la lettura delle uscite chiede la potenza e lo sforzo, che sono campi e non permessi
+  for (const campo of ["device_watts", "icu_rpe", "average_heartrate", "icu_training_load"]) {
+    assert.ok(CAMPI_USCITE.split(",").includes(campo), campo);
+  }
+  assert.equal(normalizzaUscite([{ id: 1, start_date_local: `${OGGI}T08:00:00`, device_watts: true, icu_rpe: 5 }])[0].potenza, true);
 
   const nottiCorte = valuta(scena({ benessere: notti(20) }));
   assert.equal(nottiCorte.fiducia.notte, "media");
@@ -802,6 +1120,34 @@ test("fiducia: notte e carico, il più basso dei due, e il testo accanto al colo
   const senzaNotte = valuta(scena({ oggi: { hrv: null, restingHR: null, sleepSecs: null } }));
   assert.equal(senzaNotte.fiducia.notte, "bassa");
   assert.equal(senzaNotte.fiducia.accanto, true);
+});
+
+test("Andamento usa la stessa base del semaforo, con il dispositivo e le notti escluse", () => {
+  // la fascia del battito comincia dove il battito comincia a dare punti
+  assert.deepEqual(fasciaBattito({ ok: true, centro: 48, ds: 1 }), { basso: 45, alto: 51 });
+  assert.deepEqual(fasciaBattito({ ok: true, centro: 48, ds: 2.5 }), { basso: 43, alto: 53 });
+  assert.deepEqual(fasciaBattito({ ok: false }), { basso: null, alto: null });
+  const stretti = notti(90, OGGI, (k) => ({ restingHR: [47.2, 48, 48.8][k % 3] }));
+  const m = scena({ benessere: stretti });
+  const e = valuta(m);
+  const f = fasciaBattito(e.basi.fc);
+  assert.equal(puntiFc(scena({ benessere: stretti, oggi: { restingHR: f.alto + 0.01 } })).punti, 1);
+  assert.equal(puntiFc(scena({ benessere: stretti, oggi: { restingHR: f.alto - 0.5 } })).punti, 0);
+  // il dispositivo e le esclusioni arrivano con l'esito, e danno la stessa base di oggi
+  const conAnello = valuta(scena({ profilo: { dispositivo: "anello" }, diario: { [giorniFa(3)]: { cause: ["alcol"] } } }));
+  assert.equal(conAnello.dispositivo, "anello");
+  assert.equal(conAnello.escluso({ d: giorniFa(3) }), true);
+  assert.equal(conAnello.escluso({ d: giorniFa(4) }), false);
+  const i = m.giorni.length - 1;
+  assert.deepEqual(baseHrv(m.giorni, i, conAnello.dispositivo, conAnello.escluso), conAnello.basi.hrv);
+});
+
+test("le note sulla carta spiegano la sigla HRV la prima volta", () => {
+  for (const [chiave, testo] of Object.entries(NOTE)) {
+    if (/\bHRV\b/.test(testo)) assert.match(testo, /variabilità del battito/, chiave);
+  }
+  assert.match(VOCI.notte.mai, /variabilità del battito/);
+  assert.ok(!/allenat/.test(VOCI.hrv.saturazione), "niente etichette sulla persona");
 });
 
 test("nessun dato: niente notti, niente risposte, niente giri", () => {

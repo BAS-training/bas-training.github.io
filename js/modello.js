@@ -227,6 +227,15 @@ export function sonnoSettimana(giorni, i) {
   return valori.length >= Z.nottiMediaMinime ? media(valori) : null;
 }
 
+// Lo stato dell'allenamento «del mattino» del giorno i, cioè Fitness e Fatica di ieri sera (4.3). Se
+// oggi c'è già un giro, intervals.icu lo conta nel giorno, e il consiglio va dato com'era prima di
+// uscire. Se ieri manca vale l'ultimo giorno prima che le ha, mai il giorno i, e senza nessuno un
+// giorno vuoto, così il carico non vota.
+export function mattinoDelGiorno(giorni, i) {
+  for (let j = i - 1; j >= 0; j--) if (giorni[j] && giorni[j].ctl !== null) return giorni[j];
+  return { ctl: null, atl: null, faticaLenta: null, forma: null, formaPct: null };
+}
+
 export function sommaCarico(giorni, i, n = 7) {
   let somma = 0;
   for (let j = Math.max(0, i - n + 1); j <= i; j++) somma += giorni[j].carico || 0;
@@ -332,12 +341,9 @@ export function costruisciModello({ atleta, benessere, uscite, diario, storia, p
   const giorni = calendario(benessere, oggi);
   const i = giorni.length - 1;
   const oggiG = giorni[i];
-  const ieri = giorni[i - 1];
   const prof = oggetto(profilo);
   const dia = oggetto(diario);
-  // Lo stato dell'allenamento "del mattino" è quello di fine ieri: se oggi c'è già un giro,
-  // intervals.icu lo conta nel giorno, e il consiglio va dato com'era prima di uscire.
-  const mattino = ieri && ieri.ctl !== null ? ieri : oggiG;
+  const mattino = mattinoDelGiorno(giorni, i);
   const escluse = esclusioniDelDiario(dia, prof);
   return {
     oggi,
