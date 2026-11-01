@@ -1,0 +1,16 @@
+{
+  "id": "i7100008",
+  "icu_athlete_id": "i100001",
+  "start_date_local": "2026-10-13T18:00:00",
+  "type": "Ride",
+  "name": "Giro senza sensori",
+  "source": "WAHOO",
+  "moving_time": 5400,
+  "distance": 42000.0,
+  "total_elevation_gain": 280.0,
+  "icu_rpe": 4,
+  "trainer": false,
+  "commute": false,
+  "elapsed_time": 5600,
+  "external_id": "30098765408"
+}

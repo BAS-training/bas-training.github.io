@@ -1,0 +1,17 @@
+{
+  "id": "i100001",
+  "name": "Lucia Prova",
+  "firstname": "Lucia",
+  "lastname": "Prova",
+  "sex": "F",
+  "weight": 61.0,
+  "icu_date_of_birth": "1981-04-12",
+  "timezone": "Europe/Rome",
+  "locale": "it_IT",
+  "icu_resting_hr": 50,
+  "sportSettings": [
+    {"id": 101, "athlete_id": "i100001", "types": ["Ride", "VirtualRide", "GravelRide", "MountainBikeRide", "EBikeRide"], "ftp": 190, "indoor_ftp": 185, "lthr": 162, "max_hr": 181},
+    {"id": 102, "athlete_id": "i100001", "types": ["Run", "VirtualRun", "TrailRun"], "lthr": 168, "max_hr": 185},
+    {"id": 103, "athlete_id": "i100001", "types": ["WeightTraining", "Workout"]}
+  ]
+}

@@ -425,6 +425,7 @@ export const CARICO = congela({
   palestra: { gambe: 1.0, corpo: 0.7, alto: 0.4, sforzoPredefinito: 5, fattorePredefinito: 0.7, minutiPredefiniti: 50 },   // regola 1.6, valori senza risposta 5.6 e 6.3
   palestraNellaFitness: 0,        // la palestra conta solo nella Fatica, regola 1.6
   palestraNellaFatica: 1,         // regola 1.6
+  tipiPalestra: ["WeightTraining", "Workout"],   // la palestra dal dispositivo, mai il carico dal polso, 6.3
   serie: {
     fitness: 42,                  // giorni, e^(−1/42), regola 1.7
     fatica: 7,                    // e^(−1/7), regola 1.7
@@ -432,6 +433,7 @@ export const CARICO = congela({
     forma: "esponenziale",        // «passi» se la prova contro intervals.icu non torna, 6.5
     giorni: 182,                  // la partenza 182 giorni prima, 6.5
     coincidenza: 0.1,             // con ctl e atl di intervals.icu, 6.5
+    fonteSemaforo: "intervals",   // «comesto» solo dopo la prova di coincidenza sui dati privati, 6.5
   },
   differenzaSchermo: { quota: 0.10, punti: 3 },   // la riga sotto la Fitness oltre il 10% e 3 punti, 6.5
   controlloIncrociato: { differenza: 0.40, puntiOra: 70, sforzoFino: 5 },   // regola 1.5, «Media» vale 5
@@ -471,4 +473,6 @@ export const CHIAMATE = congela({
   giorniAtleta: 7,                // il profilo dell'atleta si rilegge ogni 7 giorni, stima nostra
   primaLetturaGiorni: 182,        // benessere e attività alla prima apertura, 6.7
   serverPrimaDiPersone: 1500,     // con OAuth, Verifica C1 e stima nostra, prudente
+  sforzoScritto: { minimo: 1, massimo: 10 },   // icu_rpe da 1 a 10, lo 0 non si scrive, 6.6
+  scartaCodici: [400, 404, 409, 410, 422],   // risposte che riprovando non cambiano, la scrittura esce dalla coda, stima nostra
 });
