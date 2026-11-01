@@ -1,5 +1,7 @@
-// I testi delle pagine Guida, Privacy e Collega, e della pagina di benvenuto (7.11). Li usa
-// js/viste/pagine.js. Stesse regole di scrittura di js/testi.js (7.1), e la prova 9.8 li legge tutti.
+// I testi delle pagine Guida, Privacy e Collega, della pagina di benvenuto e delle schermate di attesa
+// e di errore (7.11). Li usa js/viste/pagine.js. Stesse regole di scrittura di js/testi.js (7.1), e
+// la prova 9.8 li legge tutti. Nella Guida (le costanti con GUIDA nel nome) possono stare anche
+// «specchio», «tapering» e kJ.
 
 // La tabella della Guida e del README, con le regole a punti. Per ogni voce cosa la lascia verde,
 // cosa la fa pesare e quando porta al rosso.
@@ -85,7 +87,7 @@ export const DISPOSITIVI = [
   },
   {
     id: "strava", nome: "Solo Strava",
-    passi: "Funziona, ma a metà. Per le regole di Strava, intervals.icu riceve i tuoi giri ma non può passarne i dettagli ad altre app. Fitness e Fatica si vedono, l'elenco delle uscite resta senza nomi. Se puoi, collega direttamente il dispositivo.",
+    passi: "Funziona, ma a metà. Per le regole di Strava, intervals.icu riceve i tuoi giri ma non può passarne i dettagli ad altre app. Fitness e Fatica si vedono, l'elenco delle uscite resta senza nomi e ogni tanto ti chiedo quanto è durato un giro. Se puoi, collega direttamente il dispositivo.",
   },
 ];
 
@@ -111,6 +113,18 @@ export const DOMANDE_FREQUENTI = [
     r: "Il rosso arriva da un sintomo, da un dolore, da più segnali che vanno d'accordo o dal carico molto più alto del solito per tre mattine di fila, mai da una notte storta da sola. Se il rosso viene da questi numeri e proprio vuoi uscire, al massimo 45 minuti pianissimo. Con un dolore, un infortunio, «Sono a pezzi», la febbre o un sintomo di cuore niente bici.",
   },
   {
+    d: "Le ore in sella sono una promessa?",
+    r: "No, sono una stima prudente, con una forbice. Contano anche testa, meteo e quanto dormi in viaggio, che nessun numero vede. Dopo la prima uscita lunga con le borse la stima diventa più tua.",
+  },
+  {
+    d: "Perché mi chiede «Avevi le borse?»",
+    r: "Perché la bici carica cambia tutto, le ore in sella e le prove. Conta come prova solo un giro con il peso e le borse del viaggio, e solo tu sai se le avevi. Se non te lo ricordi, «Non lo so» chiude la domanda.",
+  },
+  {
+    d: "Ho saltato una seduta del piano. La recupero?",
+    r: "No. Le sedute si spostano, non si recuperano mai raddoppiando. Le ore che non ci stanno si lasciano, e il piano va avanti.",
+  },
+  {
     d: "Posso confrontare i miei numeri con quelli di un amico?",
     r: "No. Ogni orologio misura l'HRV in un momento diverso della notte, e ognuno ha il suo normale. I numeri si confrontano solo con te stesso, e sempre con lo stesso dispositivo.",
   },
@@ -123,8 +137,12 @@ export const DOMANDE_FREQUENTI = [
     r: "Restano su questo dispositivo, al massimo 400 giorni, poi si cancellano da sole. Non vanno su intervals.icu e noi non le riceviamo. Le togli quando vuoi con «Esci e cancella tutto da questo dispositivo», in Impostazioni.",
   },
   {
+    d: "Cosa succede se cambio telefono?",
+    r: "Le risposte del mattino stanno su intervals.icu e le ritrovi. Il resto sta sul telefono, quindi prima salva una copia in Impostazioni, poi riprendila sul telefono nuovo.",
+  },
+  {
     d: "Come esco, o tolgo l'accesso?",
-    r: "Premi Esci in fondo alla pagina e la chiave sparisce da questo dispositivo, insieme al consenso. Con «Esci e cancella tutto da questo dispositivo» togli anche le tue risposte. Per togliere l'accesso ovunque, su intervals.icu crea una chiave nuova. Quella vecchia smette subito di funzionare.",
+    r: "Premi Esci in fondo alla pagina e la chiave sparisce da questo dispositivo, insieme al consenso e alla copia dei dati presi da intervals.icu. Con «Esci e cancella tutto da questo dispositivo» togli anche le tue risposte. Per togliere l'accesso ovunque, su intervals.icu crea una chiave nuova. Quella vecchia smette subito di funzionare.",
   },
 ];
 
@@ -138,6 +156,7 @@ export const LIMITI = [
   "Con la febbre, o con tosse e dolori in tutto il corpo, non allenarti, qualunque colore abbia il semaforo.",
   "Se in bici senti dolore al petto, il cuore che batte strano, un fiato corto mai provato o ti gira la testa, fermati e chiama un medico.",
   "Il semaforo non ti dice di partire per un viaggio se stai male, qualunque colore abbia.",
+  "Le ore stimate sono stime. Contano anche testa, meteo e quanto dormi in viaggio, che nessun numero vede.",
   "Alcune medicine, per esempio i betabloccanti, cambiano battito e HRV. Se le prendi, chiedi al medico come regolarti.",
   "Alcol, caldo, una cena tardi, un viaggio, la quota e, per le donne, la seconda metà del ciclo alzano il battito e abbassano l'HRV anche senza stanchezza.",
   "Ogni orologio misura l'HRV in un momento diverso della notte. Usa un solo dispositivo per la notte. Se lo cambi, segnalo in Impostazioni con «Ho cambiato orologio». Servono un paio di settimane perché l'app impari il tuo nuovo normale.",
@@ -147,13 +166,106 @@ export const LIMITI = [
   "Come sto non è un medico e non fa diagnosi. Se il battito a riposo resta alto per giorni o qualcosa non ti convince, parlane con un medico.",
 ];
 
-// La pagina Collega, l'attacco in alto (7.3). Il normale si impara in quattro settimane (4.1 e 4.3).
+// La pagina Collega (7.3). Il normale si impara in quattro settimane (4.1 e 4.3).
 export const COLLEGA = {
+  occhiello: "Collega i tuoi dati",
+  titolo: "Tre passi, una volta sola",
   attacco: "Ci vogliono cinque minuti. Il semaforo parte dalla prima notte e dal primo giro registrati, e impara il tuo normale in quattro settimane.",
+  errore: " Copiala di nuovo e incollala qui sotto, al punto 3.",
+  vaiAlPunto: "Vai al punto 3",
+  uno: {
+    titolo: "1. Crea un account gratuito su intervals.icu",
+    testo: "intervals.icu è il servizio che raccoglie i dati dal tuo orologio e calcola Fitness e Fatica. Il piano gratuito basta.",
+    apri: "Apri intervals.icu",
+    dopo: " e crea l'account. Se ce l'hai già, passa al punto 2.",
+  },
+  due: {
+    titolo: "2. Collega il tuo orologio o ciclocomputer",
+    testo: "Si fa su intervals.icu, non qui. Scegli cosa usi.",
+    gruppo: "Il tuo dispositivo",
+    impostazioni: "Apri le impostazioni di intervals.icu",
+    piccolo: "Se hai un ciclocomputer e un orologio, collegali tutti e due. Al primo collegamento intervals.icu scarica anche un po' di storico, così i numeri sono pronti prima.",
+  },
+  chiave: {
+    titolo: "3. Copia la chiave e incollala qui",
+    passi: [
+      ["Apri le ", { link: "impostazioni di intervals.icu" }, "."],
+      ["Scorri fino in fondo alla pagina, alla sezione ", { forte: "Developer Settings" }, "."],
+      ["Accanto ad ", { forte: "API Key" }, " premi il pulsante per vederla o crearla, poi copiala."],
+      ["Torna qui e incollala nel riquadro."],
+    ],
+    attenzione: "È una fila lunga di lettere e numeri. Non confonderla con l'Athlete ID, quello corto che comincia con la i.",
+    etichetta: "La tua chiave di intervals.icu",
+    segnaposto: "Incolla qui la chiave",
+    aiuto: "La chiave apre il tuo account intervals.icu, come una password. Come sto la usa solo per leggere i tuoi dati e scrivere le risposte del mattino, e la tiene solo su questo telefono o computer.",
+    mostra: "Mostra la chiave",
+    ricorda: "Ricordami su questo dispositivo",
+    entra: "Entra",
+    prima: "Incolla prima la chiave.",
+    controllo: "Controllo la chiave…",
+  },
+  intervals: {
+    titolo: "3. Entra con intervals.icu",
+    testo: "Premi il pulsante. Si apre intervals.icu, entri con il tuo account e dai il permesso a Come sto. Poi intervals.icu ti riporta qui da solo.",
+    piccolo: "Come sto chiede di leggere allenamenti, notti e profilo, e di scrivere le risposte del mattino. Lascia accese tutte le voci. La password la scrivi solo su intervals.icu, Come sto non la vede mai.",
+    ricorda: "Ricordami su questo dispositivo",
+    entra: "Entra con intervals.icu",
+    partenza: "Ti porto su intervals.icu…",
+    oppure: "Oppure entra con la chiave API di intervals.icu",
+  },
+  home: {
+    titolo: "Per ritrovarla ogni mattina",
+    testo: "Mettila nella schermata Home del telefono, così si apre come un'app.",
+    iphone: "iPhone. ",
+    iphoneChiave: "In Safari tocca Condividi e poi Aggiungi alla schermata Home. Apri l'icona e incolla lì la chiave, perché l'icona non vede quella salvata in Safari.",
+    iphoneIntervals: "In Safari tocca Condividi e poi Aggiungi alla schermata Home. Apri l'icona ed entra da lì, perché l'icona non vede l'accesso fatto in Safari.",
+    android: "Android. ",
+    androidTesto: "Nel menu di Chrome, i tre puntini, tocca Aggiungi a schermata Home.",
+  },
+  esempio: "Vuoi prima dare un'occhiata? ",
+  esempioTasto: "Guarda i dati di esempio",
+};
+
+// La pagina di benvenuto, prima di entrare.
+export const BENVENUTO = {
+  occhiello: "Come sto",
+  titolo: "Arriva pronto alla tua prossima avventura",
+  attacco: "Ogni mattina ti dice se oggi puoi spingere o se è meglio andare piano, e ti prepara alla tua avventura con la bici carica. Legge i dati del tuo orologio e del ciclocomputer e te li spiega in parole semplici.",
+  inizia: "Inizia",
+  esempio: "Guarda un esempio",
+  nota: "Gratis e senza pubblicità. Serve solo un account gratuito su intervals.icu, e i tuoi dati restano tra te e intervals.icu.",
+  punti: [
+    { titolo: "Un semaforo ogni mattina", testo: "Verde, giallo o rosso, con il perché in poche righe. Guarda come hai dormito, il cuore a riposo, quanto ti sei allenato e come ti senti." },
+    { titolo: "Pronto per la tua avventura?", testo: "Scegli l'evento e in quanti giorni. Ti dico quante ore starai in sella con la bici carica, se ci arrivi pronto e come allenarti ogni settimana, con bici e palestra." },
+    { titolo: "I numeri spiegati semplice", testo: "Fitness, Fatica e la variabilità del battito. Ogni numero ha la sua spiegazione e ti dice a cosa è legato, così impari a leggerti da solo." },
+  ],
+  comeFunziona: "Come funziona",
+  passi: [
+    { forte: "Il tuo orologio o ciclocomputer ", testo: "manda allenamenti e notti a intervals.icu, un servizio gratuito usato da tantissimi ciclisti." },
+    { forte: "Come sto ", chiave: "legge quei dati dal tuo telefono, con una chiave che ti dà intervals.icu.", intervals: "legge quei dati dal tuo telefono, con il permesso che gli dai su intervals.icu." },
+    { forte: "Ogni mattina ", testo: "apri la pagina, guardi il semaforo e rispondi a tre domande. Dieci secondi." },
+  ],
+};
+
+// Le schermate di attesa e di errore.
+export const ATTESA = {
+  lettura: "Leggo i tuoi dati da intervals.icu…",
+};
+
+export const ERRORE = {
+  titolo: "Qualcosa non è andato",
+  messaggio: "Non sono riuscito a leggere i dati.",
+  riprova: "Riprova",
+  esciEntra: "Esci ed entra di nuovo",
+  chiave: "La tua chiave resta salvata. Se il problema è solo la connessione, basta riprovare tra poco.",
+  permesso: "Il tuo accesso resta salvato finché non premi Esci.",
+  accesso: "Il tuo accesso resta salvato. Se il problema è solo la connessione, basta riprovare tra poco.",
 };
 
 // Un punto può essere un testo, oppure { chiave, intervals } con la riga per chi incolla la chiave e
-// quella per quando c'è «Entra con intervals.icu».
+// quella per quando c'è «Entra con intervals.icu». Dice solo quello che l'app fa davvero oggi. Le
+// scritture sulle attività sono spente (js/config.js), e quando si accendono questo testo cambia
+// insieme al consenso.
 export const PRIVACY = {
   titolo: "Privacy",
   sottotitolo: "I tuoi dati restano tuoi",
@@ -161,7 +273,7 @@ export const PRIVACY = {
     {
       titolo: "In breve",
       punti: [
-        "Come sto ti dà ogni mattina un semaforo, per capire se oggi puoi spingere o se è meglio andare piano.",
+        "Come sto ti dà ogni mattina un semaforo, per capire se oggi puoi spingere o se è meglio andare piano, e ti aiuta ad arrivare pronto alla tua avventura.",
         "La pagina legge i tuoi dati da intervals.icu direttamente sul tuo telefono o computer. Le tue risposte restano lì e nel tuo account intervals.icu. Noi non riceviamo niente.",
         "Niente pubblicità, niente vendita di dati e niente intelligenza artificiale sui tuoi dati.",
         "Come sto non è un dispositivo medico e non fa diagnosi.",
@@ -175,9 +287,9 @@ export const PRIVACY = {
           intervals: "Premi «Entra con intervals.icu» e dai il permesso a Come sto, oppure incolli la chiave del tuo account intervals.icu.",
         },
         "Prima di entrare confermi di avere almeno 18 anni e dai il consenso per i dati sulla salute, con due caselle. A ogni nuovo ingresso le caselle sono vuote. Che hai almeno 18 anni lo dichiari tu, e noi non possiamo controllarlo.",
-        "Il tuo browser chiede a intervals.icu i dati che servono e li mette insieme sul tuo dispositivo per calcolare semaforo, andamento, uscite e obiettivo.",
+        "Il tuo browser chiede a intervals.icu i dati che servono e li mette insieme sul tuo dispositivo per calcolare il semaforo, le ore in sella della tua avventura, se ci arrivi pronto, il piano della settimana e i numeri.",
         "Le risposte alle tre domande del mattino il tuo browser le scrive nel tuo account intervals.icu, nel giorno di oggi. In viaggio fa lo stesso con la risposta sull'energia.",
-        "Le altre risposte che dai nella pagina, per esempio quelle del pannello «Sto male», restano sul tuo dispositivo.",
+        "Le altre risposte che dai nella pagina, per esempio «Sto male», lo sforzo e le borse delle uscite o la palestra, restano sul tuo dispositivo.",
         "Niente passa da un server nostro. Non vediamo e non conserviamo i dati dell'app.",
       ],
     },
@@ -185,22 +297,24 @@ export const PRIVACY = {
       titolo: "Quali dati usa la pagina",
       punti: [
         "La notte. HRV, cioè la variabilità del battito mentre dormi, battito a riposo, ore e punteggio del sonno. Anche il battito medio mentre dormi, se il tuo dispositivo lo manda.",
-        "Gli allenamenti. Di ogni uscita la pagina usa data, tipo, nome, durata, distanza, dislivello, battito medio e carico, cioè i punti di lavoro dell'uscita, se la potenza arriva da un misuratore e lo sforzo che hai segnato su intervals.icu. Usa anche Fitness e Fatica, la media del tuo lavoro nelle ultime sei settimane e nell'ultima settimana, calcolate da intervals.icu. Il nome dell'uscita lo mostra così come l'hai scritto tu o il tuo dispositivo.",
+        "Gli allenamenti. Di ogni uscita la pagina usa data, tipo, nome, durata, distanza, dislivello, battito medio e carico, cioè i punti di lavoro dell'uscita. Usa anche se la potenza arriva da un misuratore, se c'era il battito, lo sforzo che hai segnato su intervals.icu, se l'uscita era sui rulli o per andare al lavoro, e le etichette. La descrizione la legge solo nelle attività create da Come sto. Usa Fitness e Fatica di intervals.icu, la media del tuo lavoro nelle ultime sei settimane e nell'ultima settimana, e ne calcola una sua. Il nome dell'uscita lo mostra così come l'hai scritto tu o il tuo dispositivo.",
         "Le tue risposte del mattino. Energia, gambe e acciacchi, su una scala da 1 a 4.",
-        "Le altre tue risposte. Il pannello «Sto male», con i sintomi di cuore, di malattia e del raffreddore e la risposta sul medico, le caselle di «Ieri sera…», per esempio l'alcol o una notte in alta quota, e le domande in viaggio.",
-        "Quello che ci dici di te, in Impostazioni. La fascia d'età, il dispositivo che porti di notte, se hai un'aritmia nota, se in bici usi la fascia cardio e, solo se la accendi, la casella dei giorni prima del ciclo. Puoi lasciarle vuote, e l'app funziona lo stesso.",
-        "Il tuo profilo intervals.icu. Arriva intero nella memoria della pagina, perché intervals.icu non permette di chiederne solo una parte. La pagina ne usa solo il nome, per salutarti, e il fuso orario, per sapere qual è il tuo «oggi». Il resto, come email, data di nascita, sesso o peso, non lo usa e non lo salva da nessuna parte. Non chiede mai la fase del ciclo.",
+        "Le altre tue risposte. Il pannello «Sto male», con i sintomi di cuore, di malattia e del raffreddore e la risposta sul medico, le caselle di «Ieri sera…», per esempio l'alcol o una notte in alta quota, e le domande in viaggio. Poi lo sforzo delle uscite, le borse, i chili e se hai dormito fuori, com'è andata una prova con le borse, lo stomaco nelle uscite lunghe, la domanda della domenica su fame, voglia e peso, le sedute di palestra con pesi e riserve e i giri che aggiungi a mano.",
+        "Quello che ci dici di te. La fascia d'età, il dispositivo che porti di notte, se hai un'aritmia nota, se in bici usi la fascia cardio e, solo se la accendi, la casella dei giorni prima del ciclo. Poi la tua avventura, i giorni e il tempo per la bici, la bici e le borse, se vuoi la fascia di peso, i viaggi che hai già fatto, la palestra e la risposta sulla sicurezza in palestra. Le caselle facoltative, come quella del ciclo o la fascia di peso, puoi lasciarle vuote, e l'app funziona lo stesso.",
+        "Il tuo profilo intervals.icu. Arriva intero nella memoria della pagina, perché intervals.icu non permette di chiederne solo una parte. La pagina ne usa solo il nome, per salutarti, il fuso orario, per sapere qual è il tuo «oggi», e le soglie dei profili sportivi, cioè la soglia di potenza, il battito di soglia e il battito massimo. Il resto, come email, data di nascita, sesso o peso, non lo usa e non lo salva da nessuna parte. Non chiede mai la fase del ciclo.",
         "La chiave di intervals.icu, che apre il tuo account come una password, oppure l'accesso che ti dà intervals.icu se entri con il pulsante.",
-        "Le tue scelte nella pagina, cioè la prossima avventura, la sua data e il periodo dei grafici.",
+        "Le tue scelte nella pagina, cioè l'avventura con i suoi giorni e la data, il piano della settimana, il periodo dei grafici e i messaggi che hai già visto.",
+        "Il link della tua iscrizione. Se apri Come sto dal link che arriva con l'iscrizione a un evento, l'indirizzo porta solo percorso, giorni e data, niente di te. Nei link nuovi stanno dopo il segno #, che il browser non manda a nessun server. La pagina li salva sul tuo dispositivo e li toglie dall'indirizzo.",
+        "La schermata «Prima di cominciare». Se hai almeno 40 anni, alla fine della prima scelta ti ricordiamo quando sentire il medico per il cuore. Teniamo solo la data in cui l'hai vista, nessuna risposta.",
       ],
-      dopo: "Battito, HRV, sonno, acciacchi e il semaforo stesso sono dati sulla salute, che la legge protegge di più. Lo sono anche i sintomi di «Sto male», le domande in viaggio, l'aritmia e la casella del ciclo.",
+      dopo: "Battito, HRV, sonno, acciacchi e il semaforo stesso sono dati sulla salute, che la legge protegge di più. Lo sono anche i sintomi di «Sto male», le domande in viaggio, l'aritmia, la casella del ciclo e lo sforzo, e per prudenza trattiamo così anche la fascia di peso, la risposta sulla sicurezza in palestra e le sedute di palestra.",
     },
     {
       titolo: "Perché e con quale permesso",
       punti: [
-        "La pagina usa questi dati sul tuo dispositivo, solo per darti quello che chiedi entrando, cioè semaforo, grafici e preparazione al tuo obiettivo.",
+        "La pagina usa questi dati sul tuo dispositivo, solo per darti quello che chiedi entrando, cioè semaforo, numeri e preparazione alla tua avventura.",
         "Per i dati sulla salute ti chiediamo un consenso esplicito, con una casella da spuntare prima di entrare.",
-        "Il consenso copre anche le risposte che tieni sul dispositivo, compresi i sintomi di «Sto male», e le risposte del mattino che l'app scrive nel tuo account intervals.icu. Se il testo cambia in modo importante te lo chiediamo di nuovo, una volta.",
+        "Il consenso copre anche le risposte che tieni sul dispositivo, compresi i sintomi di «Sto male», e le risposte del mattino che l'app scrive nel tuo account intervals.icu. Se il testo cambia in modo importante, per esempio quando l'app comincerà a scrivere anche sforzo, borse e palestra, te lo chiediamo di nuovo, una volta. Finché non rispondi, l'app non fa le cose nuove.",
         "Se non ci dai il consenso, la pagina non legge i tuoi dati. Puoi sempre guardare l'esempio con i dati inventati.",
       ],
     },
@@ -208,22 +322,33 @@ export const PRIVACY = {
       titolo: "Dove restano e per quanto",
       punti: [
         "La chiave, o l'accesso dato da intervals.icu, resta solo sul tuo dispositivo. Con «Ricordami» resta finché premi Esci. Senza, sparisce quando chiudi la scheda.",
-        "I numeri che arrivano da intervals.icu, cioè notti, risposte del mattino e uscite senza il loro nome, restano su questo dispositivo in una copia, così a ogni apertura la pagina chiede solo i giorni nuovi. La copia tiene al massimo 182 giorni e si cancella con Esci.",
+        "I numeri che arrivano da intervals.icu, cioè notti, risposte del mattino, uscite senza il loro nome e il profilo ridotto a nome, fuso orario e soglie, restano su questo dispositivo in una copia, così a ogni apertura la pagina chiede solo i giorni nuovi. La copia tiene al massimo 182 giorni e si cancella con Esci.",
         "La tua scelta sul consenso resta finché sei dentro e si cancella con Esci.",
-        "Le tue risposte restano sul tuo dispositivo per 400 giorni, poi si cancellano da sole. Sono i sintomi di «Sto male», le caselle di «Ieri sera…», il sonno e «Qualcosa non va?» in viaggio.",
+        "Le tue risposte restano sul tuo dispositivo per 400 giorni, poi si cancellano da sole. Sono i sintomi di «Sto male», le caselle di «Ieri sera…», il sonno e «Qualcosa non va?» in viaggio, le risposte sulle uscite, le sedute di palestra e i controlli della domenica.",
         "Per ogni giorno restano sul dispositivo per 400 giorni anche il colore del semaforo, quanto ha pesato ogni voce e se c'è stato uno stop, per esempio per un sintomo di cuore.",
-        "Quello che ci dici di te e le tue scelte restano nel browser finché non le cancelli con «Esci e cancella tutto da questo dispositivo» o dalle impostazioni del browser.",
+        "Quello che ci dici di te e le tue scelte restano nel browser finché non le cancelli con «Esci e cancella tutto da questo dispositivo» o dalle impostazioni del browser. L'avventura e il piano si cancellano da soli 3 mesi dopo l'evento.",
+        "Per sapere di chi sono i dati del telefono, la pagina tiene un'impronta del numero del tuo account intervals.icu, al posto del numero scritto in chiaro. Resta anche dopo Esci, così se sullo stesso telefono entra un'altra persona i tuoi dati non si mostrano e non si usano. Si cancella con «Esci e cancella tutto da questo dispositivo».",
         "Quello che sta su intervals.icu, comprese le risposte del mattino, resta nel tuo account e segue l'informativa di intervals.icu.",
       ],
-      dopo: "Per ricordare chiave, risposte e scelte la pagina usa una piccola memoria del browser. Serve solo a farti usare l'app. Niente cookie e niente statistiche sulle visite. Se apri la pagina in navigazione privata, o su iPhone da Safari e non dall'icona nella schermata Home, il browser può cancellare questa memoria da solo.",
+      dopo: "Per ricordare chiave, risposte e scelte la pagina usa una piccola memoria del browser. Serve solo a farti usare l'app. Niente cookie e niente statistiche sulle visite. Se apri la pagina in navigazione privata, o su iPhone da Safari e non dall'icona nella schermata Home, il browser può cancellare questa memoria da solo. Per non perdere le risposte puoi salvarne una copia.",
     },
     {
       titolo: "Cosa scrive l'app nel tuo intervals.icu",
       punti: [
         "Le tre risposte del mattino, nel giorno di oggi, e in viaggio la risposta sull'energia.",
-        "Non scrive mai i sintomi di «Sto male», le caselle di «Ieri sera…», il sonno e «Qualcosa non va?» in viaggio, la casella del ciclo o l'aritmia. Non cancella mai un'attività.",
+        "Per ora nient'altro. Sforzo, borse, palestra e giri aggiunti a mano restano sul tuo dispositivo e nella copia di sicurezza. Prima che l'app cominci a scriverli te lo diciamo, e ti chiediamo di nuovo il consenso.",
+        "Non scrive mai i sintomi di «Sto male», le caselle di «Ieri sera…», il sonno e «Qualcosa non va?» in viaggio, la casella del ciclo, l'aritmia o la domanda della domenica. Non cancella mai un'attività.",
         "Quello che l'app scrive lo vedi tu, e lo vede chi può vedere il tuo account intervals.icu, per esempio un allenatore con cui lo condividi o un'altra app che hai collegato.",
         "Lo puoi cambiare o cancellare da intervals.icu quando vuoi.",
+      ],
+    },
+    {
+      titolo: "La copia di sicurezza",
+      punti: [
+        "Con «Salva una copia», in Impostazioni, scarichi un file con le tue risposte e le tue scelte, compresi i sintomi di «Sto male». Il file si chiama «come-sto-dati» seguito dalla data. Dentro non ci sono la chiave, il consenso, la copia dei dati presi da intervals.icu e l'impronta del tuo account.",
+        "Il file lo crea il tuo browser e non passa da noi. Dopo, sta dove lo salvi tu. Se il tuo telefono copia i file in un archivio online, finisce anche lì. Tienilo per te e non mandarlo a nessuno.",
+        "Con «Riprendi da una copia» lo rileggi su un altro dispositivo. La pagina ti mostra cosa cambia e ti chiede di confermare.",
+        "Se hai un piano e sono passati 30 giorni dall'ultima copia, la pagina te lo ricorda una volta.",
       ],
     },
     {
@@ -239,8 +364,8 @@ export const PRIVACY = {
       punti: [
         "Premi Esci e la chiave, o l'accesso, sparisce da questo dispositivo insieme alla tua scelta sul consenso, alla copia dei dati presi da intervals.icu e alle scritture ancora da mandare.",
         "Con Esci le tue risposte e quello che ci hai detto di te, compresi i sintomi di «Sto male», restano sul dispositivo, così le ritrovi quando rientri. La pagina non le usa finché non rientri e non dai di nuovo il consenso.",
-        "Premi «Esci e cancella tutto da questo dispositivo» e cancelli tutto quello che Come sto tiene sul dispositivo, cioè anche risposte, sintomi, profilo e scelte. Se il dispositivo lo usano anche altri, scegli questo. Lo trovi anche in Impostazioni.",
-        "Con tutti e due resta quello che l'app ha scritto nel tuo account intervals.icu, che cancelli da lì.",
+        "Premi «Esci e cancella tutto da questo dispositivo» e cancelli tutto quello che Come sto tiene sul dispositivo, cioè anche risposte, sintomi, profilo, avventura, piano e scelte. Se il dispositivo lo usano anche altri, scegli questo. Lo trovi anche in Impostazioni.",
+        "Con tutti e due restano quello che l'app ha scritto nel tuo account intervals.icu, che cancelli da lì, e le copie che hai scaricato, che cancelli tu.",
         {
           chiave: "Per togliere l'accesso ovunque, su intervals.icu crea una chiave nuova. Quella vecchia smette subito di funzionare.",
           intervals: "Se sei entrato con «Entra con intervals.icu», Esci toglie a Come sto anche il permesso su intervals.icu, e lo puoi togliere anche dalle impostazioni di intervals.icu. Se hai incollato la chiave, per togliere l'accesso ovunque creane una nuova su intervals.icu, e la vecchia smette subito di funzionare.",
@@ -252,7 +377,7 @@ export const PRIVACY = {
       titolo: "Età",
       punti: [
         "Come sto è per persone maggiorenni. Per usarla devi avere almeno 18 anni, e se ne hai meno non usarla con i tuoi dati.",
-        "Prima di entrare ti chiediamo di confermare con una casella che hai almeno 18 anni. È una tua dichiarazione, e non la possiamo controllare. La fascia d'età che scegli in Impostazioni serve al semaforo, non a controllare l'età.",
+        "Prima di entrare ti chiediamo di confermare con una casella che hai almeno 18 anni. È una tua dichiarazione, e non la possiamo controllare. La fascia d'età che scegli in Impostazioni serve al semaforo e al piano, non a controllare l'età.",
         "Se hai meno di 18 anni, usa «Esci e cancella tutto da questo dispositivo».",
       ],
     },
@@ -279,7 +404,8 @@ export const GUIDA_COLONNE = { voce: "Voce", verde: "Va bene", giallo: "Pesa", r
 export const GUIDA = {
   titolo: "Guida",
   sottotitolo: "Come si legge Come sto",
-  attacco: "Tutto quello che c'è dietro il semaforo e i numeri, spiegato semplice.",
+  attacco: "Tutto quello che c'è dietro il semaforo, le ore in sella, il verdetto, il piano e i numeri, spiegato semplice.",
+  indice: "In questa pagina",
   semaforo: {
     titolo: "Il semaforo a punti",
     paragrafi: [
@@ -325,6 +451,7 @@ export const GUIDA = {
         "Con il tasto «Sono in viaggio» il semaforo cambia. In viaggio battito, variabilità del battito e carico cambiano da soli, quindi li vedi ma non contano.",
         "Contano come stai tu. L'energia, il sonno vero e quello che non va, cioè mani, sedere, collo, ginocchia, stomaco e gonfiore. Con l'orologio il sonno vero è circa 45 minuti meno di quello che mostra.",
         "Se per 2 giorni di fila vedo tante ore in bici, ti chiedo io se sei in viaggio. Quando torni premi «Sono arrivato», e nei giorni dopo il semaforo ti fa recuperare.",
+        "Anche il secondo giorno di un weekend lungo, di una prova o di un blocco del piano vale come un giorno di viaggio.",
         "Ogni mattina in viaggio, sotto la carta, tre promemoria. Mangia ogni ora, anche senza fame. Bevi a sete, non a forza. Niente antinfiammatori in sella.",
       ],
     },
@@ -342,6 +469,74 @@ export const GUIDA = {
       paragrafi: [
         "Sotto «Perché» il semaforo dice anche quanto si fida dei suoi numeri. Si fida meno con il battito al polso in bici, con tanti giri senza dati, con meno di sei settimane di giri o mentre impara le tue notti.",
         "Quando si fida poco lo scrive accanto al colore. Le tue risposte contano sempre per intero.",
+      ],
+    },
+  ],
+  // Le pagine della preparazione (7.11), con i numeri veri delle regole.
+  preparazione: [
+    {
+      id: "ore",
+      titolo: "Come stimo le tue ore in sella",
+      paragrafi: [
+        "Scegli l'evento e in quanti giorni farlo. Dai km e dal dislivello ufficiali calcolo le ore in movimento di tutto il percorso con la bici carica, e le divido per i giorni. È la tua giornata media in sella.",
+        "Conto il tuo peso, la bici, le borse, l'acqua e il cibo. La bici carica va più piano soprattutto in salita, e in discesa i chili non restituiscono niente. Con 8 kg di borse una giornata di bikepacking dura di solito circa mezz'ora in più.",
+        "Il tuo passo viene dalla soglia di potenza che hai su intervals.icu, se pedali con il misuratore, altrimenti dai tuoi giri lunghi degli ultimi mesi, oppure dalla media che mi hai detto. Dopo la prima uscita con le borse uso i tuoi tempi veri con la bici carica. Finché ti conosco poco la stima è prudente, e la forbice è più larga.",
+        "Ti mostro le ore alla mezz'ora, con la forbice, e quanto starai fuori con le soste. Con 8 ore e mezza in sella di solito sei fuori da 10 ore e mezza a 12. Per un viaggio di 11 giorni e più ti dico anche la giornata normale, perché ogni 5-7 giorni ne conviene una più corta.",
+        "Uso solo i km e il dislivello pubblici di ogni evento, mai il tracciato. Nei Numeri trovi anche il lavoro di una giornata in kJ e in punti, e i giri che uso per il tuo passo.",
+      ],
+    },
+    {
+      id: "pronto",
+      titolo: "Come decido se sei pronto",
+      paragrafi: [
+        "Guardo quattro cose nelle settimane prima della partenza. Le ore in bici a settimana, l'uscita più lunga, le prove con le borse e la continuità, cioè nessuna pausa lunga.",
+        "Le ore a settimana contano dalla decima alla terza settimana prima della partenza, scarichi compresi. Per esempio, per un viaggio di 2-5 giorni con 8 ore in sella al giorno servono almeno 7 ore e 10 a settimana, meglio 9 ore e 10, e un'uscita lunga di circa 5 ore e 40.",
+        "Il verdetto è «Pronto, con margine», «Pronto», «Quasi pronto» o «Poco pronto», sempre con cosa fare. Arriva quando finisce la terza settimana prima della partenza. Prima vedi dove arrivi se continui così.",
+        "Se non basta, ti propongo prima più giorni, poi il percorso corto dello stesso evento, poi di partire e adattare. Mai un piano impossibile.",
+        "La Fitness la trovi nei Numeri, con lo specchio di dove arriva di solito chi si prepara a un viaggio come il tuo, ma non decide il verdetto.",
+      ],
+    },
+    {
+      id: "piano",
+      titolo: "Come nasce il tuo piano",
+      paragrafi: [
+        "Il piano è la settimana, con bici e palestra. Nasce dalla tua avventura, dai giorni in cui puoi uscire, dal giorno della lunga e dalle ore che hai. Ogni lunedì diventa sette giorni concreti.",
+        "La lunga cresce un passo alla volta, mai più di 45 minuti o di un quinto della più lunga del mese. Una sola uscita a settimana ha qualche salita a frasi brevi, le altre sono facili, a ritmo da chiacchiera.",
+        "Una settimana ogni quattro è leggera, una ogni tre da 50 anni. Prima della partenza c'è lo scarico finale, di solito due settimane con meno ore e tutto facile, il tapering degli allenatori.",
+        "Ogni mattina il semaforo adatta la seduta di oggi. Il colore toglie e non aggiunge. Con «Oggi non posso» la seduta si sposta, e niente si recupera raddoppiando.",
+        "La domenica guardo la settimana. Se più segnali dicono stanchezza, la settimana dopo è facile. Le ore che non ci stanno le scrivo in chiaro, e non si recuperano.",
+      ],
+    },
+    {
+      id: "prove",
+      titolo: "I test con le borse",
+      paragrafi: [
+        "Prima di un viaggio di 3-5 giorni il piano mette tre prove con la bici carica. Un test di almeno 3 ore, un'uscita lunga con le borse e una prova di due giorni con una notte fuori, che finisce almeno 3 settimane prima della partenza. Per i viaggi di 11 giorni e più le prove sono il test, un blocco di tre giorni e la prova generale.",
+        "Conta come prova solo un'uscita di almeno 3 ore con la risposta «Sì, come all'evento», cioè con il peso e le borse del viaggio. Per questo dopo i giri lunghi ti chiedo «Avevi le borse?».",
+        "Dopo una prova ti chiedo com'è andata. Se segni mani, sedere, collo, ginocchia o piedi, la prova resta da sistemare finché una prova dopo va tutta bene.",
+        "Una prova fatta nelle ultime tre settimane conta, ma arrivi meno fresco. Il piano non la mette mai lì.",
+      ],
+    },
+    {
+      id: "palestra",
+      titolo: "La palestra",
+      paragrafi: [
+        "Se la palestra ti va, il piano la mette due volte a settimana per qualche mese, poi una. Negli ultimi 7 giorni prima della partenza niente gambe.",
+        "Ci sono nove schede, con esercizi, serie e ripetizioni spiegati a parole, dalla prima volta in palestra al mantenimento, una per chi si allena a casa e una per tronco e collo.",
+        "Il peso si sceglie con le ripetizioni che restano. A fine serie dovresti poterne fare ancora 2 o 3. Mai fino a non farcela più.",
+        "Probabilmente rende più leggere le ultime ore delle giornate lunghe, con meno fatica. Dà più forza e più muscolo, e probabilmente ossa più forti. Non è provato che prevenga gli infortuni.",
+        "Lontano dalle uscite lunghe. Niente gambe nei giorni dopo un weekend lungo o una prova, e mai nel giorno della lunga. Se hai osteoporosi, una malattia di cuore, un infortunio recente o una protesi, prima parlane con il medico o il fisioterapista.",
+      ],
+    },
+    {
+      id: "dati",
+      titolo: "Quando mancano i dati",
+      paragrafi: [
+        "Non tutti i dati arrivano. Le uscite da Strava arrivano senza dettagli, alcuni giri non hanno né battito né potenza, la palestra al polso vale poco. Per ogni buco c'è una regola e, quando serve, una domanda.",
+        "Le domande sono poche. Tre al mattino e al massimo una carta in più, due quando una è sulle borse. Ogni domanda ha «Non lo so», e dopo 14 giorni senza risposta sparisce. Tutte quelle ancora aperte le trovi nei Numeri.",
+        "Un numero stimato ha davanti «circa». Uno che mi hai detto tu ha accanto «lo hai detto tu».",
+        "Se un giro non ha sensori, lo sforzo che mi dici diventa il suo carico. Per questo calcolo anche una Fitness mia, che conta i giri senza sensori e la palestra. La trovi nei Numeri accanto a quella di intervals.icu.",
+        "Le ore che mancano valgono zero, così il verdetto sbaglia dalla parte prudente e non si blocca mai.",
       ],
     },
   ],

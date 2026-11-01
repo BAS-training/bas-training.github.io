@@ -1,4 +1,91 @@
-/* Numeri (7.11), le regole della pagina js/viste/numeri.js. I colori e le misure comuni stanno in
-   css/app.css, qui solo quello che serve a questa pagina. */
+/* Numeri (7.11), le regole della pagina js/viste/numeri.js, con Andamento e Uscite che ci stanno
+   dentro. I colori e le misure comuni stanno in css/app.css, qui solo quello che serve a queste
+   pagine. In fondo anche le regole di Impostazioni e della Guida, che non hanno un foglio loro. */
 
-.numeri-parte + .numeri-parte { margin-top: 32px; }
+.vista-numeri h4 { margin: 0; font-size: 16px; font-weight: 650; line-height: 1.25; }
+.vista-numeri .sezione .sezione { gap: 12px; }
+.vista-numeri .sezione .sezione > h3 { font-size: 18px; }
+
+/* i riquadri dei numeri che accompagnano il verdetto */
+.griglia-numeri { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 12px; }
+.riquadro-numeri { gap: 8px; }
+.riquadro-numeri p { color: var(--inchiostro-2); font-size: 15px; }
+
+/* le domande ancora aperte */
+.domande-aperte { display: flex; flex-direction: column; gap: 12px; }
+.domanda-aperta { border-left: 4px solid var(--accento); gap: 14px; }
+.domanda-aperta h3 { font-size: 17px; }
+.domanda-nota {
+  margin-left: 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--inchiostro-3);
+}
+.riga-con-tasto { color: var(--inchiostro-2); }
+
+/* la lista delle uscite, ognuna con la sua scheda */
+.lista-uscite {
+  display: flex; flex-direction: column; background: var(--carta);
+  border: 1px solid var(--linea); border-radius: var(--raggio); overflow: hidden;
+}
+.uscita + .uscita { border-top: 1px solid var(--linea); }
+.uscita > summary {
+  list-style: none; cursor: pointer; display: flex; flex-direction: column; gap: 3px;
+  padding: 12px 16px 12px 40px; position: relative; min-height: 44px;
+}
+.uscita > summary::-webkit-details-marker { display: none; }
+.uscita > summary::before {
+  content: "+"; position: absolute; left: 16px; top: 12px; width: 14px;
+  font-weight: 700; color: var(--accento);
+}
+.uscita[open] > summary::before { content: "\2212"; }
+.uscita > summary:hover { background: var(--carta-2); }
+.uscita-testa { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.uscita-giorno { color: var(--inchiostro-2); font-size: 14px; white-space: nowrap; }
+.uscita-tipo { font-weight: 650; }
+.uscita-nome { color: var(--inchiostro-2); font-size: 14px; }
+.uscita-numeri { font-size: 15px; font-variant-numeric: tabular-nums; }
+.uscita-segni { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+.segno {
+  font-size: 12px; font-weight: 650; padding: 2px 8px; border-radius: 999px;
+  background: var(--neutro-fondo); color: var(--neutro-testo);
+}
+.scheda-corpo { display: flex; flex-direction: column; gap: 12px; padding: 4px 16px 18px 40px; }
+.scheda-numeri { color: var(--inchiostro-2); font-size: 15px; font-variant-numeric: tabular-nums; }
+.scheda-modulo { display: flex; flex-direction: column; gap: 14px; border-top: 1px solid var(--linea); padding-top: 12px; }
+@media (max-width: 420px) {
+  .uscita > summary { padding-left: 34px; padding-right: 12px; }
+  .uscita > summary::before { left: 12px; }
+  .scheda-corpo { padding-left: 12px; padding-right: 12px; }
+}
+
+/* --- Impostazioni (7.12) --- */
+.avventura-nome { font-size: 17px; }
+.giorni-modulo { display: flex; flex-direction: column; gap: 14px; }
+.giorni-righe { display: flex; flex-direction: column; gap: 8px; }
+.giorno-riga {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.2fr); align-items: center; gap: 8px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--linea);
+}
+.giorno-riga:last-child { border-bottom: none; padding-bottom: 0; }
+.giorno-riga .spunta { min-width: 0; }
+.giorno-riga .spunta input { flex: none; }
+.giorno-riga .spunta label { font-weight: 600; min-width: 0; }
+.scelta-stella label { min-height: 38px; padding-left: 12px; padding-right: 12px; font-size: 14px; }
+.giorno-tetto { min-width: 0; }
+.giorno-tetto select, .vista-impostazioni select {
+  font: inherit; font-size: 15px; color: var(--inchiostro); background: var(--carta);
+  border: 1px solid var(--linea-forte); border-radius: 12px; padding: 0 10px; min-height: 42px; width: 100%;
+}
+.copia-anteprima { background: var(--carta-2); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+@media (max-width: 359px) {
+  .giorno-riga { grid-template-columns: minmax(0, 1fr) auto; }
+  .giorno-tetto { grid-column: 1 / -1; }
+}
+
+/* --- Guida (7.11) --- */
+.indice-guida {
+  background: var(--carta); border: 1px solid var(--linea); border-radius: var(--raggio);
+  padding: 14px 18px; display: flex; flex-direction: column; gap: 6px;
+}
+.indice-guida ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; }
+.indice-guida .collegamento { display: inline-flex; align-items: center; min-height: 32px; text-align: left; }
+.guida-riga { font-weight: 650; }
