@@ -31,12 +31,65 @@ export function segno(v, dec = 0) {
   return testo;
 }
 
-// 5430 secondi -> "1h31", 2400 -> "40 min".
+// 5430 secondi -> "1h31", 2400 -> "40 min". La forma corta per tabelle e assi dei grafici. Nei testi
+// della pagina le durate si scrivono in parole, con formatoDurata.
 export function durata(secondi) {
   if (!valido(secondi)) return "—";
   const minuti = Math.round(secondi / 60);
   const ore = Math.floor(minuti / 60);
   return ore ? `${ore}h${String(minuti % 60).padStart(2, "0")}` : `${minuti} min`;
+}
+
+// Le regole di scrittura del capitolo 7.1. Mai i due punti, mai decimali nelle durate.
+const PASSO_CORTO = 5;     // minuti, l'arrotondamento sotto le 2 ore
+const PASSO_LUNGO = 10;    // minuti, l'arrotondamento dalle 2 ore in su
+const ORE_PASSO_LUNGO = 2;
+
+function oreInParole(ore) {
+  return ore === 1 ? "1 ora" : `${ore} ore`;
+}
+
+// La durata in parole, dai minuti. Sotto l'ora «45 minuti», poi «1 ora e 20», «3 ore e mezza»,
+// «4 ore e 10», arrotondate a 5 minuti sotto le 2 ore e a 10 minuti sopra.
+export function formatoDurata(minuti) {
+  if (!valido(minuti) || minuti < 0) return "";
+  const passo = minuti < ORE_PASSO_LUNGO * 60 ? PASSO_CORTO : PASSO_LUNGO;
+  const tondi = Math.round(minuti / passo) * passo;
+  if (tondi === 0) return minuti > 0 ? `meno di ${PASSO_CORTO} minuti` : "0 minuti";
+  if (tondi < 60) return `${tondi} minuti`;
+  const ore = Math.floor(tondi / 60);
+  const resto = tondi % 60;
+  if (!resto) return oreInParole(ore);
+  return resto === 30 ? `${oreInParole(ore)} e mezza` : `${oreInParole(ore)} e ${resto}`;
+}
+
+// Le ore in sella di una giornata, sempre alla mezz'ora, con la mezza esatta in su (7.1 e 1.5).
+// 7,5 dà «7 ore e mezza», 8 dà «8 ore».
+export function formatoH(ore) {
+  if (!valido(ore) || ore < 0) return "";
+  const mezze = Math.round(ore * 2);
+  const intere = Math.floor(mezze / 2);
+  const mezza = mezze % 2 === 1;
+  if (!intere) return mezza ? "mezz'ora" : "0 ore";
+  return mezza ? `${oreInParole(intere)} e mezza` : oreInParole(intere);
+}
+
+// L'ora con il punto, «8.30», mai con i due punti (7.1). Accetta ore e minuti, una Date, oppure un
+// istante come lo scrive intervals.icu, «2026-03-07T08:30:00».
+export function formatoOra(ore, minuti = 0) {
+  let h = ore;
+  let m = minuti;
+  if (ore instanceof Date) {
+    h = ore.getHours();
+    m = ore.getMinutes();
+  } else if (typeof ore === "string") {
+    const pezzi = /(\d{1,2})\D(\d{2})(?!\d)/.exec(ore.includes("T") ? ore.slice(ore.indexOf("T") + 1) : ore);
+    if (!pezzi) return "";
+    h = Number(pezzi[1]);
+    m = Number(pezzi[2]);
+  }
+  if (!valido(h) || !valido(m) || h < 0 || h > 23 || m < 0 || m > 59) return "";
+  return `${Math.trunc(h)}.${String(Math.trunc(m)).padStart(2, "0")}`;
 }
 
 // Le date arrivano da intervals.icu come "2026-10-31", nel fuso dell'atleta.

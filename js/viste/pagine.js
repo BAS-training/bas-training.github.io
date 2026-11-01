@@ -1,11 +1,68 @@
-// Le pagine che si vedono anche senza essere entrati: benvenuto, collegamento, guida, privacy.
+// Le pagine che si vedono anche senza essere entrati: benvenuto, collegamento con il riquadro «Prima
+// di entrare», guida, privacy. Qui ci sono anche la pagina del consenso per chi è già dentro e le
+// finestre di conferma.
 
 import { h, icona } from "../dom.js?v=202610312043";
-import { SPIEGAZIONI, GUIDA_SEMAFORO, DISPOSITIVI, DOMANDE_FREQUENTI, DOMANDA_ESCI_CON_INTERVALS, LIMITI } from "../testi.js?v=202610312043";
+import {
+  SPIEGAZIONI, GUIDA_SEMAFORO, GUIDA_LIVELLI, GUIDA_COLONNE, GUIDA, DISPOSITIVI, DOMANDE_FREQUENTI,
+  DOMANDA_ESCI_CON_INTERVALS, LIMITI, CONSENSO, PRIVACY,
+} from "../testi.js?v=202610312043";
 import { intestazione, luceSemaforo } from "./comuni.js?v=202610312043";
 import { OAUTH_ATTIVO } from "../config.js?v=202610312043";
 
 const IMPOSTAZIONI = "https://intervals.icu/settings";
+
+// Il riquadro «Prima di entrare» (6.8 e Consensi, S1-2), con la conferma dei 18 anni e il consenso
+// C0. Le caselle partono sempre vuote. cambia(pronto) dice se ci sono tutte le spunte.
+function riquadroConsenso({ conMaggiorenne = true, conTitolo = true, cambia = () => {} } = {}) {
+  const maggiorenne = conMaggiorenne ? h("input", { type: "checkbox", id: "consenso-18", name: "consenso-18" }) : null;
+  const consenso = h("input", { type: "checkbox", id: "consenso-c0", name: "consenso-c0" });
+  const tutte = () => Boolean((!maggiorenne || maggiorenne.checked) && consenso.checked);
+  for (const c of [maggiorenne, consenso]) if (c) c.addEventListener("change", () => cambia(tutte()));
+  const spazio = CONSENSO.testo.indexOf(" ");
+  const riquadro = h("div", { class: "consenso", role: "group", "aria-label": CONSENSO.titolo },
+    conTitolo ? h("h3", {}, CONSENSO.titolo) : null,
+    h("p", {}, CONSENSO.intro, " ", h("a", { href: "#privacy" }, CONSENSO.informativa)),
+    maggiorenne ? h("div", { class: "spunta spunta-consenso" }, maggiorenne,
+      h("label", { for: "consenso-18" }, CONSENSO.maggiorenne)) : null,
+    h("div", { class: "spunta spunta-consenso" }, consenso,
+      h("label", { for: "consenso-c0" }, h("strong", {}, CONSENSO.testo.slice(0, spazio)), CONSENSO.testo.slice(spazio))),
+    h("p", { class: "piccolo" }, conMaggiorenne ? CONSENSO.servono : CONSENSO.serve));
+  return { riquadro, tutte };
+}
+
+// Chi era già dentro prima di questa versione, o con un testo del consenso più vecchio, rivede il
+// riquadro una volta. Senza le spunte i suoi dati non si leggono (6.8 e Consensi, S1-7).
+export function vistaConsenso(ctx) {
+  const prima = ctx.consensoPrima;
+  const continua = h("button", { class: "bottone", type: "button", id: "consenso-continua", disabled: true }, CONSENSO.continua);
+  const { riquadro, tutte } = riquadroConsenso({
+    conMaggiorenne: !prima, conTitolo: false, cambia: (pronto) => { continua.disabled = !pronto; },
+  });
+  continua.addEventListener("click", () => { if (tutte()) ctx.azioni.accettaConsenso(); });
+  return h("div", { class: "vista vista-testo" },
+    intestazione("Come sto", CONSENSO.titolo, prima ? CONSENSO.nuovo : CONSENSO.primaVolta),
+    h("section", { class: "carta passo accesso" },
+      riquadro,
+      h("div", { class: "riga-bottoni" },
+        continua,
+        h("button", { class: "bottone bottone-secondario", type: "button", on: { click: () => ctx.azioni.esci() } }, CONSENSO.esci))));
+}
+
+// Una finestra di conferma. Ogni scelta chiude la finestra e poi fa la sua azione. Le scelte che
+// escono hanno lo stesso peso, quella che resta è secondaria (Consensi, S1-4).
+export function dialogo({ titolo, testi = [], piccolo = null, scelte = [] }) {
+  const finestra = h("dialog", { class: "dialogo", "aria-labelledby": "dialogo-titolo" },
+    h("h2", { id: "dialogo-titolo" }, titolo),
+    testi.map((t) => h("p", {}, t)),
+    piccolo ? h("p", { class: "piccolo" }, piccolo) : null);
+  const riga = h("div", { class: "dialogo-bottoni" }, scelte.map((s) => h("button", {
+    class: s.secondario ? "bottone bottone-secondario" : "bottone", type: "button",
+    on: { click: () => { finestra.close(); if (s.azione) s.azione(); } },
+  }, s.testo)));
+  finestra.append(riga);
+  return finestra;
+}
 
 export function vistaBenvenuto(ctx) {
   return h("div", { class: "vista vista-benvenuto" },
@@ -44,7 +101,14 @@ export function vistaCollega(ctx) {
   // Con «Entra con intervals.icu» acceso, la chiave da incollare diventa l'alternativa del punto 3.
   // Spento (clientId null in js/config.js) la pagina è quella di sempre.
   const conIntervals = OAUTH_ATTIVO;
-  const scelto = DISPOSITIVI.find((d) => d.id === ctx.preferenze.dispositivo) || DISPOSITIVI[0];
+  const scelto = DISPOSITIVI.find((d) => d.id === ctx.ui.dispositivo) || DISPOSITIVI[0];
+
+  // «Entra con intervals.icu» e il pulsante Entra della chiave restano spenti finché mancano le due
+  // spunte del riquadro «Prima di entrare».
+  const pulsanti = [];
+  const { riquadro, tutte } = riquadroConsenso({
+    cambia: (pronto) => { for (const b of pulsanti) if (!b.dataset.inCorso) b.disabled = !pronto; },
+  });
 
   const stato = h("p", { class: "stato-salvataggio", role: "status", "aria-live": "polite" });
   const campo = h("input", {
@@ -53,7 +117,7 @@ export function vistaCollega(ctx) {
     "aria-describedby": "chiave-aiuto",
   });
   const mostra = h("input", { type: "checkbox", id: "mostra-chiave", on: { change: (e) => { campo.type = e.target.checked ? "text" : "password"; } } });
-  const ricorda = h("input", { type: "checkbox", id: "ricorda", checked: true });
+  const ricorda = h("input", { type: "checkbox", id: "ricorda", checked: true, "aria-describedby": "ricorda-aiuto" });
 
   // Scegliere il dispositivo cambia solo le istruzioni: la chiave già incollata resta dov'è.
   const istruzioni = h("p", { class: "istruzioni", "aria-live": "polite" }, scelto.passi);
@@ -72,12 +136,15 @@ export function vistaCollega(ctx) {
         altro.classList.toggle("attivo", attivo);
         altro.setAttribute("aria-pressed", attivo ? "true" : "false");
       }
-      try { ctx.preferenze.dispositivo = d.id; } catch { /* solo una comodità */ }
+      ctx.ui.dispositivo = d.id; // solo una comodità, cambia le istruzioni e non si salva
     });
   }
 
+  const entra = h("button", { class: "bottone", type: "submit", id: "entra", disabled: true }, "Entra");
+  pulsanti.push(entra);
   const modulo = h("form", { class: conIntervals ? "accesso-chiave" : "carta passo accesso", id: "passo-chiave", novalidate: true },
     conIntervals ? null : h("h2", {}, "3. Copia la chiave e incollala qui"),
+    conIntervals ? null : riquadro,
     h("ol", { class: "passi-semplici" },
       h("li", {}, "Apri le ", h("a", { href: IMPOSTAZIONI, target: "_blank", rel: "noopener" }, "impostazioni di intervals.icu"), "."),
       h("li", {}, "Scorri fino in fondo alla pagina, alla sezione ", h("strong", {}, "Developer Settings"), "."),
@@ -91,18 +158,21 @@ export function vistaCollega(ctx) {
     h("div", { class: "spunte" },
       h("span", { class: "spunta" }, mostra, h("label", { for: "mostra-chiave" }, "Mostra la chiave")),
       h("span", { class: "spunta" }, ricorda, h("label", { for: "ricorda" }, "Ricordami su questo dispositivo"))),
-    h("div", { class: "riga-bottoni" }, h("button", { class: "bottone", type: "submit", id: "entra" }, "Entra")),
+    h("p", { class: "piccolo", id: "ricorda-aiuto" }, CONSENSO.ricordaChiave),
+    h("div", { class: "riga-bottoni" }, entra),
     stato);
 
   modulo.addEventListener("submit", async (evento) => {
     evento.preventDefault();
+    if (!tutte()) { stato.textContent = CONSENSO.servono; return; }
     const chiave = campo.value.trim();
     if (!chiave) { stato.textContent = "Incolla prima la chiave."; campo.focus(); return; }
-    const bottone = modulo.querySelector("button[type=submit]");
-    bottone.disabled = true;
+    entra.disabled = true;
+    entra.dataset.inCorso = "1";
     stato.textContent = "Controllo la chiave…";
     const esito = await ctx.azioni.entra(chiave, ricorda.checked);
-    if (esito) { bottone.disabled = false; stato.textContent = esito; }
+    delete entra.dataset.inCorso;
+    if (esito) { entra.disabled = !tutte(); stato.textContent = esito; }
   });
 
   const vaiAllaChiave = () => {
@@ -122,15 +192,19 @@ export function vistaCollega(ctx) {
     const alternativa = h("details", { class: "alternativa", open: versoChiave || (Boolean(errore) && tipo === "state") },
       h("summary", {}, "Oppure entra con la chiave API di intervals.icu"),
       modulo);
-    const ricordaIntervals = h("input", { type: "checkbox", id: "ricorda-intervals", checked: true });
+    const ricordaIntervals = h("input", { type: "checkbox", id: "ricorda-intervals", checked: true, "aria-describedby": "ricorda-intervals-aiuto" });
     const statoIntervals = h("p", { class: "stato-salvataggio", id: "stato-intervals", role: "status", "aria-live": "polite" });
-    const bottoneIntervals = h("button", { class: "bottone", type: "button", id: "entra-intervals" }, "Entra con intervals.icu");
+    const bottoneIntervals = h("button", { class: "bottone", type: "button", id: "entra-intervals", disabled: true }, "Entra con intervals.icu");
+    pulsanti.push(bottoneIntervals);
     bottoneIntervals.addEventListener("click", async () => {
+      if (!tutte()) { statoIntervals.textContent = CONSENSO.servono; return; }
       bottoneIntervals.disabled = true;
+      bottoneIntervals.dataset.inCorso = "1";
       statoIntervals.textContent = "Ti porto su intervals.icu…";
       const esito = await ctx.azioni.entraConIntervals(ricordaIntervals.checked);
       if (!esito) return;
-      bottoneIntervals.disabled = false;
+      delete bottoneIntervals.dataset.inCorso;
+      bottoneIntervals.disabled = !tutte();
       statoIntervals.textContent = esito.messaggio;
       // Se questo browser non può entrare con intervals.icu, il messaggio dice di usare la chiave.
       if (esito.tipo === "oauth") {
@@ -140,10 +214,12 @@ export function vistaCollega(ctx) {
     });
     passoTre = h("section", { class: "carta passo accesso", id: "passo-intervals" },
       h("h2", {}, "3. Entra con intervals.icu"),
+      riquadro,
       h("p", {}, "Premi il pulsante. Si apre intervals.icu, entri con il tuo account e dai il permesso a Come sto. Poi intervals.icu ti riporta qui da solo."),
       h("p", { class: "piccolo" }, "Come sto chiede di leggere allenamenti, notti e profilo, e di scrivere le risposte del mattino. Lascia accese tutte le voci. La password la scrivi solo su intervals.icu, Come sto non la vede mai."),
       h("div", { class: "spunte" },
         h("span", { class: "spunta" }, ricordaIntervals, h("label", { for: "ricorda-intervals" }, "Ricordami su questo dispositivo"))),
+      h("p", { class: "piccolo", id: "ricorda-intervals-aiuto" }, CONSENSO.ricordaAccesso),
       h("div", { class: "riga-bottoni" }, bottoneIntervals),
       statoIntervals,
       alternativa);
@@ -191,75 +267,78 @@ export function vistaCollega(ctx) {
       h("button", { class: "collegamento", type: "button", on: { click: () => ctx.azioni.demo() } }, "Guarda i dati di esempio")));
 }
 
+// Il pallino di ogni livello nella Guida. Il giallo leggero e il giallo hanno lo stesso colore.
+const PALLINO_LIVELLO = { verde: "pallino-verde", "giallo-leggero": "pallino-giallo", giallo: "pallino-giallo", rosso: "pallino-rosso" };
+
+function pallino(colore) {
+  return h("span", { class: ["pallino", `pallino-${colore}`], "aria-hidden": "true" });
+}
+
+function paragrafi(lista) {
+  return lista.map((t) => h("p", {}, t));
+}
+
 export function vistaGuida() {
+  const G = GUIDA;
   const metriche = ["hrv", "fc", "sonno", "fitness", "fatica", "freschezza", "carico"].map((k) => SPIEGAZIONI[k]);
   const domande = OAUTH_ATTIVO
     ? DOMANDE_FREQUENTI.map((f) => (f.d === DOMANDA_ESCI_CON_INTERVALS.d ? DOMANDA_ESCI_CON_INTERVALS : f))
     : DOMANDE_FREQUENTI;
   return h("div", { class: "vista vista-testo" },
-    intestazione("Guida", "Come si legge Come sto",
-      "Tutto quello che c'è dietro il semaforo e i numeri, spiegato semplice."),
+    intestazione(G.titolo, G.sottotitolo, G.attacco),
 
+    // La pagina del semaforo a punti (7.11). La tabella è GUIDA_SEMAFORO, uguale nel README.
     h("section", { class: "sezione" },
-      h("h2", {}, "Il semaforo, come nasce"),
-      h("p", {}, "Ogni mattina l'app guarda sei cose e dà a ognuna un colore. Le cose senza dati non votano. Poi mette insieme i colori così."),
-      h("ul", { class: "regole" },
-        h("li", {}, h("span", { class: "pallino pallino-verde", "aria-hidden": "true" }), h("strong", {}, "Verde, via libera. "), "Tutto a posto."),
-        h("li", {}, h("span", { class: "pallino pallino-giallo", "aria-hidden": "true" }), h("strong", {}, "Giallo, senza esagerare. "), "Una sola cosa in giallo."),
-        h("li", {}, h("span", { class: "pallino pallino-giallo", "aria-hidden": "true" }), h("strong", {}, "Giallo, giornata tranquilla. "), "Due cose in giallo, oppure una in rosso."),
-        h("li", {}, h("span", { class: "pallino pallino-rosso", "aria-hidden": "true" }), h("strong", {}, "Rosso, oggi recupera. "), "Due cose in rosso, oppure una rossa e una gialla. E sempre quando segni un dolore, un infortunio, o dici di essere a pezzi.")),
+      h("h2", {}, G.semaforo.titolo),
+      paragrafi(G.semaforo.paragrafi),
+      h("h3", {}, G.semaforo.livelli),
+      h("ul", { class: "regole" }, GUIDA_LIVELLI.map((l) => h("li", {},
+        h("span", { class: ["pallino", PALLINO_LIVELLO[l.livello]], "aria-hidden": "true" }),
+        h("span", {}, h("strong", {}, `${l.titolo} `), l.testo)))),
+      h("h3", {}, G.semaforo.voci),
+      h("p", {}, G.semaforo.vociAttacco),
       h("div", { class: "carte-regole" }, GUIDA_SEMAFORO.map((r) => h("article", { class: "carta regola" },
-        h("h3", {}, r.voce),
-        h("p", {}, h("span", { class: "pallino pallino-verde", "aria-hidden": "true" }), h("strong", {}, "Verde. "), r.verde),
-        h("p", {}, h("span", { class: "pallino pallino-giallo", "aria-hidden": "true" }), h("strong", {}, "Giallo. "), r.giallo),
-        h("p", {}, h("span", { class: "pallino pallino-rosso", "aria-hidden": "true" }), h("strong", {}, "Rosso. "), r.rosso)))),
-      h("p", {}, "Il tuo «normale» lo calcola l'app dalle tue ultime notti. Per l'HRV servono almeno due settimane, per il battito una. Prima di allora quella voce non vota."),
-      h("p", {}, "Il carico recente si guarda com'era ieri sera, prima di uscire, così un giro fatto stamattina non cambia il consiglio di stamattina."),
-      h("p", {}, "Nessun numero sa dire con certezza se il corpo ha recuperato. Il semaforo mette insieme più indizi, ed è più affidabile quando guardi la tendenza di qualche giorno.")),
+        h("h4", {}, r.voce),
+        h("p", {}, pallino("verde"), h("strong", {}, `${GUIDA_COLONNE.verde}. `), r.verde),
+        h("p", {}, pallino("giallo"), h("strong", {}, `${GUIDA_COLONNE.giallo}. `), r.giallo),
+        h("p", {}, pallino("rosso"), h("strong", {}, `${GUIDA_COLONNE.rosso}. `), r.rosso))))),
+
+    G.sezioni.map((s) => h("section", { class: "sezione" },
+      h("h2", {}, s.titolo),
+      paragrafi(s.paragrafi))),
 
     h("section", { class: "sezione" },
-      h("h2", {}, "I numeri, uno per uno"),
+      h("h2", {}, G.numeri),
       metriche.map((t) => h("article", { class: "carta metrica" },
         h("h3", {}, t.nome, h("span", { class: "metrica-sotto" }, t.sottotitolo)),
         h("p", {}, t.cosa),
-        h("p", {}, h("strong", {}, "Come leggerlo. "), t.come),
-        h("p", {}, h("strong", {}, "A cosa è legato. "), t.legami)))),
+        h("p", {}, h("strong", {}, `${G.leggi} `), t.come),
+        h("p", {}, h("strong", {}, `${G.legato} `), t.legami)))),
 
     h("section", { class: "sezione" },
-      h("h2", {}, "Quando non fidarti dei numeri"),
+      h("h2", {}, G.limiti),
       h("ul", { class: "elenco" }, LIMITI.map((l) => h("li", {}, l)))),
 
     h("section", { class: "sezione" },
-      h("h2", {}, "Domande frequenti"),
+      h("h2", {}, G.domande),
       domande.map((f) => h("details", { class: "faq" }, h("summary", {}, f.d), h("p", {}, f.r)))),
 
-    h("p", {}, h("a", { href: "#privacy" }, "Come trattiamo i tuoi dati")));
+    h("p", {}, h("a", { href: "#privacy" }, G.privacy)));
 }
 
+// La Privacy del rilascio 1, con quello che resta su questo telefono (Informativa, Parte 1).
 export function vistaPrivacy() {
+  const P = PRIVACY;
+  const testo = (x) => (typeof x === "string" ? x : OAUTH_ATTIVO ? x.intervals : x.chiave);
   return h("div", { class: "vista vista-testo" },
-    intestazione("Privacy", "I tuoi dati restano tuoi", null),
-    h("section", { class: "sezione" },
-      h("h2", {}, "In breve"),
-      h("ul", { class: "elenco" },
-        h("li", {}, "Come sto è una pagina web e basta. Non ha un server, non ha un database, non raccoglie niente."),
-        h("li", {}, "I tuoi dati vanno direttamente da intervals.icu al tuo telefono o computer. Nessun altro li vede, nemmeno chi ha fatto l'app."),
-        h("li", {}, OAUTH_ATTIVO
-          ? "L'accesso che ti dà intervals.icu, o la chiave se l'hai incollata, resta salvato solo sul tuo dispositivo. Se togli la spunta «Ricordami», si cancella quando chiudi la pagina. Con Esci lo cancelli subito."
-          : "La chiave di intervals.icu resta salvata solo sul tuo dispositivo. Se togli la spunta «Ricordami», si cancella quando chiudi la pagina. Con Esci la cancelli subito."),
-        h("li", {}, "Le risposte alle domande del mattino le scriviamo nel tuo account intervals.icu, nel giorno di oggi. Restano tue e le vedi anche là."),
-        h("li", {}, "Le tue scelte nella pagina, come il periodo dei grafici o la tua prossima avventura, restano salvate solo nel tuo browser."),
-        h("li", {}, "Niente pubblicità, niente statistiche di visita, niente cookie, niente servizi di terzi. La pagina parla solo con intervals.icu."))),
-    h("section", { class: "sezione" },
-      h("h2", {}, "Chi tratta cosa"),
-      h("p", {}, "I dati dei tuoi allenamenti e delle tue notti stanno nel tuo account intervals.icu, che ha la sua informativa sulla privacy. La pagina è pubblicata su GitHub Pages, che come ogni sito tiene i registri tecnici delle visite."),
-      h("p", {}, OAUTH_ATTIVO
-        ? "Se sei entrato con il pulsante «Entra con intervals.icu», Esci toglie a Come sto anche il permesso su intervals.icu, e così esci dagli altri telefoni e computer dove sei entrato con il pulsante. Il permesso lo puoi togliere quando vuoi anche dalle impostazioni di intervals.icu. Se hai incollato la chiave, per togliere l'accesso a Come sto crea una nuova chiave su intervals.icu. Quella vecchia smette subito di funzionare."
-        : "Per togliere l'accesso a Come sto in qualsiasi momento, su intervals.icu crea una nuova chiave. Quella vecchia smette subito di funzionare.")),
-    h("section", { class: "sezione" },
-      h("h2", {}, "Non è un dispositivo medico"),
-      h("p", {}, "Come sto dà consigli di allenamento basati su numeri, non fa diagnosi. Se hai febbre, dolori, o il battito a riposo resta alto per giorni, parlane con un medico.")),
-    h("p", {}, h("a", { href: "#guida" }, "Torna alla guida")));
+    intestazione(P.titolo, P.sottotitolo, null),
+    P.sezioni.map((s) => h("section", { class: "sezione" },
+      h("h2", {}, s.titolo),
+      h("ul", { class: "elenco" }, s.punti.map((x) => h("li", {}, testo(x)))),
+      s.dopo ? h("p", {}, s.dopo) : null)),
+    h("p", { class: "riga-link" },
+      h("a", { href: "#impostazioni" }, P.impostazioni),
+      h("a", { href: "#guida" }, P.guida)));
 }
 
 export function vistaCaricamento(testo = "Leggo i tuoi dati da intervals.icu…") {

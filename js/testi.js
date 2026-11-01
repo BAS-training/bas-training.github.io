@@ -1,20 +1,15 @@
 // Tutti i testi dell'app, in parole semplici. Li usano le pagine, il semaforo e la Guida.
 // Regole di scrittura (capitolo 7.1 della specifica). Del tu, frasi brevi, nessun carattere dei due
 // punti, orari con il punto, durate in parole, niente sigle a schermo, nessuna pagella e nessuna
-// promessa medica. I modelli con un valore dentro sono funzioni, così le prove li compongono.
+// promessa medica. I modelli con un valore dentro sono funzioni, così le prove li compongono
+// (test/testi.test.mjs, 9.8).
 
-// Le durate in parole. Sotto l'ora in minuti, poi «1 ora e 20» o «3 ore e mezza», arrotondate a 5
-// minuti sotto le 2 ore e a 10 sopra (7.1). Quando js/formato.js avrà formatoDurata, si usa quella.
+import { formatoDurata } from "./formato.js?v=202610312043";
+
+// Le durate in parole, «45 minuti», «1 ora e 20», «3 ore e mezza» (7.1). È formatoDurata di
+// js/formato.js, con il nome che usano i testi del semaforo.
 export function durataInParole(minuti) {
-  if (typeof minuti !== "number" || !Number.isFinite(minuti) || minuti < 0) return "";
-  const passo = minuti < 120 ? 5 : 10;
-  const tondi = Math.round(minuti / passo) * passo;
-  if (tondi < 60) return `${tondi} minuti`;
-  const ore = Math.floor(tondi / 60);
-  const resto = tondi % 60;
-  const parola = ore === 1 ? "1 ora" : `${ore} ore`;
-  if (!resto) return parola;
-  return resto === 30 ? `${parola} e mezza` : `${parola} e ${resto}`;
+  return formatoDurata(minuti);
 }
 
 export const SPIEGAZIONI = {
@@ -276,6 +271,10 @@ export const STO_MALE = {
   // Il giorno dopo uno stop per malattia. Con questa risposta parte il rientro (senzaFebbre nel diario).
   senzaFebbre: "Non ho più febbre da 24 ore, senza farmaci per la febbre",
   sopraIlCollo: "Se esci, al massimo un'ora facile, a ritmo da chiacchiera.",
+  // Il pannello sulla pagina Oggi (7.4).
+  attacco: "Segna quello che senti oggi. Una casella basta, il semaforo fa il resto. Resta su questo telefono e non va su intervals.icu.",
+  segnati: (n) => (n === 1 ? "Hai segnato un sintomo." : `Hai segnato ${n} sintomi.`),
+  febbrePassata: "La febbre è passata?",
 };
 
 // Le caselle delle cause, la riga chiusa sotto le domande (4.4). Gli id vanno nel diario in cause.
@@ -289,6 +288,8 @@ export const CAUSE = {
     { id: "quota", testo: "Ho dormito sopra i 1.500 m" },
     { id: "ciclo", testo: "Sono nei giorni prima del ciclo", soloSeAccesa: true },
   ],
+  attacco: "Se una vale, spuntala. Stanotte pesa meno e non entra nel tuo normale. Resta su questo telefono.",
+  segnate: (n) => (n === 1 ? "Una casella spuntata." : `${n} caselle spuntate.`),
 };
 
 // La domanda di controllo e la domanda sulla pedalata (4.4). Le risposte vanno nel diario in
@@ -297,11 +298,33 @@ export const CONTROLLO = {
   malattia: {
     domanda: "Prima di decidere, una domanda. Se puoi, misura la temperatura. Hai febbre, brividi, dolori in tutto il corpo, mal di gola o tosse?",
     scelte: [{ id: "no", testo: "No, niente" }, { id: "si", testo: "Sì" }, { id: "motivo", testo: "C'è un motivo" }],
+    // La stessa domanda, a pezzi, per la carta che compare prima del livello.
+    testo: "Se puoi, misura la temperatura. Hai febbre, brividi, dolori in tutto il corpo, mal di gola o tosse?",
   },
   pedalata: {
     domanda: "Ti cambia la pedalata o peggiora pedalando?",
     scelte: [{ id: "si", testo: "Sì" }, { id: "no", testo: "No" }],
+    testo: "Ti cambia la pedalata o peggiora pedalando?",
   },
+  titolo: "Prima di decidere, una domanda.",
+  dopo: "Rispondo dopo",
+  motivo: "Spunta qui sotto cosa è successo.",
+  pedalataDove: "Questa risposta resta su questo telefono.",
+};
+
+// Le scelte della domanda che compare una volta quando le notti cambiano di colpo per tre mattine
+// (4.3). La domanda è MESSAGGI.dispositivo.
+export const CAMBIO_DISPOSITIVO = {
+  scelte: [{ id: "si", testo: "Sì" }, { id: "no", testo: "No" }, { id: "nonso", testo: "Non lo so" }],
+};
+
+// I tetti come righe del «Perché», con il loro nome (4.2, passo 11).
+export const TETTI = {
+  guardia: "Dopo la fatica",
+  rientro: "Dopo la malattia",
+  sopraIlCollo: "Naso e gola",
+  ultimiGiorni: "Prima della partenza",
+  crescita: "La Fitness sale in fretta",
 };
 
 // I giorni di guardia dopo le fatiche volute (4.6).
@@ -426,6 +449,16 @@ export const VIAGGIO = {
   fine: "Ce l'hai fatta. Per una settimana niente piano, solo giri facili se ti va.",
   perche: "In viaggio questi numeri cambiano da soli. Oggi guardo come stai tu.",
   notte: "In viaggio battito e HRV sono bassi per forza. Li vedi, ma non contano.",
+  // Le parti della pagina Oggi in viaggio (7.10).
+  titoloDomande: "Come stai stamattina?",
+  attaccoDomande: "Tre domande per i giorni di fila. Una casella apre al massimo una scelta in più.",
+  attaccoDomandeCorto: "Due domande per i giorni di fila. Una casella apre al massimo una scelta in più.",
+  risposte: "Le tue risposte di stamattina",
+  nienteSegnato: "Niente",
+  propostaSi: "Sì, sono in viaggio",
+  propostaNo: "No",
+  // Il giorno in cui hai premuto «Sono in viaggio», per tornare indietro se l'hai premuto per sbaglio.
+  nonInViaggio: "Non sono in viaggio",
 };
 
 // La Freschezza (su intervals.icu si chiama Form) in parole semplici, sulle fasce di intervals.icu
@@ -569,18 +602,22 @@ export const DOMANDE_FREQUENTI = [
   },
   {
     d: "Perché le mie risposte del mattino finiscono su intervals.icu?",
-    r: "Perché così restano tue, insieme agli altri dati, e le ritrovi anche nell'app di intervals.icu. Come sto non tiene niente per sé.",
+    r: "Perché così restano tue, insieme agli altri dati, e le ritrovi anche nell'app di intervals.icu. Come sto non ci manda niente. Le tue risposte restano su questo dispositivo e nel tuo intervals.icu.",
+  },
+  {
+    d: "Dove finiscono le risposte di «Sto male» e di «Ieri sera…»?",
+    r: "Restano su questo dispositivo, al massimo 400 giorni, poi si cancellano da sole. Non vanno su intervals.icu e noi non le riceviamo. Le togli quando vuoi con «Esci e cancella tutto da questo dispositivo», in Impostazioni.",
   },
   {
     d: "Come esco, o tolgo l'accesso?",
-    r: "Premi Esci in fondo alla pagina e la chiave sparisce da questo dispositivo. Per togliere l'accesso ovunque, su intervals.icu crea una chiave nuova. Quella vecchia smette subito di funzionare.",
+    r: "Premi Esci in fondo alla pagina e la chiave sparisce da questo dispositivo, insieme al consenso. Con «Esci e cancella tutto da questo dispositivo» togli anche le tue risposte. Per togliere l'accesso ovunque, su intervals.icu crea una chiave nuova. Quella vecchia smette subito di funzionare.",
   },
 ];
 
 // Con «Entra con intervals.icu» acceso prende il posto della domanda qui sopra con lo stesso titolo.
 export const DOMANDA_ESCI_CON_INTERVALS = {
   d: "Come esco, o tolgo l'accesso?",
-  r: "Premi Esci in fondo alla pagina. Se sei entrato con il pulsante «Entra con intervals.icu», Esci toglie a Come sto anche il permesso su intervals.icu, e così esci dagli altri telefoni e computer dove sei entrato con il pulsante. Se hai incollato la chiave, Esci la cancella da questo dispositivo. Per togliere l'accesso ovunque, su intervals.icu crea una chiave nuova. Quella vecchia smette subito di funzionare.",
+  r: "Premi Esci in fondo alla pagina. Se sei entrato con il pulsante «Entra con intervals.icu», Esci toglie a Come sto anche il permesso su intervals.icu, e così esci dagli altri telefoni e computer dove sei entrato con il pulsante. Se hai incollato la chiave, Esci la cancella da questo dispositivo. Con «Esci e cancella tutto da questo dispositivo» togli anche le tue risposte. Per togliere l'accesso ovunque, su intervals.icu crea una chiave nuova. Quella vecchia smette subito di funzionare.",
 };
 
 export const LIMITI = [
@@ -589,9 +626,397 @@ export const LIMITI = [
   "Il semaforo non ti dice di partire per un viaggio se stai male, qualunque colore abbia.",
   "Alcune medicine, per esempio i betabloccanti, cambiano battito e HRV. Se le prendi, chiedi al medico come regolarti.",
   "Alcol, caldo, una cena tardi, un viaggio, la quota e, per le donne, la seconda metà del ciclo alzano il battito e abbassano l'HRV anche senza stanchezza.",
-  "Ogni orologio misura l'HRV in un momento diverso della notte. Usa un solo dispositivo per la notte. Se lo cambi, servono un paio di settimane perché l'app impari il tuo nuovo normale.",
+  "Ogni orologio misura l'HRV in un momento diverso della notte. Usa un solo dispositivo per la notte. Se lo cambi, segnalo in Impostazioni con «Ho cambiato orologio». Servono un paio di settimane perché l'app impari il tuo nuovo normale.",
   "Il battito misurato al polso durante il giro è spesso sbagliato. Per i giri usa una fascia cardio o il ciclocomputer.",
   "Una sola notte storta non è un problema. Conta la tendenza di tre o quattro giorni.",
   "Il semaforo non sa se ti fa male un ginocchio. Diglielo con le domande del mattino.",
   "Come sto non è un medico e non fa diagnosi. Se il battito a riposo resta alto per giorni o qualcosa non ti convince, parlane con un medico.",
 ];
+
+// --- La pagina Oggi (7.4) ---
+
+export const OGGI = {
+  occhiello: "Il semaforo di oggi",
+  settimane: (n) => `Mancano ${n} settimane alla partenza`,
+  giorni: (n) => (n === 1 ? "Manca un giorno alla partenza" : `Mancano ${n} giorni alla partenza`),
+  siParte: "Oggi si parte",
+  salvato: "Salvato. Il semaforo è aggiornato con le tue risposte.",
+  perche: "Perché",
+  comeNasce: "Come nasce il semaforo",
+};
+
+// Le tre domande del mattino, il modulo (7.4). Le domande e le scelte sono in DOMANDE_MATTINO.
+export const MATTINO = {
+  titolo: "Come ti senti stamattina?",
+  attacco: "Tre risposte, dieci secondi. Contano nel semaforo, perché il tuo corpo lo conosci anche tu.",
+  fatte: "Le tue risposte di stamattina",
+  cambia: "Cambia le risposte",
+  salva: "Salva le risposte",
+  demo: "Con i dati di esempio le risposte restano solo in questa pagina.",
+  almenoUna: "Scegli almeno una risposta.",
+  salvo: "Salvo…",
+  errore: "Non sono riuscito a salvare. Riprova tra poco.",
+  nessuna: "—",
+};
+
+// I sei numeri del giorno, chiusi in fondo alla pagina Oggi finché non arriva la pagina Numeri (7.2).
+export const NUMERI_OGGI = {
+  titolo: "Per chi ama i numeri",
+  attacco: "I primi tre vengono dalla notte e dicono come hai recuperato. Gli altri tre vengono dagli allenamenti e dicono quanto hai caricato. Apri «Cosa vuol dire» per capire ogni numero.",
+  attaccoSenzaNotte: "Vengono dagli allenamenti e dicono quanto hai caricato. Apri «Cosa vuol dire» per capire ogni numero.",
+  hrv: "HRV della notte",
+  normaleHrv: (basso, alto) => `Il tuo normale ${basso}–${alto}`,
+  impara: (notti, servono) => `Sto imparando il tuo normale, ${notti} notti su ${servono}`,
+  hrvMai: "Non arriva dal tuo dispositivo",
+  fc: "Battito a riposo",
+  normaleFc: (solito) => `Il tuo normale ${solito}`,
+  sonno: "Sonno",
+  punteggio: (p) => `Punteggio ${p}`,
+  mediaSettimana: (durata) => `media della settimana ${durata}`,
+  freschezza: "Freschezza",
+  zona: (nome, fitness, fatica) => `${nome}. Fitness ${fitness}, Fatica ${fatica}`,
+  pochiGiri: "Servono un po' di giri registrati",
+  fitness: "Fitness",
+  differenza: (punti) => `${punti} nelle ultime 4 settimane`,
+  carico: "Carico recente",
+  volte: "volte il solito",
+  finoA: (rapporto) => `Fino a ${rapporto} volte va bene`,
+  ultima: "L'ultima uscita",
+  tutte: "Tutte le uscite",
+  punti: (n) => `${n} punti`,
+  km: (n) => `${n} km`,
+  salita: (n) => `${n} m di salita`,
+  battiti: "battiti",
+};
+
+// --- Impostazioni (7.12) ---
+
+export const IMPOSTAZIONI = {
+  titolo: "Impostazioni",
+  sottotitolo: "Le tue scelte",
+  attacco: "Poche cose che aiutano il semaforo a leggerti meglio. Ogni voce dice dove sta il dato.",
+  salvato: "Salvato.",
+  demo: "Con i dati di esempio le scelte restano solo in questa pagina.",
+  telefono: "Sta su questo telefono.",
+  eta: {
+    titolo: "Età",
+    domanda: "Quanti anni hai?",
+    scelte: [
+      { id: "sotto40", testo: "Sotto i 40" },
+      { id: "40-49", testo: "40-49" },
+      { id: "50-54", testo: "50-54" },
+      { id: "55-59", testo: "55-59" },
+      { id: "60+", testo: "60 e più" },
+    ],
+    aiuto: "Da 50 anni il semaforo guarda la fatica su più giorni. Da 55 anni una notte molto buona non vale mai come verde. L'età non la prendo mai da intervals.icu.",
+    senza: "Finché non scegli, conto 40-49 anni.",
+  },
+  notte: {
+    titolo: "La notte",
+    domanda: "Cosa porti di notte?",
+    scelte: [
+      { id: "garmin", testo: "Un orologio Garmin" },
+      { id: "orologio", testo: "Un altro orologio" },
+      { id: "braccialetto", testo: "Un braccialetto" },
+      { id: "anello", testo: "Un anello" },
+      { id: "fascia", testo: "Una fascia cardio" },
+      { id: "nonso", testo: "Non lo so" },
+    ],
+    aiuto: "Ogni dispositivo legge la notte a modo suo. Con un anello o una fascia il semaforo si fida anche di differenze più piccole. Con Garmin il battito a riposo arriva dalla mezz'ora più tranquilla del giorno.",
+    cambioTitolo: "Ho cambiato orologio",
+    cambioTesto: "Se hai cambiato orologio o anello, segna il giorno. Da lì imparo di nuovo le tue notti, per due settimane.",
+    cambioQuando: "Quando l'hai cambiato?",
+    cambioTasto: "Ho cambiato orologio",
+    cambioSegnato: (data) => `Hai segnato il cambio ${data}. Da lì imparo di nuovo le tue notti, per due settimane.`,
+    cambioTogli: "Togli il cambio",
+    cambioData: "Scegli un giorno fra gli ultimi due mesi e oggi.",
+    aritmia: "Ho un'aritmia nota",
+    aritmiaAiuto: "Serve a leggere meglio le tue notti. Con un'aritmia una notte molto buona non vale mai come verde, e se capita spesso ti invito a parlarne con il medico.",
+  },
+  bici: {
+    titolo: "In bici",
+    domanda: "In bici usi la fascia cardio?",
+    scelte: [
+      { id: "si", testo: "Sì" },
+      { id: "no", testo: "No, al polso" },
+      { id: "nonso", testo: "Non lo so" },
+    ],
+    aiuto: "Il battito al polso in bici sbaglia spesso. Così so quanto fidarmi del carico dei tuoi giri.",
+  },
+  ciclo: {
+    titolo: "Ciclo",
+    casella: "Al mattino voglio poter segnare i giorni prima del ciclo",
+    aiuto: "Se la accendi, al mattino puoi segnare i giorni prima del ciclo, così il semaforo pesa meno una notte diversa dal solito. Sta solo su questo telefono e non va su intervals.icu.",
+  },
+  dati: {
+    titolo: "Dove stanno i tuoi dati",
+    righe: (giorni) => [
+      "Le tre risposte del mattino stanno su intervals.icu, nel giorno di ogni mattina.",
+      `«Sto male», «Ieri sera…», le domande in viaggio e il colore del semaforo di ogni giorno stanno su questo telefono per ${giorni} giorni, poi si cancellano da sole.`,
+      "Queste impostazioni stanno su questo telefono finché non le cancelli.",
+      "Noi non riceviamo niente.",
+    ],
+    privacy: "Come trattiamo i tuoi dati",
+  },
+  esci: {
+    titolo: "Esci",
+    esci: "Esci",
+    esciAiuto: "Togli da questo dispositivo la chiave e il consenso. Le tue risposte restano qui, così le ritrovi quando rientri.",
+    cancella: "Esci e cancella tutto da questo dispositivo",
+    cancellaAiuto: "Togli tutto quello che Come sto tiene qui, risposte e sintomi compresi. Se il dispositivo lo usano anche altri, scegli questo.",
+    demo: "Esci dall'esempio",
+    demoAiuto: "Torni alla pagina iniziale. I dati di esempio non restano da nessuna parte.",
+  },
+  fuori: {
+    testo: "Le impostazioni si aprono quando entri con i tuoi dati.",
+    entra: "Collega i tuoi dati",
+    resti: "Su questo dispositivo sono rimaste le tue risposte o le tue scelte di prima. Se vuoi, cancellale.",
+    niente: "Su questo dispositivo Come sto non tiene niente.",
+  },
+};
+
+// --- Il consenso, nel riquadro «Prima di entrare» (6.8) ---
+
+// C0-1.0, il testo del rilascio 1. È quello di 6.8 senza sforzo, borse e palestra, che arrivano con
+// il rilascio 2 e una versione nuova. Cambiando il testo cambia la versione, e chi è già dentro lo
+// rivede una volta.
+export const CONSENSO = {
+  versione: "C0-1.0",
+  titolo: "Prima di entrare",
+  intro: "Noi non riceviamo niente. Le tue risposte restano su questo dispositivo e nel tuo account intervals.icu.",
+  informativa: "Leggi l'informativa",
+  maggiorenne: "Ho almeno 18 anni.",
+  testo: "Acconsento che Come sto usi su questo dispositivo i miei dati sulla salute presi da intervals.icu. Sono HRV (variabilità del battito), battito a riposo, sonno, acciacchi e allenamenti, e servono solo a darmi il semaforo e il piano. Acconsento anche che tenga su questo dispositivo le risposte che do qui, compresi i sintomi del pannello Sto male, e che scriva nel mio account intervals.icu le risposte del mattino. AdventureLab non riceve questi dati. Posso ritirare il consenso quando voglio con Esci.",
+  servono: "Per entrare servono tutte e due le spunte.",
+  serve: "Per continuare serve la spunta.",
+  primaVolta: "Da questa versione Come sto tiene su questo dispositivo anche le risposte di Sto male, e per questo ti chiede il consenso. Bastano due spunte, una volta.",
+  nuovo: "Il testo del consenso è cambiato. Leggilo e, se sei d'accordo, spunta la casella. Finché non rispondi non leggo i tuoi dati.",
+  continua: "Continua",
+  esci: "Esci",
+  ricordaChiave: "Se la spunti, la chiave resta su questo dispositivo finché premi Esci. Non spuntarla su un telefono o un computer che usano anche altri.",
+  ricordaAccesso: "Se la spunti, l'accesso resta su questo dispositivo finché premi Esci. Non spuntarla su un telefono o un computer che usano anche altri.",
+};
+
+// --- Esci ed «Esci e cancella tutto da questo dispositivo» (6.6) ---
+
+export const ESCI = {
+  titolo: "Vuoi uscire?",
+  chiave: "Con Esci togli da questo dispositivo la chiave e il consenso. Per rientrare dovrai incollare di nuovo la chiave.",
+  chiaveOppure: "Con Esci togli da questo dispositivo la chiave e il consenso. Per rientrare premi «Entra con intervals.icu», oppure incolla di nuovo la chiave.",
+  accesso: "Con Esci togli da questo dispositivo l'accesso e il consenso. Come sto perde il permesso su intervals.icu, e uscirai anche dagli altri telefoni e computer dove sei entrato con intervals.icu. Per rientrare premi di nuovo «Entra con intervals.icu».",
+  accessoSenzaRete: "Con Esci togli da questo dispositivo l'accesso e il consenso. Senza connessione esci solo da questo dispositivo, e Come sto tiene il permesso su intervals.icu. Lo puoi togliere tu dalle impostazioni di intervals.icu.",
+  restano: "Le tue risposte, compresi i sintomi di Sto male, restano qui, così le ritrovi quando rientri. Se il dispositivo lo usano anche altri, scegli Esci e cancella tutto.",
+  intervals: "Quello che Come sto ha scritto nel tuo intervals.icu resta lì.",
+  esci: "Esci",
+  cancella: "Esci e cancella tutto da questo dispositivo",
+  resta: "Resta dentro",
+  revocaFallita: "Sei uscito, ma non sono riuscito a togliere il permesso a Come sto su intervals.icu. Lo puoi togliere tu dalle impostazioni di intervals.icu.",
+  cancellaTitolo: "Vuoi cancellare tutto?",
+  cancellaDomanda: "Tolgo da questo dispositivo tutto quello che Come sto ci tiene, cioè risposte, sintomi di Sto male, scelte e il modo di entrare. Dopo non si può più recuperare.",
+  cancellaSi: "Cancella tutto",
+  cancellaNo: "Lascia com'è",
+  cancellato: "Fatto. Su questo dispositivo Come sto non tiene più niente.",
+};
+
+// --- La Privacy, quello che vale nel rilascio 1 (Informativa, Parte 1) ---
+
+// Un punto può essere un testo, oppure { chiave, intervals } con la riga per chi incolla la chiave e
+// quella per quando c'è «Entra con intervals.icu».
+export const PRIVACY = {
+  titolo: "Privacy",
+  sottotitolo: "I tuoi dati restano tuoi",
+  sezioni: [
+    {
+      titolo: "In breve",
+      punti: [
+        "Come sto ti dà ogni mattina un semaforo, per capire se oggi puoi spingere o se è meglio andare piano.",
+        "La pagina legge i tuoi dati da intervals.icu direttamente sul tuo telefono o computer. Le tue risposte restano lì e nel tuo account intervals.icu. Noi non riceviamo niente.",
+        "Niente pubblicità, niente vendita di dati e niente intelligenza artificiale sui tuoi dati.",
+        "Come sto non è un dispositivo medico e non fa diagnosi.",
+      ],
+    },
+    {
+      titolo: "Cosa succede quando entri",
+      punti: [
+        {
+          chiave: "Incolli nella pagina la chiave del tuo account intervals.icu.",
+          intervals: "Premi «Entra con intervals.icu» e dai il permesso a Come sto, oppure incolli la chiave del tuo account intervals.icu.",
+        },
+        "Prima di entrare confermi di avere almeno 18 anni e dai il consenso per i dati sulla salute, con due caselle. A ogni nuovo ingresso le caselle sono vuote. Che hai almeno 18 anni lo dichiari tu, e noi non possiamo controllarlo.",
+        "Il tuo browser chiede a intervals.icu i dati che servono e li mette insieme sul tuo dispositivo per calcolare semaforo, andamento, uscite e obiettivo.",
+        "Le risposte alle tre domande del mattino il tuo browser le scrive nel tuo account intervals.icu, nel giorno di oggi.",
+        "Le altre risposte che dai nella pagina, per esempio quelle del pannello «Sto male», restano sul tuo dispositivo.",
+        "Niente passa da un server nostro. Non vediamo e non conserviamo i dati dell'app.",
+      ],
+    },
+    {
+      titolo: "Quali dati usa la pagina",
+      punti: [
+        "La notte. HRV, cioè la variabilità del battito mentre dormi, battito a riposo, ore e punteggio del sonno. Anche il battito medio mentre dormi, se il tuo dispositivo lo manda.",
+        "Gli allenamenti. Di ogni uscita la pagina usa data, tipo, nome, durata, distanza, dislivello, battito medio e carico, cioè i punti di lavoro dell'uscita. Usa anche Fitness e Fatica, la media del tuo lavoro nelle ultime sei settimane e nell'ultima settimana, calcolate da intervals.icu. Il nome dell'uscita lo mostra così come l'hai scritto tu o il tuo dispositivo.",
+        "Le tue risposte del mattino. Energia, gambe e acciacchi, su una scala da 1 a 4.",
+        "Le altre tue risposte. Il pannello «Sto male», con i sintomi di cuore, di malattia e del raffreddore, le caselle di «Ieri sera…», per esempio l'alcol o una notte in alta quota, e le domande in viaggio.",
+        "Quello che ci dici di te, in Impostazioni. La fascia d'età, il dispositivo che porti di notte, se hai un'aritmia nota, se in bici usi la fascia cardio e, solo se la accendi, la casella dei giorni prima del ciclo. Puoi lasciarle vuote, e l'app funziona lo stesso.",
+        "Il tuo profilo intervals.icu. Arriva intero nella memoria della pagina, perché intervals.icu non permette di chiederne solo una parte. La pagina ne usa solo il nome, per salutarti, e il fuso orario, per sapere qual è il tuo «oggi». Il resto, come email, data di nascita, sesso o peso, non lo usa e non lo salva da nessuna parte. Non chiede mai la fase del ciclo.",
+        "La chiave di intervals.icu, che apre il tuo account come una password, oppure l'accesso che ti dà intervals.icu se entri con il pulsante.",
+        "Le tue scelte nella pagina, cioè la prossima avventura, la sua data e il periodo dei grafici.",
+      ],
+      dopo: "Battito, HRV, sonno, acciacchi e il semaforo stesso sono dati sulla salute, che la legge protegge di più. Lo sono anche i sintomi di «Sto male», le domande in viaggio, l'aritmia e la casella del ciclo.",
+    },
+    {
+      titolo: "Perché e con quale permesso",
+      punti: [
+        "La pagina usa questi dati sul tuo dispositivo, solo per darti quello che chiedi entrando, cioè semaforo, grafici e preparazione al tuo obiettivo.",
+        "Per i dati sulla salute ti chiediamo un consenso esplicito, con una casella da spuntare prima di entrare.",
+        "Il consenso copre anche le risposte che tieni sul dispositivo, compresi i sintomi di «Sto male», e le risposte del mattino che l'app scrive nel tuo account intervals.icu. Se il testo cambia in modo importante te lo chiediamo di nuovo, una volta.",
+        "Se non ci dai il consenso, la pagina non legge i tuoi dati. Puoi sempre guardare l'esempio con i dati inventati.",
+      ],
+    },
+    {
+      titolo: "Dove restano e per quanto",
+      punti: [
+        "La chiave, o l'accesso dato da intervals.icu, resta solo sul tuo dispositivo. Con «Ricordami» resta finché premi Esci. Senza, sparisce quando chiudi la scheda.",
+        "I numeri che arrivano da intervals.icu stanno nella memoria della pagina finché è aperta.",
+        "La tua scelta sul consenso resta finché sei dentro e si cancella con Esci.",
+        "Le tue risposte restano sul tuo dispositivo per 400 giorni, poi si cancellano da sole. Sono i sintomi di «Sto male», le caselle di «Ieri sera…», le domande in viaggio e il colore del semaforo di ogni giorno.",
+        "Quello che ci dici di te e le tue scelte restano nel browser finché non le cancelli con «Esci e cancella tutto da questo dispositivo» o dalle impostazioni del browser.",
+        "Quello che sta su intervals.icu, comprese le risposte del mattino, resta nel tuo account e segue l'informativa di intervals.icu.",
+      ],
+      dopo: "Per ricordare chiave, risposte e scelte la pagina usa una piccola memoria del browser. Serve solo a farti usare l'app. Niente cookie e niente statistiche sulle visite. Se apri la pagina in navigazione privata, o su iPhone da Safari e non dall'icona nella schermata Home, il browser può cancellare questa memoria da solo.",
+    },
+    {
+      titolo: "Cosa scrive l'app nel tuo intervals.icu",
+      punti: [
+        "Le tre risposte del mattino, nel giorno di oggi.",
+        "Non scrive mai i sintomi di «Sto male», le caselle di «Ieri sera…», le domande in viaggio, la casella del ciclo o l'aritmia. Non cancella mai un'attività.",
+        "Quello che l'app scrive lo vedi tu, e lo vede chi può vedere il tuo account intervals.icu, per esempio un allenatore con cui lo condividi o un'altra app che hai collegato.",
+        "Lo puoi cambiare o cancellare da intervals.icu quando vuoi.",
+      ],
+    },
+    {
+      titolo: "Chi altro c'entra",
+      punti: [
+        "intervals.icu custodisce i tuoi dati nel tuo account, con la sua informativa sulla privacy.",
+        "GitHub pubblica la pagina, e come per ogni sito tiene i registri tecnici delle visite.",
+        "Nessun altro. La pagina non carica niente da altri siti e parla solo con intervals.icu.",
+      ],
+    },
+    {
+      titolo: "Come togli l'accesso, con Esci ed «Esci e cancella tutto»",
+      punti: [
+        "Premi Esci e la chiave, o l'accesso, sparisce da questo dispositivo insieme alla tua scelta sul consenso.",
+        "Con Esci le tue risposte e quello che ci hai detto di te, compresi i sintomi di «Sto male», restano sul dispositivo, così le ritrovi quando rientri. La pagina non le usa finché non rientri e non dai di nuovo il consenso.",
+        "Premi «Esci e cancella tutto da questo dispositivo» e cancelli tutto quello che Come sto tiene sul dispositivo, cioè anche risposte, sintomi, profilo e scelte. Se il dispositivo lo usano anche altri, scegli questo. Lo trovi anche in Impostazioni.",
+        "Con tutti e due resta quello che l'app ha scritto nel tuo account intervals.icu, che cancelli da lì.",
+        {
+          chiave: "Per togliere l'accesso ovunque, su intervals.icu crea una chiave nuova. Quella vecchia smette subito di funzionare.",
+          intervals: "Se sei entrato con «Entra con intervals.icu», Esci toglie a Come sto anche il permesso su intervals.icu, e lo puoi togliere anche dalle impostazioni di intervals.icu. Se hai incollato la chiave, per togliere l'accesso ovunque creane una nuova su intervals.icu, e la vecchia smette subito di funzionare.",
+        },
+        "Così ritiri anche il consenso, quando vuoi. Il ritiro vale da quel momento in poi.",
+      ],
+    },
+    {
+      titolo: "Età",
+      punti: [
+        "Come sto è per persone maggiorenni. Per usarla devi avere almeno 18 anni, e se ne hai meno non usarla con i tuoi dati.",
+        "Prima di entrare ti chiediamo di confermare con una casella che hai almeno 18 anni. È una tua dichiarazione, e non la possiamo controllare. La fascia d'età che scegli in Impostazioni serve al semaforo, non a controllare l'età.",
+        "Se hai meno di 18 anni, usa «Esci e cancella tutto da questo dispositivo».",
+      ],
+    },
+    {
+      titolo: "Non è un dispositivo medico",
+      punti: [
+        "Come sto dà consigli di allenamento basati su numeri, non fa diagnosi. Se hai febbre, dolori, o il battito a riposo resta alto per giorni, parlane con un medico.",
+      ],
+    },
+    {
+      titolo: "Se cambia qualcosa",
+      punti: [
+        "Se cambiamo queste regole in modo importante te lo diciamo nell'app prima che valgano e, quando serve, ti chiediamo di nuovo il consenso.",
+      ],
+    },
+  ],
+  impostazioni: "Apri le Impostazioni",
+  guida: "Torna alla guida",
+};
+
+// --- La Guida, la pagina del semaforo a punti (7.11) ---
+
+// Le colonne della tabella GUIDA_SEMAFORO, uguali nella Guida e nel README.
+export const GUIDA_COLONNE = { voce: "Voce", verde: "Va bene", giallo: "Pesa", rosso: "Porta al rosso" };
+
+export const GUIDA = {
+  titolo: "Guida",
+  sottotitolo: "Come si legge Come sto",
+  attacco: "Tutto quello che c'è dietro il semaforo e i numeri, spiegato semplice.",
+  semaforo: {
+    titolo: "Il semaforo a punti",
+    paragrafi: [
+      "Ogni mattina il semaforo guarda la notte, il carico degli ultimi giorni e le tue tre risposte. Ogni voce può pesare poco o tanto. Quando una voce pesa tanto, prima di decidere ti fa una domanda.",
+      "Il colore toglie e non aggiunge. Il verde non allunga mai il giro di oggi.",
+      "Una notte storta da sola non dà mai rosso. Il carico da solo arriva al massimo al giallo. Febbre, cuore e dolore fermano sempre.",
+      "Nelle prime settimane, finché impara il tuo normale, il semaforo può dire «Ancora pochi dati».",
+    ],
+    livelli: "I quattro livelli",
+    voci: "Le voci, una per una",
+    vociAttacco: "Per ogni voce, quando va bene, quando pesa e quando porta al rosso.",
+  },
+  sezioni: [
+    {
+      titolo: "Quando si ferma tutto",
+      paragrafi: [
+        "Alcune cose fermano la giornata, qualunque cosa dicano i numeri. Un sintomo di cuore, la febbre o un altro sintomo di malattia, il battito a riposo molto alto con un sintomo, «Sono a pezzi», un infortunio, o un dolore che cambia la pedalata.",
+        "Il tasto «Sto male» sotto la carta di oggi apre le caselle di cuore, malattia e naso e gola. Con un sintomo di cuore l'app ti dice di fermarti e di sentire il medico oggi stesso.",
+        "Con naso che cola o gola appena irritata il semaforo non va oltre il giallo, e se esci al massimo un'ora facile.",
+        "Dopo la febbre, quando segni «Non ho più febbre da 24 ore, senza farmaci per la febbre», parte il rientro. Per 4 giorni il semaforo non va oltre il giallo, per 7 se la malattia è durata più di una settimana.",
+      ],
+    },
+    {
+      titolo: "Ieri sera…",
+      paragrafi: [
+        "Alcol, un viaggio lungo, una cena tardi e pesante, una notte calda o sopra i 1.500 m cambiano la notte anche senza stanchezza. Se spunti una di queste caselle, la notte pesa meno e non entra nel tuo normale.",
+        "La casella dei giorni prima del ciclo compare solo se la accendi in Impostazioni.",
+      ],
+    },
+    {
+      titolo: "Dopo le fatiche volute",
+      paragrafi: [
+        "Dopo un weekend lungo, una prova con le borse o un'uscita grande il corpo è stanco per forza, e il semaforo lo sa. Per 2 giorni non va oltre il giallo, e per 3 mattine le notti storte non contano.",
+        "Un'uscita grande dura almeno 5 ore, oppure almeno 3 ore e una volta e mezza la più lunga delle 4 settimane prima.",
+        "Dopo un viaggio di 2-5 giorni il giallo dura una settimana, 10 giorni dopo un viaggio di 6-10 giorni, 2 settimane dopo un viaggio più lungo.",
+        "Il rosso resta sempre possibile, con un sintomo o con segnali che vanno d'accordo.",
+      ],
+    },
+    {
+      titolo: "In viaggio",
+      paragrafi: [
+        "Con il tasto «Sono in viaggio» il semaforo cambia. In viaggio battito, variabilità del battito e carico cambiano da soli, quindi li vedi ma non contano.",
+        "Contano come stai tu. L'energia, il sonno vero e quello che non va, cioè mani, sedere, collo, ginocchia, stomaco e gonfiore. Con l'orologio il sonno vero è circa 45 minuti meno di quello che mostra.",
+        "Se per 2 giorni di fila vedo tante ore in bici, ti chiedo io se sei in viaggio. Quando torni premi «Sono arrivato», e nei giorni dopo il semaforo ti fa recuperare.",
+        "Ogni mattina in viaggio, sotto la carta, tre promemoria. Mangia ogni ora, anche senza fame. Bevi a sete, non a forza. Niente antinfiammatori in sella.",
+      ],
+    },
+    {
+      titolo: "Il tuo normale",
+      paragrafi: [
+        "Il semaforo confronta ogni notte con il tuo normale, che calcola dalle tue ultime notti. Per la variabilità del battito servono almeno 2 settimane di notti, e il conto è pieno da 4 settimane. Per il battito a riposo basta una settimana, ed è pieno da 2.",
+        "Una notte vale se hai dormito almeno 4 ore. Con meno, la variabilità del battito non si legge.",
+        "Il carico recente si guarda com'era ieri sera, prima di uscire, così un giro fatto stamattina non cambia il consiglio di stamattina.",
+        "Se cambi orologio o anello, segnalo in Impostazioni. Per due settimane imparo di nuovo le tue notti.",
+      ],
+    },
+    {
+      titolo: "Quanto fidarti",
+      paragrafi: [
+        "Sotto «Perché» il semaforo dice anche quanto si fida dei suoi numeri. Si fida meno con il battito al polso in bici, con tanti giri senza dati, con meno di sei settimane di giri o mentre impara le tue notti.",
+        "Quando si fida poco lo scrive accanto al colore. Le tue risposte contano sempre per intero.",
+      ],
+    },
+  ],
+  numeri: "I numeri, uno per uno",
+  limiti: "Quando non fidarti dei numeri",
+  domande: "Domande frequenti",
+  privacy: "Come trattiamo i tuoi dati",
+  leggi: "Come leggerlo.",
+  legato: "A cosa è legato.",
+};

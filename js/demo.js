@@ -1,6 +1,10 @@
 // Dati di esempio: sei mesi di una ciclista inventata, Giulia.
 // Servono a chi vuole vedere l'app prima di collegare il proprio account.
 // Sono generati sempre uguali (seme fisso) e non c'entrano con nessuna persona vera.
+// Oltre ai dati di intervals.icu c'è quello che l'app tiene sul telefono, così il semaforo a punti ha
+// una storia. Un weekend in bikepacking cinque settimane fa, un raffreddore tre settimane fa, una
+// cena tardi la settimana scorsa, un orologio Garmin di notte e un viaggio di tre giorni fra nove
+// settimane.
 
 import { aggiungiGiorni, giornoSettimana, calendario, baseHrv, baseFc, GIORNI_STORICO } from "./modello.js?v=202610312043";
 
@@ -37,19 +41,23 @@ export function generaDemo(oggi) {
   let atl = 24;
   const N = GIORNI_STORICO;
   const inizioWeekend = N - 36; // un weekend lungo circa cinque settimane fa
+  const raffreddore = [N - 23, N - 22]; // due giorni di naso che cola, tre settimane fa
+  const cenaTardi = N - 9; // una cena tardi e pesante la settimana scorsa
+  const giorno = (k) => aggiungiGiorni(oggi, k - (N - 1));
 
   for (let k = 0; k < N; k++) {
-    const d = aggiungiGiorni(oggi, k - (N - 1));
+    const d = giorno(k);
     const dow = giornoSettimana(d); // 0 lunedì
     const settimana = Math.floor(k / 7);
     const crescita = 0.75 + 0.45 * (k / N);
     const scarico = settimana % 4 === 3 ? 0.6 : 1;
     const f = crescita * scarico;
 
-    // La notte riflette il carico fino a ieri.
+    // La notte riflette il carico fino a ieri, il raffreddore e la cena tardi.
     const forma = ctl - atl;
-    const hrv = (50 + 0.25 * (ctl - 26)) * Math.exp(0.006 * Math.min(0, forma)) * Math.exp(0.07 * gaussiana(rnd));
-    const fc = 54 - 0.06 * (ctl - 26) + 0.09 * Math.max(0, -forma) + gaussiana(rnd);
+    const storta = raffreddore.includes(k) ? 0.84 : k === cenaTardi ? 0.9 : 1;
+    const hrv = (50 + 0.25 * (ctl - 26)) * Math.exp(0.006 * Math.min(0, forma)) * Math.exp(0.07 * gaussiana(rnd)) * storta;
+    const fc = 54 - 0.06 * (ctl - 26) + 0.09 * Math.max(0, -forma) + gaussiana(rnd) + (raffreddore.includes(k) ? 3 : 0);
     const oreSonno = Math.min(9.3, Math.max(5.2, 7.2 + 0.5 * gaussiana(rnd) - (dow === 4 ? 0.4 : 0)));
     const punteggio = Math.min(97, Math.max(45, 62 + (oreSonno - 6) * 11 + 4 * gaussiana(rnd)));
 
@@ -124,5 +132,21 @@ export function generaDemo(oggi) {
   oggiW.sleepSecs = 7 * 3600 + 10 * 60;
   oggiW.sleepScore = 78;
 
-  return { atleta: { firstname: "Giulia", name: "Giulia (esempio)" }, benessere, uscite };
+  // Quello che Giulia ha segnato sul telefono nei mesi scorsi (comesto.mattino.v1 e comesto.esiti.v1).
+  const diario = {
+    [giorno(raffreddore[0])]: { stoMale: ["naso"] },
+    [giorno(raffreddore[1])]: { stoMale: ["naso", "gola"] },
+    [giorno(cenaTardi)]: { cause: ["cena"] },
+    [giorno(inizioWeekend)]: { inViaggio: { tipo: "viaggio", giorni: 3 } },
+    [giorno(inizioWeekend + 2)]: { arrivato: true },
+  };
+  const storia = {};
+  for (let j = 0; j < 3; j++) {
+    storia[giorno(inizioWeekend + j)] = { livello: "verde", evento: { tipo: "viaggio", giorno: j + 1, giorni: 3 }, spiegato: true };
+  }
+  const profilo = { fasciaEta: "40-49", dispositivo: "garmin" };
+  // Fra nove settimane un viaggio di tre giorni, scelto nella pagina Obiettivo.
+  const obiettivo = { tipo: "libero", libero: "giorni", giorni: 3, ore: 7, daSfida: "weekend", partenza: aggiungiGiorni(oggi, 63) };
+
+  return { atleta: { firstname: "Giulia", name: "Giulia (esempio)" }, benessere, uscite, diario, storia, profilo, obiettivo };
 }

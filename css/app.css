@@ -224,9 +224,9 @@ main.in-aggiornamento { opacity: 0.6; }
 .riga-bottoni { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .bottone {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  min-height: 46px; padding: 0 20px; border-radius: 12px; border: 1px solid var(--bottone);
-  background: var(--bottone); color: var(--bottone-testo);
-  font: inherit; font-weight: 650; text-decoration: none; cursor: pointer;
+  min-height: 46px; padding: 8px 20px; border-radius: 12px; border: 1px solid var(--bottone);
+  background: var(--bottone); color: var(--bottone-testo); text-align: center;
+  font: inherit; font-weight: 650; line-height: 1.3; text-decoration: none; cursor: pointer;
 }
 .bottone:hover { filter: brightness(1.15); }
 .bottone:disabled { opacity: 0.55; cursor: progress; }
@@ -584,3 +584,140 @@ input[type="date"], input[type="password"], input[type="text"] {
   .tabella-uscite th:first-child, .tabella-uscite td:first-child { padding-left: 10px; }
   .tabella-uscite th:last-child, .tabella-uscite td:last-child { padding-right: 10px; }
 }
+
+/* --- il semaforo a punti, rilascio 1 --- */
+.nascosto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* l'intestazione di Oggi, con «Sono in viaggio» */
+.intestazione-oggi { flex-direction: row; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 16px; }
+.intestazione-testo { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.bottone-viaggio { min-height: 40px; padding: 6px 14px; font-size: 15px; }
+
+/* la carta di oggi */
+.semaforo-rispondi { font-size: 15px; font-weight: 650; color: var(--inchiostro); }
+.semaforo-perche { font-size: 15px; color: var(--inchiostro-2); max-width: 60ch; }
+.semaforo-fine { background: var(--verde-fondo); }
+.semaforo-controllo .riga-bottoni .bottone { min-width: 120px; }
+.promemoria {
+  list-style: none; margin: 0; padding: 14px 0 0; border-top: 1px solid var(--linea);
+  display: flex; flex-direction: column; gap: 6px; font-weight: 600;
+}
+.promemoria li { position: relative; padding-left: 18px; }
+.promemoria li::before {
+  content: ""; position: absolute; left: 2px; top: 0.62em; width: 7px; height: 7px; border-radius: 50%; background: var(--accento);
+}
+
+/* le caselle a un tocco, per «Sto male», «Ieri sera…» e in viaggio */
+.caselle { flex-direction: column; align-items: stretch; }
+.scelta.casella { display: flex; }
+.scelta.casella label {
+  flex: 1; display: flex; align-items: flex-start; gap: 10px; min-height: 44px; padding: 10px 14px;
+  border-radius: 12px; line-height: 1.35;
+}
+.scelta.casella label::before {
+  content: ""; flex: none; width: 18px; height: 18px; margin-top: 1px; border-radius: 5px;
+  border: 2px solid var(--linea-forte); background: var(--carta); box-sizing: border-box;
+  font-size: 13px; font-weight: 800; line-height: 14px; text-align: center; color: var(--bottone);
+}
+.scelta.casella input:checked + label::before { content: "\2713"; border-color: var(--bottone-testo); background: var(--bottone-testo); }
+
+/* «Sto male», un tasto sempre visibile che apre il pannello. I details restano a blocco: chiusi,
+   in Chrome il contenuto nascosto prende lo stesso uno spazio della griglia flessibile. */
+.sto-male { display: block; }
+.sto-male > summary { list-style: none; }
+.sto-male > .pannello { margin-top: 12px; }
+.sto-male > summary::-webkit-details-marker { display: none; }
+.sto-male[open] > summary { border-color: var(--rosso); color: var(--rosso-testo); }
+.sto-male .conta, .cause .conta { font-size: 13px; font-weight: 600; color: var(--inchiostro-2); }
+.pannello {
+  background: var(--carta); border: 1px solid var(--linea); border-radius: var(--raggio);
+  padding: 18px; display: flex; flex-direction: column; gap: 16px; min-width: 0;
+}
+.pannello-febbre { background: var(--verde-fondo); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.gruppo-cuore legend { color: var(--rosso-testo); }
+
+/* «Ieri sera…», la riga chiusa delle cause */
+.carta.cause, .carta.perche { display: block; }
+.carta.cause > * + *, .carta.perche > * + * { margin-top: 14px; }
+.cause > summary, .perche > summary, .numeri-oggi > summary {
+  cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
+  min-height: 32px; font-weight: 650;
+}
+.cause > summary::-webkit-details-marker, .perche > summary::-webkit-details-marker,
+.numeri-oggi > summary::-webkit-details-marker { display: none; }
+.cause > summary::before, .perche > summary::before, .numeri-oggi > summary::before {
+  content: "+"; width: 12px; font-weight: 700; color: var(--accento);
+}
+.cause[open] > summary::before, .perche[open] > summary::before, .numeri-oggi[open] > summary::before { content: "\2212"; }
+
+/* la carta in più, una sola */
+.carta-in-piu { border-left: 4px solid var(--accento); }
+.carta-in-piu h2 { font-size: 18px; }
+
+/* il «Perché» chiuso, con «Quanto fidarti oggi» */
+.perche-nota { background: var(--carta-2); border-radius: 10px; padding: 10px 12px; color: var(--inchiostro-2); font-size: 14.5px; }
+.fiducia { border-top: 1px solid var(--linea); padding-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.fiducia h3 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--inchiostro-3); }
+.fiducia p { color: var(--inchiostro-2); font-size: 15px; }
+
+.risposte-righe { display: flex; flex-direction: column; gap: 2px; }
+/* le scelte lunghe vanno a capo dentro la pillola, con un po' d'aria sopra e sotto */
+.scelta label { padding-top: 6px; padding-bottom: 6px; line-height: 1.3; }
+.domanda-sotto .scelta label { border-radius: 16px; }
+
+/* le domande in più dentro i moduli */
+.domanda-in-piu { background: var(--giallo-fondo); border-radius: 12px; padding: 12px 14px; }
+.domanda-in-piu legend { float: left; width: 100%; }
+.domanda-in-piu legend + * { clear: both; }
+.caselle-viaggio { display: flex; flex-direction: column; gap: 8px; }
+.casella-con-scelta { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.domanda-sotto { border: none; margin: 0 0 4px 12px; padding: 0 0 0 12px; border-left: 2px solid var(--linea-forte); min-width: 0; }
+
+/* i numeri del giorno, chiusi in fondo a Oggi */
+.numeri-oggi { border-top: 1px solid var(--linea); padding-top: 14px; }
+.numeri-dentro { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
+.numeri-oggi .ultima h3 { font-size: 19px; }
+
+/* Impostazioni */
+.impostazione { gap: 14px; }
+.impostazione h3 { margin-top: 6px; }
+.dove { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; color: var(--inchiostro-2); }
+.dove::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--accento); }
+.salvato-piccolo { color: var(--verde-testo); font-weight: 650; font-size: 14px; }
+.spunta-grande { align-items: flex-start; }
+.spunta-grande input { flex: none; margin-top: 2px; }
+.cambio { display: flex; flex-direction: column; gap: 10px; }
+.uscita { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+
+/* il riquadro «Prima di entrare» */
+.consenso { background: var(--carta-2); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.consenso h3 { font-size: 17px; }
+.spunta-consenso { display: flex; align-items: flex-start; gap: 10px; }
+.spunta-consenso input { flex: none; width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--inchiostro); }
+.spunta-consenso label { min-width: 0; }
+
+/* le finestre di conferma, con i tasti di uscita dello stesso peso */
+.dialogo {
+  border: 1px solid var(--linea); border-radius: 18px; background: var(--carta); color: var(--inchiostro);
+  padding: 22px; width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; box-shadow: var(--ombra);
+}
+.dialogo::backdrop { background: rgba(10, 11, 13, 0.5); }
+.dialogo h2 { margin-bottom: 12px; }
+.dialogo p { margin-bottom: 10px; color: var(--inchiostro-2); }
+.dialogo-bottoni { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.dialogo-bottoni .bottone { width: 100%; }
+
+/* sui telefoni più stretti la tabella delle uscite sta nella pagina senza scorrere di lato */
+@media (max-width: 359px) {
+  .tabella-uscite { font-size: 13px; }
+  .tabella-uscite th, .tabella-uscite td { padding-left: 3px; padding-right: 3px; }
+  .tabella-uscite th:first-child, .tabella-uscite td:first-child { padding-left: 8px; }
+  .tabella-uscite th:last-child, .tabella-uscite td:last-child { padding-right: 8px; }
+  .tabella-uscite thead th { letter-spacing: 0.02em; }
+}
+
+/* Guida e Privacy */
+.regola h4 { margin: 0; font-size: 16px; font-weight: 650; line-height: 1.25; }
+.regole li { flex-wrap: nowrap; }
+.regole li > span:last-child { flex: 1; min-width: 0; }
+.riga-link { display: flex; flex-wrap: wrap; gap: 18px; }
