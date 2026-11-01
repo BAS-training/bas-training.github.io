@@ -39,8 +39,9 @@ const QUALSIASI = new Proxy({}, {
   get: (_, k) => (k === Symbol.toPrimitive ? () => 3 : k === "toString" || k === "valueOf" ? () => "3" : 3),
 });
 
-// Tutti i risultati di un modello con i valori di prova. Le combinazioni che non valgono si saltano.
-function componi(fn) {
+// Tutti i risultati di un modello con i valori di prova, più gli ingressi di esempio che il file dei
+// testi esporta in ESEMPI per quel modello. Le combinazioni che non valgono si saltano.
+function componi(fn, esempi = []) {
   const n = Math.max(fn.length, 1);
   const prove = [Array(n).fill(null), Array(n).fill(QUALSIASI)];
   for (const x of NUMERI) prove.push(Array(n).fill(x));
@@ -51,6 +52,7 @@ function componi(fn) {
       prove.push([...Array(n - 1).fill(x), p]);
     }
   }
+  prove.push(...esempi);
   const risultati = [];
   for (const argomenti of prove) {
     try {
@@ -62,16 +64,16 @@ function componi(fn) {
 }
 
 // Ogni testo con il suo posto, per i messaggi e per sapere a che schermata appartiene.
-function raccogli(valore, dove, schermata, lista, modelli) {
+function raccogli(valore, dove, schermata, lista, modelli, esempi = []) {
   if (typeof valore === "string") lista.push({ dove, schermata, testo: valore });
   else if (typeof valore === "function") {
     if (!modelli) return;
-    const risultati = componi(valore);
+    const risultati = componi(valore, esempi);
     modelli.push({ dove, risultati: risultati.length });
     risultati.forEach((r, k) => raccogli(r, `${dove}(prova ${k})`, schermata, lista, null));
-  } else if (Array.isArray(valore)) valore.forEach((x, k) => raccogli(x, `${dove}[${k}]`, schermata, lista, modelli));
+  } else if (Array.isArray(valore)) valore.forEach((x, k) => raccogli(x, `${dove}[${k}]`, schermata, lista, modelli, esempi));
   else if (valore && typeof valore === "object") {
-    for (const [k, x] of Object.entries(valore)) raccogli(x, `${dove}.${k}`, schermata, lista, modelli);
+    for (const [k, x] of Object.entries(valore)) raccogli(x, `${dove}.${k}`, schermata, lista, modelli, esempi);
   }
 }
 
@@ -168,8 +170,10 @@ const TESTI = [];
 const MODELLI = [];
 for (const [file, modulo] of Object.entries(moduli)) {
   const conModelli = FILE_TESTI.includes(file);
+  const esempi = modulo.ESEMPI && typeof modulo.ESEMPI === "object" ? modulo.ESEMPI : {};
   for (const [nome, valore] of Object.entries(modulo)) {
-    raccogli(valore, `${file} ${nome}`, `${file} ${nome}`, TESTI, conModelli ? MODELLI : null);
+    if (nome === "ESEMPI") continue;   // gli ingressi di prova dei modelli, non sono testi
+    raccogli(valore, `${file} ${nome}`, `${file} ${nome}`, TESTI, conModelli ? MODELLI : null, Array.isArray(esempi[nome]) ? esempi[nome] : []);
   }
 }
 const DALLE_VISTE = [];

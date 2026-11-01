@@ -1,0 +1,3 @@
+[
+  {"id": "i7100099", "icu_athlete_id": "i100001", "start_date_local": "2026-10-31T18:00:00", "type": "WeightTraining", "name": "Palestra, scheda 3, seduta B", "source": "MANUAL", "moving_time": 3000, "elapsed_time": 3000, "icu_rpe": 6, "icu_training_load": 42, "external_id": "comesto-p-2026-10-31-1", "tags": ["comesto-palestra-corpo"], "description": "Panca 3 × 8 a 30 kg, riserva 2\n\n[come-sto v1]"}
+]

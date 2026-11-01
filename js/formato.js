@@ -1,6 +1,8 @@
 // Come si scrivono numeri, durate e date nella pagina, all'italiana.
 // Nessun riferimento al DOM: lo usano anche i test con node.
 
+import { STIMA } from "./parametri.js?v=202610312043";
+
 const intero = new Intl.NumberFormat("it-IT", { maximumFractionDigits: 0 });
 const decimali = new Map();
 
@@ -40,22 +42,22 @@ export function durata(secondi) {
   return ore ? `${ore}h${String(minuti % 60).padStart(2, "0")}` : `${minuti} min`;
 }
 
-// Le regole di scrittura del capitolo 7.1. Mai i due punti, mai decimali nelle durate.
-const PASSO_CORTO = 5;     // minuti, l'arrotondamento sotto le 2 ore
-const PASSO_LUNGO = 10;    // minuti, l'arrotondamento dalle 2 ore in su
-const ORE_PASSO_LUNGO = 2;
+// Le regole di scrittura del capitolo 7.1, con i passi di STIMA.arrotondaMinuti. Mai i due punti,
+// mai decimali nelle durate.
+const MINUTI = STIMA.arrotondaMinuti;
 
 function oreInParole(ore) {
   return ore === 1 ? "1 ora" : `${ore} ore`;
 }
 
 // La durata in parole, dai minuti. Sotto l'ora «45 minuti», poi «1 ora e 20», «3 ore e mezza»,
-// «4 ore e 10», arrotondate a 5 minuti sotto le 2 ore e a 10 minuti sopra.
+// «4 ore e 10», arrotondate a 5 minuti sotto le 2 ore e a 10 minuti sopra. Anche la mezz'ora si
+// scrive «30 minuti», come ogni durata sotto l'ora. È la sola funzione delle durate nei testi.
 export function formatoDurata(minuti) {
   if (!valido(minuti) || minuti < 0) return "";
-  const passo = minuti < ORE_PASSO_LUNGO * 60 ? PASSO_CORTO : PASSO_LUNGO;
+  const passo = minuti < MINUTI.lungheDa ? MINUTI.passo : MINUTI.passoLunghe;
   const tondi = Math.round(minuti / passo) * passo;
-  if (tondi === 0) return minuti > 0 ? `meno di ${PASSO_CORTO} minuti` : "0 minuti";
+  if (tondi === 0) return minuti > 0 ? `meno di ${MINUTI.passo} minuti` : "0 minuti";
   if (tondi < 60) return `${tondi} minuti`;
   const ore = Math.floor(tondi / 60);
   const resto = tondi % 60;
