@@ -234,7 +234,8 @@ export const PIANO = congela({
     mobilitaRosso: 10,            // la palestra con il Rosso, regole 4.5 e 9.4
   },
   tettiGiorni: { stella: 1440, feriale: 90, altroWeekendFacile: 90, scelte: [0, 60, 90, 120, 180, 1440] },   // minuti, 1440 vuol dire senza limiti, 3.1, stima nostra
-  // Le finestre della palestra nel piano, in ore e giorni (3.7). Le nove schede stanno con js/palestra.js.
+  // La palestra (capitolo 5). Le finestre nella settimana servono a js/piano.js (3.7), il resto a
+  // js/palestra.js. Le nove schede, con serie, ripetizioni, recuperi e riserve, sono dati di js/palestra.js.
   palestra: {
     oreGambePrimaLunga: 24,       // niente gambe nelle 24 ore prima di un'uscita di oltre 3 ore, regola 4.4
     oreGambePrimaLungaInizio: 48, // nelle prime 4 settimane di ogni blocco nuovo, regola 4.4
@@ -242,14 +243,41 @@ export const PIANO = congela({
     lungaOltreOre: 3,             // regola 4.4
     oreDopoFatiche: 72,           // niente gambe dopo weekend, prove e blocchi, regole 2.5 e 4.4
     giorniFraSedute: 2,           // nella stessa settimana, 3.7
-    giorniFraSeduteFamiliarizzazione: 3,   // 3.7
+    giorniFraSeduteFamiliarizzazione: 3,   // 72 ore nella familiarizzazione, 3.7
     primeSedute: 2,               // dopo le prime due sedute in assoluto, regola 4.2
     oreDopoPrimeSedute: 48,       // niente uscite di oltre 3 ore, regola 4.2
     oreStessoGiorno: 3,           // con un giro facile, solo se accettato, regola 4.4
     oreStessoGiornoMeglio: 6,     // regola 4.4
-    giorniSenzaGambe: 7,          // ultimi giorni prima della partenza, regola 4.6
-    ultimaPesante: { da: 10, a: 7 },   // giorni prima della partenza, regole 4.6 e 7.12
-    ultimaPesanteFamiliarizzazione: { da: 14, a: 10 },   // regola 4.2
+    giorniSenzaGambe: 7,          // niente gambe negli ultimi 7 giorni prima della partenza, regola 4.6
+    ultimaPesante: { da: 10, a: 8 },   // giorni prima, la regola dice 7-10 e il 7 sta già negli ultimi 7, regole 4.6 e 7.12, stima nostra, prudente
+    ultimaPesanteFamiliarizzazione: { da: 14, a: 14 },   // ferma 14 giorni prima, la regola 4.2 dice 10-14, 5.1
+    troncoFinoA: 3,               // negli ultimi 7 giorni tronco, collo e mobilità facoltativi fino a 3 giorni prima, scheda 5
+    // Chi riceve quale scheda, e quando (5.1).
+    costruzioneSettimane: 12,     // al massimo, dall'inizio del piano e comunque fino alla −5, regola 4.2
+    ultimeSettimane: 4,           // la scheda 5 dalla −4 alla partenza, regola 4.6
+    familiarizzazione: 3,         // settimane della scheda 1, regola 4.2
+    familiarizzazioneLunga: 4,    // da 60 anni o senza altri sport oltre alla bici, regola 4.9
+    familiarizzazioneLungaDaAnni: 60,   // regola 4.9
+    soloFamiliarizzazioneSotto: 8,   // settimane davanti, sotto vale solo la scheda 1, la regola 4.2 dice 6-8, stima nostra, prudente
+    rimandaFinoA: 3,              // con 3 settimane o meno la palestra si rimanda a dopo l'evento, 5.1
+    pausaPrincipianteGiorni: 182, // chi torna da più di 6 mesi di pausa rifà il percorso dei principianti, regola 4.1
+    sedute: { costruzione: 2, mantenimento: 1, mantenimentoDa50: 2, ultime: 1 },   // a settimana, regole 4.2, 4.6 e 4.9
+    viaggioDaGiorni: 11,          // la scheda 6 facoltativa negli eventi di 11 giorni e più, regola 4.7
+    troncoVolte: [2, 3],          // la scheda 7 a settimana, regola 4.10
+    troncoSenzaPalestra: 10,      // minuti dopo i giri facili per chi non fa palestra, 5.1
+    // Il peso e il semaforo (regole 4.3 e 4.5).
+    aumento: { gambe: 0.05, altri: 0.025 },   // la regola dice 5-10% sugli esercizi grandi per le gambe e 2-5% sugli altri, la prova di 9.9 vuole 5 e 2,5
+    arrotondaKg: 1,               // la proposta al chilo, 5.2
+    gialloSerie: 2 / 3,           // con il Giallo un terzo delle serie in meno, la regola dice da un terzo alla metà, per difetto, stima nostra, prudente
+    riservaInPiu: 1,              // con il Giallo leggero e il Giallo, regola 4.5
+    // L'età e le ossa, la scheda 9 (regola 4.9).
+    eta: { predefinita: 45, riservaDa: 40, mantenimentoDa: 50, ossaDa: 50, saltiDa: 40 },   // 40-49 senza risposta (6.3), i salti da 40 come la parte sulle ossa del capitolo 4, stima nostra, prudente
+    salti: { serieDa: 2, serieA: 5, ripetizioni: 10, recupero: 60, giorni: [3, 5], settimane: 4 },   // salti bassi per le ossa, regola 4.9, recupero stima nostra
+    // Le sedute saltate (regola 4.8) e il ritorno dopo l'evento (regola 4.7), in giorni senza pesi. Le soglie
+    // di 7 e 10 giorni sono stima nostra, i 28 giorni e le 2 sedute dopo l'evento stima nostra, prudente.
+    rientro: { soglia: 7, sogliaMantenimento: 10, breveFino: 21, mediaFino: 42, mediaGiorni: 7, lungaGiorni: 14, lungaRiserva: [3, 4], dopoEventoOltre: 28, seduteDopoEvento: 2 },
+    // Quanto dura una seduta, per «circa 50 minuti» (7.8), stima nostra.
+    durata: { riscaldamento: 10, secondiRipetizione: 3, cambio: 1, arrotonda: 5 },
   },
   limiteFacile: {
     quotaSoglia: 0.80,            // della FC di soglia del profilo Ride, regola 2.3
