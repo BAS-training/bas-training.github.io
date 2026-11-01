@@ -217,10 +217,158 @@ export const PRONTEZZA = congela({
   },
 });
 
-// Il piano della settimana, usato da js/piano.js (capitolo 3). Gli schemi di 3.3 e 3.4, i piani
-// corti e la modalità libera li aggiunge js/piano.js. L'ultimo test pieno resta ad almeno
+// Il piano della settimana, usato da js/piano.js (capitolo 3). Gli schemi di 3.4 sono qui come dati,
+// con le ore in frazioni di V_obiettivo e le sedute chiave in frazioni di H. Il tipo della settimana
+// è N normale, E eccezione prevista, S scarico. L'ultimo test pieno resta ad almeno
 // PRONTEZZA.giorniProvaFinita giorni dalla partenza (regola 6.7).
 export const PIANO = congela({
+  versione: 1,                    // il numero delle regole del generatore, per rifare il piano quando cambiano, 3.13
+  // Quale schema, con quante settimane N (3.3).
+  scelta: {
+    unGiorno: 10,                 // schema D intero, prima le settimane di base
+    dueCinque: 12,                // schema A intero
+    dueCinqueB: 8,                // da 8 a 11 settimane lo schema B, se c'è la base
+    corto13: 6,                   // 6 o 7 settimane, piano corto della regola 7.13
+    corto14: 4,                   // 4 o 5 settimane, regola 7.14, sotto la 7.15
+    seiDieci: 16,                 // schema C intero con il blocco consigliato e acceso
+    undici: 20,                   // schema C con il blocco obbligatorio, regola 7.18
+    cortoDaSei: 10,               // da 6 giorni in su, sotto piano corto e «arrivare e adattare», 3.3
+    baseB: { ore: 0.7, lunga: 0.4, settimane: 6 },   // la base dello schema B, × V_obiettivo a settimana e una lunga di × H nelle ultime 6 settimane, 3.3
+  },
+  // Gli schemi della regola 7.12 riscritti in frazioni (3.4). w è la settimana −w, ore la frazione di
+  // V_obiettivo (senza ore uno scarico vale PIANO.scarico.ore della settimana prima), chiave la seduta
+  // chiave con le frazioni di H di ogni giorno, minimo e massimo in ore, palestra le sedute massime.
+  schemi: {
+    A: [
+      { w: 12, tipo: "N", ore: 0.75, chiave: { tipo: "lunga", h: [0.45], nota: "posizione" }, palestra: 2 },
+      { w: 11, tipo: "N", ore: 0.87, chiave: { tipo: "lunga", h: [0.5] }, palestra: 2 },
+      { w: 10, tipo: "E", ore: 0.93, chiave: { tipo: "T1", h: [0.5], minimo: 3, massimo: 4, nota: "fondo" }, palestra: 2 },
+      { w: 9, tipo: "S", chiave: { tipo: "scarico", h: [0.3], minimo: 2, nota: "correzioni" }, palestra: 2 },
+      { w: 8, tipo: "E", ore: 1.2, chiave: { tipo: "weekend", h: [0.65, 0.45] }, palestra: 2 },
+      { w: 7, tipo: "E", ore: 1.07, chiave: { tipo: "T2", h: [0.7] }, palestra: 2 },
+      { w: 6, tipo: "S", chiave: { tipo: "scarico", h: [0.35], nota: "sella" }, palestra: 2 },
+      { w: 5, tipo: "E", ore: 1.27, chiave: { tipo: "weekend", h: [0.7, 0.45] }, palestra: 2 },
+      { w: 4, tipo: "E", ore: 1.33, chiave: { tipo: "T3", h: [0.8, 0.55], nota: "ultimo" }, palestra: 1 },
+      { w: 3, tipo: "N", ore: 0.93, chiave: { tipo: "lunga", h: [0.5], nota: "setup" }, palestra: 1 },
+      { w: 2, tipo: "tapering", chiave: { tipo: "controllo", h: [0.3], minimo: 2, massimo: 2.5 }, palestra: 1 },
+      { w: 1, tipo: "tapering", palestra: 0 },
+    ],
+    B: [
+      { w: 8, tipo: "E", ore: 0.83, chiave: { tipo: "T1", h: [0.5], minimo: 3, massimo: 4 }, palestra: 1 },
+      { w: 7, tipo: "E", ore: 1.1, chiave: { tipo: "weekend", h: [0.6, 0.4] }, palestra: 1 },
+      { w: 6, tipo: "S", chiave: { tipo: "scarico", h: [0.3], minimo: 2, nota: "correzioni" }, palestra: 1 },
+      { w: 5, tipo: "E", ore: 1.1, chiave: { tipo: "T2", h: [0.7] }, palestra: 1 },
+      { w: 4, tipo: "E", ore: 1.3, chiave: { tipo: "T3", h: [0.75, 0.5], nota: "ultimo" }, palestra: 1 },
+      { w: 3, tipo: "N", ore: 0.97, chiave: { tipo: "lunga", h: [0.5], nota: "setup" }, palestra: 1 },
+      { w: 2, tipo: "tapering", chiave: { tipo: "controllo", h: [0.3], minimo: 2, massimo: 2.5 }, palestra: 1 },
+      { w: 1, tipo: "tapering", palestra: 0 },
+    ],
+    // Il giorno 2 della prova generale a 0,5 × H e la −4 a 1,2 (tabella delle contraddizioni). Il T1
+    // «fra 3 e 4 ore» usa 0,5 × H come lo schema A. Il weekend carico della −9 ha la notte fuori da 11
+    // giorni in su (weekendCarico).
+    C: [
+      { w: 16, tipo: "N", ore: 0.67, chiave: { tipo: "lunga", h: [0.27] }, palestra: 2 },
+      { w: 15, tipo: "N", ore: 0.77, chiave: { tipo: "lunga", h: [0.32] }, palestra: 2 },
+      { w: 14, tipo: "E", ore: 0.82, chiave: { tipo: "T1", h: [0.5], minimo: 3, massimo: 4 }, palestra: 2 },
+      { w: 13, tipo: "S", ore: 0.52, chiave: { tipo: "scarico", h: [0.23], minimo: 2 }, palestra: 2 },
+      { w: 12, tipo: "E", ore: 0.93, chiave: { tipo: "weekend", h: [0.43, 0.27] }, palestra: 2 },
+      { w: 11, tipo: "E", ore: 0.98, chiave: { tipo: "T2", h: [0.5] }, palestra: 2 },
+      { w: 10, tipo: "S", ore: 0.62, chiave: { tipo: "scarico", h: [0.27], nota: "correzioni" }, palestra: 2 },
+      { w: 9, tipo: "E", ore: 1.13, chiave: { tipo: "weekendCarico", h: [0.55, 0.36] }, palestra: 2 },
+      { w: 8, tipo: "E", ore: 1.08, chiave: { tipo: "weekend", h: [0.45, 0.32] }, palestra: 1 },
+      { w: 7, tipo: "S", ore: 0.62, chiave: { tipo: "scarico", h: [0.27] }, palestra: 1 },
+      { w: 6, tipo: "E", ore: 2.0, chiave: { tipo: "blocco", h: [0.6, 0.6, 0.55] }, palestra: 1 },
+      { w: 5, tipo: "S", ore: 0.52, chiave: { tipo: "scarico", h: [0.25] }, palestra: 1 },
+      { w: 4, tipo: "E", ore: 1.2, chiave: { tipo: "prova", h: [0.6, 0.5], nota: "ultimo" }, palestra: 1 },
+      { w: 3, tipo: "N", ore: 0.88, chiave: { tipo: "lunga", h: [0.36], nota: "setup" }, palestra: 1 },
+      { w: 2, tipo: "tapering", chiave: { tipo: "lunga", h: [0.27] }, palestra: 1 },
+      { w: 1, tipo: "tapering", palestra: 0 },
+    ],
+    // Un giorno, dalla proposta semplice con le regole 2.4 e 7.7. Le palestre seguono la fase.
+    D: [
+      { w: 10, tipo: "N", ore: 0.89, chiave: { tipo: "lunga", h: [0.5] }, palestra: 2 },
+      { w: 9, tipo: "N", ore: 0.95, chiave: { tipo: "lunga", h: [0.55] }, palestra: 2 },
+      { w: 8, tipo: "N", ore: 1.05, chiave: { tipo: "lunga", h: [0.6] }, palestra: 2 },
+      { w: 7, tipo: "S", chiave: { tipo: "scarico", h: [0.4] }, palestra: 2 },
+      { w: 6, tipo: "N", ore: 1.05, chiave: { tipo: "lunga", h: [0.65] }, palestra: 2 },
+      { w: 5, tipo: "N", ore: 1.11, chiave: { tipo: "lunga", h: [0.7] }, palestra: 2 },
+      { w: 4, tipo: "N", ore: 1.16, chiave: { tipo: "lunga", h: [0.75] }, palestra: 1 },
+      { w: 3, tipo: "S", chiave: { tipo: "scarico", h: [0.45] }, palestra: 1 },
+      { w: 2, tipo: "N", ore: 1.0, chiave: { tipo: "lunga", h: [0.6], nota: "ritmo" }, palestra: 1 },
+      { w: 1, tipo: "tapering", palestra: 0 },
+    ],
+    // Da 50 anni con il 2+1 (3.4), le righe che cambiano. Nello schema A lo scarico della −12 tiene la
+    // lunga dello schema. Nello schema D la −4 diventa scarico con la lunga dello scarico della −3, e la
+    // −3 normale con le ore della −4, stima nostra.
+    A50: [
+      { w: 12, tipo: "S", chiave: { tipo: "lunga", h: [0.45], nota: "posizione" } },
+      { w: 3, tipo: "S", chiave: { tipo: "lunga", h: [0.4], nota: "setup" } },
+    ],
+    B50: [{ w: 3, tipo: "S", chiave: { tipo: "lunga", h: [0.5], nota: "setup" } }],
+    C50: [{ w: 16, tipo: "S", chiave: { tipo: "lunga", h: [0.27] } }],
+    D50: [
+      { w: 10, tipo: "S", chiave: { tipo: "lunga", h: [0.5] } },
+      { w: 5, tipo: "N", ore: 1.11, chiave: { tipo: "lunga", h: [0.75] } },
+      { w: 4, tipo: "S", chiave: { tipo: "scarico", h: [0.45] } },
+      { w: 3, tipo: "N", ore: 1.16, chiave: { tipo: "lunga", h: [0.6] } },
+    ],
+    // Per 6-10 giorni senza il blocco, due weekend carichi alla −7 e alla −6 e la −5 scarico (regola
+    // 7.12). La −8 diventa scarico, così non ci sono mai più di 3 settimane di carico di fila, stima nostra.
+    CsenzaBlocco: [
+      { w: 8, tipo: "S", ore: 0.62, chiave: { tipo: "scarico", h: [0.27] } },
+      { w: 7, tipo: "E", ore: 1.13, chiave: { tipo: "weekendCarico", h: [0.55, 0.4] } },
+      { w: 6, tipo: "E", ore: 1.13, chiave: { tipo: "weekendCarico", h: [0.55, 0.4] } },
+    ],
+    // Un giorno con un obiettivo con le borse, un giorno carico di 0,5 × H alla −6 (3.4).
+    Dborse: [{ w: 6, tipo: "N", ore: 1.05, chiave: { tipo: "unGiorno", h: [0.5] } }],
+  },
+  uscitaMassima: 8,               // da 6 giorni in su l'uscita singola non supera 8 ore, regola 6.6
+  // I piani corti (3.4), con le ore in frazioni di h4.
+  corti: {
+    sei: {                        // regola 7.13, 6 o 7 settimane
+      prima: 1.1,                 // con 7 una settimana a h4 × 1,1
+      massimo: 1.3,               // le ore non superano mai h4 di oltre il 30%
+      righe: [
+        { w: 6, tipo: "E", oreH4: 1.175, chiave: { tipo: "T1", h: [0.5], minimo: 3, massimo: 4 } },
+        { w: 5, tipo: "E", oreH4: 1.275, chiave: { tipo: "T3", h: [0.8, 0.6], nota: "ultimo" } },
+        { w: 4, tipo: "S", scarico: 0.65, chiave: { tipo: "scarico", h: [0.3], minimo: 2, massimo: 3 } },
+        { w: 3, tipo: "N", oreH4: 1.2, chiave: { tipo: "lunga", h: [0.65], nota: "setup" } },
+        { w: 2, tipo: "tapering", oreH4: 0.6 },
+        { w: 1, tipo: "tapering", oreH4: 0.45 },
+      ],
+    },
+    quattro: {                    // regola 7.14, 4 o 5 settimane
+      prima: 1.1,
+      massimo: 1.2,               // ore mai oltre h4 + 20%
+      tapering: 10,               // poi 10 giorni di scarico finale
+      righe: [
+        { w: 4, tipo: "E", oreH4: 1.2, chiave: { tipo: "T1", h: [0.5], minimo: 3, massimo: 4, nota: "setup" } },
+        { w: 3, tipo: "N", oreH4: 1.2, chiave: { tipo: "lunga", h: [0.55], nota: "setup" } },
+        { w: 2, tipo: "tapering" },
+        { w: 1, tipo: "tapering" },
+      ],
+    },
+    tre: {                        // regola 7.15, meno di 4 settimane, tutto facile
+      righe: [{ w: 3, tipo: "corto", oreH4: 0.8 }, { w: 2, tipo: "corto", oreH4: 0.8 }, { w: 1, tipo: "corto", oreH4: 0.5 }],
+      carica: { h: 0.3, minimo: 2, massimo: 3, giorniPrima: 10 },   // un'uscita carica di 2-3 ore almeno 7-10 giorni prima, stima nostra, prudente
+    },
+  },
+  // La modalità libera, senza data (3.4, regola 9.10). La riga più vicina alle ore A, con le chiavi a
+  // settimane alterne. La lunga di 2 ore-2 ore e mezza vale 2 ore, stima nostra, prudente.
+  libero: {
+    settimane: 8,                 // senza data si preparano 8 settimane, poi il piano si rifà ogni lunedì, stima nostra
+    righe: [
+      { ore: 4, chiavi: [{ tipo: "lunga", ore: [2] }] },
+      { ore: 6, chiavi: [{ tipo: "lunga", ore: [3] }] },
+      { ore: 8, chiavi: [{ tipo: "lunga", ore: [4] }, { tipo: "weekend", ore: [3.5, 2] }] },
+      { ore: 10, chiavi: [{ tipo: "lunga", ore: [5] }, { tipo: "weekend", ore: [4.5, 2.5] }] },
+    ],
+    lungaObiettivo: 0.75,         // con un obiettivo libero di H ore la lunga cresce verso 0,75 × H, 3.4
+  },
+  // Lo sforzo massimo di ogni seduta da 0 a 10 (3.13), recupero, facile e media da 3.8, i giorni carichi
+  // fino a 4 dal giorno 2 come in viaggio (regola 9.2), il resto stima nostra.
+  sforzoMassimo: { riposo: 0, recupero: 2, facile: 3, media: 7, richiamo: 7, lunga: 4, scarico: 3, controllo: 4, piuGiorni: 4, prova: 4, palestra: 8, tronco: 5, gialloLeggero: 5, giroGiallo: 3, rossoBici: 2 },
+  facileBreve: 30,                // nello scarico e nello scarico finale un giro facile dura da 30 minuti, così restano l'80% delle uscite, stima nostra
   disponibilita: { giorni: [1, 3, 5, 6], stella: 5, ore: [4, 6, 8, 10, 12], orePredefinite: 6 },   // martedì, giovedì, sabato e domenica, stella sul sabato, 3.1
   storicoDichiarato: { centri: [1.5, 3, 5, 7, 9], predefinito: 3 },   // h4 senza giri, da «meno di 2» a «più di 8», 3.1, stima nostra
   lungaDichiarata: { quota: 0.45, minimo: 1, massimo: 3 },   // L30 = 0,45 × h4 fra 1 e 3 ore, 3.1, stima nostra, prudente
@@ -244,7 +392,13 @@ export const PIANO = congela({
   interruzioni: { sottoPrevisto: 0.3, giorni: 7, giorniRidotta: 21, ridotta: 0.75 },   // oltre 21 giorni il piano si rifà, regola 2.9
   crescitaRapida: { in7Giorni: 7, perSettimana: 5, settimane: 3, in7GiorniDa50: 5, perSettimanaDa50: 4, daAnni: 50 },   // punti di Fitness, regola 1.9
   settimana: { giorniRiposo: 1, quotaFacili: 2 / 3 },   // un giorno senza bici e palestra, regola 8.16, 2 uscite su 3 facili, regola 2.1
-  giorniDopo: { riposo: 1, riposoDa50: 2, daAnni: 50, facili: 1, facileDopoBlocco: 5, uscitaOltreOre: 4 },   // regole 2.5 e 8.8, dopo un blocco 3-5 facili, stima nostra, prudente
+  // Regole 2.5 e 8.8. Dopo un blocco 3-5 facili, i primi 3 sempre, il quarto e il quinto salvo la media
+  // della settimana, che la regola 2.2 vuole anche lì. Dopo un'uscita grande 2 giorni (3 da 50 anni) di
+  // riposo o di giro molto facile fino a 60 minuti, la regola 8.8 dice 1-2 e 2-3, stima nostra, prudente.
+  giorniDopo: {
+    riposo: 1, riposoDa50: 2, daAnni: 50, facili: 1, facileDopoBlocco: 5, facileDopoBloccoSempre: 3, uscitaOltreOre: 4,
+    dopoGrande: { giorni: 2, giorniDa50: 3, minuti: 60 },
+  },
   media: { giorniDopoFatiche: 3, ordineGiorni: [1, 2, 3, 0, 4] },   // mai nei 3 giorni dopo weekend, prove e blocchi, martedì per primo, 3.7, stima nostra
   // Le sedute, in minuti (3.8).
   sedute: {
@@ -328,11 +482,13 @@ export const PIANO = congela({
 export const DOMENICA = congela({
   settimaneNorma: 4,              // senza settimane facili, di scarico o di tapering, regola 8.1
   segnali: 7,                     // sette e non sei, tabella delle contraddizioni
-  S1: { uscite: 2, punti: 2 },    // sforzo almeno 2 sopra la mediana in almeno 2 uscite, regola 8.1
+  S1: { uscite: 2, punti: 2, usciteNorma: 2, oreFacili: 2 },   // sforzo almeno 2 sopra la mediana in almeno 2 uscite, regola 8.1. La mediana vuole 2 uscite della norma, e senza il piano un giro sotto le 2 ore conta come facile, stima nostra
   S2: { mattine: 4 },             // su 7, regola 8.1
   S3: { notti: 3, oreInMeno: 1 }, // su 7, regola 8.1
-  S4: { battito: 5, hrvDs: 0.5 }, // solo con S1 o S2, regole 8.1 e 8.5
+  S4: { battito: 5, hrvDs: 0.5 }, // solo con S1 o S2, regole 8.1 e 8.5, la DS minima è quella del semaforo
+  S5: { caselle: ["febbre", "tosse", "naso", "gola"], febbre: "febbre" },   // febbre e sintomi respiratori segnati in «Sto male», regola 8.1
   S7: { rossi: 2, gialliORossi: 4 },   // senza il Giallo leggero, regola 8.1
+  settimaneCerca: 8,              // per le 4 settimane della norma si guarda fino a 8 settimane prima, saltando quelle leggere, stima nostra
   oreDopoFatiche: 72,             // weekend, prove, blocchi e uscite grandi restano fuori, regola 8.2
   settimanaFacile: {
     segnali: 2,                   // regola 8.3
@@ -344,7 +500,7 @@ export const DOMENICA = congela({
     settimaneDaScarico: 2,        // entro 2 settimane da uno scarico lo sostituisce, regola 2.7
     settimaneFinali: 2,           // nelle ultime 2 coincide con il tapering, regola 2.7
   },
-  giorniFacili: { segnali: 3, giorni: 7, riferimentoOre: 1, domenicheDiFila: 2 },   // con 3 segnali o due domeniche di fila con 2, regola 8.3
+  giorniFacili: { segnali: 3, giorni: 7, riferimentoOre: 1, domenicheDiFila: 2, oreSenzaFebbre: 24 },   // con 3 segnali o due domeniche di fila con 2, regola 8.3, con la febbre si riparte dopo 24 ore senza, 4.4
   medico: { giorni: 14, settimaneScarico: 3, pesoCalo: 0.05, pesoGiorni: 30 },   // regola 8.7, che dice 3-4 settimane, stima nostra, prudente
 });
 
