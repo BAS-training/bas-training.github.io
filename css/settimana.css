@@ -1,8 +1,79 @@
 /* La settimana (7.6), le regole della pagina js/viste/settimana.js. I colori e le misure comuni stanno
    in css/app.css, qui solo quello che serve a questa pagina. */
 
-.settimana-giorni { list-style: none; margin: 0; padding-top: 4px; padding-bottom: 4px; }
-.settimana-giorno { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--linea); }
+/* le sette righe, dentro una carta sola */
+.settimana-giorni { list-style: none; margin: 0; padding: 0 20px; gap: 0; }
+.settimana-giorno { border-bottom: 1px solid var(--linea); }
 .settimana-giorno:last-child { border-bottom: 0; }
-.settimana-data { min-width: 7em; color: var(--inchiostro-2); }
-.settimana-oggi { font-weight: 600; }
+.settimana-dettagli { display: block; }
+
+/* la riga, segno del tocco, giorno, seduta in breve e segno */
+.settimana-riga {
+  display: grid; grid-template-columns: 12px minmax(4.6em, max-content) minmax(0, 1fr) auto;
+  align-items: center; column-gap: 10px; min-height: 52px; padding: 10px 0;
+}
+.settimana-riga::before { content: ""; font-weight: 700; color: var(--accento); }
+.settimana-dettagli > summary { list-style: none; cursor: pointer; }
+.settimana-dettagli > summary::-webkit-details-marker { display: none; }
+.settimana-dettagli > summary::before { content: "+"; }
+.settimana-dettagli[open] > summary::before { content: "\2212"; }
+.settimana-data { color: var(--inchiostro-2); white-space: nowrap; }
+.settimana-seduta { font-weight: 600; min-width: 0; }
+.settimana-passato .settimana-seduta { color: var(--inchiostro-2); font-weight: 500; }
+
+/* oggi, con lo sfondo fino ai bordi della carta */
+.settimana-oggi { background: var(--accento-fondo); margin: 0 -20px; padding: 0 20px; }
+.settimana-oggi .settimana-data { color: var(--inchiostro); font-weight: 650; }
+
+/* i segni, mai con i colori del semaforo */
+.segno {
+  display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+  font-size: 12.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+  background: var(--carta-2); color: var(--inchiostro-2);
+}
+.segno-icona { width: 14px; height: 14px; stroke-width: 2.4; }
+.segno-fatta { color: var(--inchiostro); }
+.segno-oggi { background: var(--accento); color: var(--bottone-testo); }
+.segno-saltata, .segno-spostata { background: transparent; color: var(--inchiostro-3); box-shadow: inset 0 0 0 1px var(--linea-forte); }
+
+/* quello che si apre sotto la riga */
+.settimana-corpo { display: flex; flex-direction: column; gap: 8px; padding: 0 0 16px 22px; min-width: 0; }
+.settimana-corpo h3 { font-size: 16px; }
+.settimana-corpo p { color: var(--inchiostro-2); max-width: 62ch; }
+.settimana-corpo .settimana-riga-piccola, .settimana-corpo .settimana-perche { font-size: 14.5px; }
+.settimana-corpo .settimana-nota { background: var(--carta); border: 1px solid var(--linea); border-radius: 10px; padding: 8px 12px; color: var(--inchiostro); }
+.settimana-fatte { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.settimana-fatte li { display: flex; flex-direction: column; font-weight: 600; }
+
+/* da sapere */
+.settimana-avvisi { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; color: var(--inchiostro-2); }
+.settimana-libera { background: var(--giallo-fondo); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.settimana-libera-domanda { font-weight: 650; }
+
+/* in fondo, «Aggiungi un giro» che si apre */
+.giro { display: block; }
+.giro > summary { list-style: none; }
+.giro > summary::-webkit-details-marker { display: none; }
+.giro[open] > summary { margin-bottom: 14px; }
+.giro-modulo {
+  background: var(--carta); border: 1px solid var(--linea); border-radius: var(--raggio);
+  padding: 18px; display: flex; flex-direction: column; gap: 18px; min-width: 0;
+}
+.giro-altro, .giro-numeri { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 4px; }
+.giro-kg { margin-top: 8px; }
+.giro-facoltativi summary {
+  cursor: pointer; color: var(--accento); font-weight: 600; min-height: 40px; display: inline-flex; align-items: center;
+}
+.giro-campo { display: flex; flex-direction: column; gap: 4px; }
+.giro-campo label { font-weight: 600; font-size: 14.5px; }
+.giro-campo input {
+  font: inherit; font-size: 16px; color: var(--inchiostro); background: var(--carta);
+  border: 1px solid var(--linea-forte); border-radius: 12px; padding: 0 12px; min-height: 46px; width: 8em; max-width: 100%;
+}
+
+@media (max-width: 359px) {
+  .settimana-giorni { padding: 0 14px; }
+  .settimana-oggi { margin: 0 -14px; padding: 0 14px; }
+  .settimana-riga { column-gap: 8px; grid-template-columns: 10px minmax(4.2em, max-content) minmax(0, 1fr) auto; }
+  .settimana-corpo { padding-left: 18px; }
+}

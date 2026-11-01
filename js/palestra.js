@@ -5,7 +5,7 @@
 // Nel codice la riserva è il RIR, le ripetizioni che restano a fine serie. A schermo è una frase.
 // Niente DOM e niente window, così il file si prova con node (test/palestra.test.mjs).
 
-import { PIANO, CARICO, STIMA } from "./parametri.js?v=202610312043";
+import { PIANO, CARICO, STIMA, SEMAFORO } from "./parametri.js?v=202610312043";
 import { numero, formatoDurata } from "./formato.js?v=202610312043";
 
 const P = PIANO.palestra;
@@ -565,12 +565,14 @@ function conTesti(v) {
 const PALESTRE = ["no", "conosco", "mai", "casa"];
 const SICUREZZE = ["no", "si", "parlato"];
 
-// profilo.eta in anni (o fasciaEta, l'indice delle fasce di 7.3), profilo.palestra con le risposte di
-// DOMANDE_PALESTRA, profilo.palestraSicurezza, e profilo.altriSport se si sa.
+// profilo.eta in anni (o fasciaEta, l'indice delle fasce di 7.3 oppure il loro nome, «40-49», come
+// lo salva il primo avvio), profilo.palestra con le risposte di DOMANDE_PALESTRA,
+// profilo.palestraSicurezza, e profilo.altriSport se si sa.
 function leggiProfilo(profilo) {
   const p = profilo && typeof profilo === "object" ? profilo : {};
   let eta = valido(p.eta) ? p.eta : null;
-  if (eta === null && Number.isInteger(p.fasciaEta)) eta = PIANO.limiteFacile.etaCentri[p.fasciaEta] ?? null;
+  const fascia = Number.isInteger(p.fasciaEta) ? p.fasciaEta : SEMAFORO.fasceEta.indexOf(p.fasciaEta);
+  if (eta === null && fascia >= 0) eta = PIANO.limiteFacile.etaCentri[fascia] ?? null;
   return {
     eta: eta === null ? E.predefinita : eta,
     palestra: PALESTRE.includes(p.palestra) ? p.palestra : "no",

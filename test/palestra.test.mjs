@@ -625,3 +625,15 @@ test("nemmeno i testi composti delle sedute, dei messaggi e delle descrizioni", 
   assert.ok(testi.length > 10000);
   assert.deepEqual([...new Set(controlla(testi))], []);
 });
+
+test("la fascia d'età come la salva il primo avvio vale l'età al centro della fascia", () => {
+  const base = { palestra: "conosco", palestraSicurezza: "no" };
+  const riserve = (profilo) => sedutaPalestra(3, 1, "A", profilo).esercizi.map((v) => v.riserva);
+  assert.deepEqual(riserve({ ...base, fasciaEta: "sotto40" }), riserve({ ...base, eta: 35 }));
+  assert.deepEqual(riserve({ ...base, fasciaEta: "40-49" }), riserve({ ...base, eta: 45 }));
+  assert.deepEqual(riserve({ ...base, fasciaEta: 0 }), riserve({ ...base, eta: 35 }), "anche l'indice della fascia");
+  const lunedi = lunediMeno(PARTENZA, 8);
+  const mantenimento = (profilo) => fasePalestra(pianoDelGiorno(lunedi, PARTENZA, 24), profilo, lunedi);
+  assert.equal(mantenimento({ ...base, fasciaEta: "50-54" }).sedute, mantenimento({ ...base, eta: 52.5 }).sedute);
+  assert.equal(mantenimento({ ...base, fasciaEta: "50-54" }).sedutaBreve, true, "da 50 anni la seconda seduta breve");
+});

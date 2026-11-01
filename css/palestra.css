@@ -1,5 +1,52 @@
 /* La palestra (7.8), le regole della pagina js/viste/palestra.js. I colori e le misure comuni stanno
    in css/app.css, qui solo quello che serve a questa pagina. */
 
-.palestra-esercizi { margin: 0; padding-left: 1.4em; }
-.palestra-esercizi li + li { margin-top: 8px; }
+/* le sedute della settimana, per passare da un giorno all'altro */
+.palestra-giorni { flex-wrap: wrap; }
+
+/* le righe del giorno e gli avvisi della fase */
+.palestra-note { display: flex; flex-direction: column; gap: 8px; }
+.palestra-avviso {
+  background: var(--accento-fondo); border-radius: 12px; padding: 12px 14px; color: var(--inchiostro);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.palestra-avviso-medico { box-shadow: inset 4px 0 0 var(--accento); }
+.palestra-domanda-testo { font-weight: 650; }
+.palestra-regole { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; color: var(--inchiostro-2); }
+
+/* un blocco per esercizio */
+.esercizi { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.esercizio {
+  background: var(--carta); border: 1px solid var(--linea); border-radius: var(--raggio);
+  padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; min-width: 0;
+}
+.esercizio-testa { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.esercizio-testa h3 { font-size: 18px; }
+.esercizio p { color: var(--inchiostro-2); }
+.esercizio p.esercizio-serie { color: var(--inchiostro); font-size: 17px; font-weight: 650; }
+.esercizio p.esercizio-proposta { background: var(--carta-2); border-radius: 10px; padding: 8px 12px; color: var(--inchiostro); font-weight: 600; }
+.etichetta { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--inchiostro-3); }
+.esercizio .spiega { margin-top: 4px; }
+.esercizio .spiega .riga-bottoni { margin-top: 10px; }
+.esercizio-alternativa { min-height: 40px; padding: 6px 14px; font-size: 15px; }
+
+/* «Fatta» e «Segna i pesi» */
+.palestra-modulo { gap: 18px; }
+.pesi { display: block; border-top: 1px solid var(--linea); padding-top: 10px; }
+.pesi > summary {
+  cursor: pointer; color: var(--accento); font-weight: 600; min-height: 40px; display: inline-flex; align-items: center;
+}
+.pesi > * + * { margin-top: 12px; }
+.pesi-esercizio legend { margin-bottom: 6px; }
+.pesi-numeri { display: flex; flex-wrap: wrap; gap: 10px 12px; }
+.pesi-campo { display: flex; flex-direction: column; gap: 4px; }
+.pesi-campo label { font-size: 13.5px; font-weight: 600; color: var(--inchiostro-2); }
+.pesi-campo input {
+  font: inherit; font-size: 16px; color: var(--inchiostro); background: var(--carta);
+  border: 1px solid var(--linea-forte); border-radius: 12px; padding: 0 12px; min-height: 46px; width: 6.5em; max-width: 100%;
+}
+.palestra-prossima { gap: 12px; }
+
+@media (max-width: 359px) {
+  .esercizio { padding: 14px; }
+}
