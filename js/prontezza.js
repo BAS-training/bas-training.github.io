@@ -340,19 +340,26 @@ function doppioUsoPossibile(uscita, partenza) {
 
 // Le prove di più giorni sulle uscite di più giorni, una prova per uscita salvo il doppio uso, dalla
 // prova più grande alla più piccola. Fra tutti gli abbinamenti vince quello con più prove, poi con
-// più prove fatte, poi in tempo, poi con più uscite diverse, poi con le prove più grandi.
+// più prove fatte, poi in tempo, poi con le prove più grandi, poi con la prova generale sull'uscita
+// più recente, come sceglie migliore, perché è l'ultima prova del set-up, poi con più uscite diverse.
+// Così l'uscita più recente di almeno 3 giorni finita fra 21 e 42 giorni prima vale blocco e prova
+// generale, con l'avviso, anche quando un'uscita più vecchia farebbe la prova generale (2.4 e 8.3),
+// e un blocco più vecchio resta separato da una prova generale più recente, senza avviso.
 function assegna(prove, uscite, h, classe, partenza) {
   const scelte = prove.map((p) => uscite.map((u) => migliore(p === "blocco" ? candidatiBlocco(u, h, partenza) : candidatiT3(u, h, classe, partenza), partenza)));
+  const generale = prove.indexOf("T3");
   let meglio = { punti: null, abbinate: prove.map(() => null) };
   const visita = (i, abbinate) => {
     if (i === prove.length) {
       const esiti = abbinate.filter(Boolean).map((a) => esitoDi(a.giorni, partenza));
+      const g = generale >= 0 && abbinate[generale] ? esitoDi(abbinate[generale].giorni, partenza) : null;
       const punti = [
         esiti.length,
         esiti.filter((e) => e.stato === "fatta").length,
         esiti.filter((e) => !e.tardi).length,
-        new Set(abbinate.filter(Boolean).map((a) => a.uscita)).size,
         ...abbinate.map((a) => (a ? 1 : 0)),
+        g ? (g.tardi ? -utc(g.a) : utc(g.a)) : 0,
+        new Set(abbinate.filter(Boolean).map((a) => a.uscita)).size,
       ];
       if (!meglio.punti || confronta(punti, meglio.punti) > 0) meglio = { punti, abbinate: [...abbinate] };
       return;

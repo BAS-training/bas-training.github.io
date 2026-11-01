@@ -368,6 +368,24 @@ test("un'uscita carica di 4 giorni finita 30 giorni prima vale come blocco e com
   assert.deepEqual(due.avvisi, []);
 });
 
+test("l'uscita di 4 giorni più recente vale blocco e prova generale anche con una più vecchia che farebbe la sola prova generale (2.4 e 8.3)", () => {
+  // Come nella taratura di 8.3. Tre giorni carichi alla −8 fanno la prova generale ma non il blocco,
+  // perché il terzo giorno sta sotto 0,45 × H. Quattro giorni finiti 34 giorni prima fanno tutti e due.
+  const partenza = "2027-07-29";
+  const uscite = [giro(partenza, -80, 4, { borse: "evento" }), ...viaggio(partenza, -55, [5.5, 5, 3.5]), ...viaggio(partenza, -37, [7, 6.5, 6, 5.5])];
+  const b = pilastroBorse(uscite, partenza, 9.6, "11+", true);
+  const prove = Object.fromEntries(b.righe.map((x) => [x.prova, x]));
+  assert.equal(b.difetto, 0);
+  assert.deepEqual([prove.blocco.a, prove.T3.a], [piu(partenza, -34), piu(partenza, -34)], "la prova generale è l'ultima uscita carica");
+  assert.ok(prove.blocco.doppioUso && prove.T3.doppioUso);
+  assert.deepEqual(b.avvisi.map((a) => a.testo), [testi.AVVISO_DOPPIO_USO]);
+  // Senza le borse nell'uscita di 4 giorni la prova generale torna ai tre giorni e il blocco manca.
+  const senza = pilastroBorse([...uscite.slice(0, 4), ...viaggio(partenza, -37, [7, 6.5, 6, 5.5], { borse: "no" })], partenza, 9.6, "11+", true);
+  assert.deepEqual(senza.righe.map((x) => [x.prova, x.stato]), [["T1", "fatta"], ["blocco", "manca"], ["T3", "fatta"]]);
+  assert.equal(senza.righe.find((x) => x.prova === "T3").a, piu(partenza, -54));
+  assert.deepEqual(senza.avvisi, []);
+});
+
 test("un giro di 5 ore senza risposta sulle borse non è una prova, e nemmeno «Sì, in parte»", () => {
   const partenza = "2027-05-20";
   const prove = (borse) => abbinaProve([giro(partenza, -40, 5, { borse })], partenza, 7, "2-5").prove.T1.stato;
