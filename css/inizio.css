@@ -1,4 +1,53 @@
 /* Il primo avvio (7.3), le regole della pagina js/viste/inizio.js. I colori e le misure comuni stanno
    in css/app.css, qui solo quello che serve a questa pagina. */
 
-.inizio-invito { font-weight: 600; }
+.vista-inizio { gap: 22px; }
+.inizio-modulo { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.inizio-nota { color: var(--inchiostro-2); }
+.inizio-zona { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.inizio-zona:empty { display: none; }
+
+/* la scelta dell'evento, a carte raggruppate per evento */
+.inizio-scelta { gap: 20px; }
+.inizio-evento { border: none; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.inizio-evento > legend {
+  padding: 0; margin-bottom: 8px; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--inchiostro-2);
+}
+.inizio-opzioni { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 8px; }
+.inizio-opzione { position: relative; display: flex; min-width: 0; }
+.inizio-opzione input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.inizio-opzione label {
+  flex: 1; min-width: 0; min-height: 52px; display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  padding: 10px 14px; border: 1px solid var(--linea-forte); border-radius: 14px; background: var(--carta); cursor: pointer;
+}
+.inizio-opzione label span { color: var(--inchiostro-2); font-size: 14px; }
+.inizio-opzione label:hover { background: var(--carta-2); }
+.inizio-opzione input:checked + label { border-color: var(--inchiostro); box-shadow: inset 0 0 0 1px var(--inchiostro); background: var(--carta-2); }
+.inizio-opzione input:focus-visible + label { outline: 2px solid var(--accento); outline-offset: 2px; }
+
+/* km e metri, campi corti */
+input.inizio-numero { max-width: 180px; }
+input[type="date"]#inizio-data { max-width: 260px; }
+
+.inizio-errore { color: var(--rosso-testo); font-weight: 650; }
+.inizio-errore:empty { display: none; }
+.inizio-tasti { display: flex; flex-direction: column; gap: 12px; }
+
+/* la copia di sicurezza, con il campo del file nascosto dietro il tasto */
+.inizio-copia h2 { font-size: 18px; }
+.inizio-file { position: relative; }
+.inizio-file-campo { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.inizio-file-campo:focus-visible + label { outline: 2px solid var(--accento); outline-offset: 2px; }
+
+/* «Prima di cominciare», l'invito degli iscritti e il riepilogo */
+.inizio-cuore, .inizio-invito { border-left: 4px solid var(--accento); }
+.inizio-invito h2 { font-size: 19px; }
+.inizio-riepilogo { gap: 14px; }
+.inizio-cosa { display: flex; flex-direction: column; gap: 4px; }
+.inizio-cosa-prima { font-size: 18px; font-weight: 650; }
+.inizio-giornata { display: flex; flex-direction: column; gap: 6px; font-size: 17px; }
+.inizio-dove, .inizio-consiglio {
+  display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--linea); padding-top: 12px; color: var(--inchiostro-2);
+}
+.inizio-dove .verdetto { color: var(--inchiostro); }
