@@ -28,7 +28,7 @@ import { pianoLungo } from "../js/piano.js";
 import { puntiOra, serieCarico } from "../js/carico.js";
 import { trovaPercorso } from "../js/catalogo.js";
 import { migliaia } from "../js/testi-stima.js";
-import { BORSE, CHIAMATE, PASSO, PRONTEZZA, STIMA } from "../js/parametri.js";
+import { BORSE, CHIAMATE, DATI, PASSO, PRONTEZZA, STIMA } from "../js/parametri.js";
 
 const RADICE = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const FILE_ESITO = "esito_viaggi.md";
@@ -647,7 +647,7 @@ function usciteCariche(cariche, P, ciclista, oggi) {
     const fa = giorniFra(u.giorno, oggi);
     if (fa < 0 || fa >= BORSE.giorni) continue;
     const km = u.metri / 1000;
-    if (!num(u.dislivello) && km > PASSO.zeroOltreKm) continue;
+    if (!num(u.dislivello) && km > DATI.dislivelloZeroOltreKm) continue;
     const previste = oreFormula({ km, metri: num(u.dislivello) ? u.dislivello : 0, potenza: P, massa: ciclista + fondo.biciKg + PASSO.acquaCiboKg, classe: fondo.classe });
     const g = perGiorno.get(u.giorno) || { giorno: u.giorno, ore: 0, previste: 0, evento: false };
     g.ore += u.secondi / ORA;

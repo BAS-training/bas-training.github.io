@@ -1,0 +1,8 @@
+/* La settimana (7.6), le regole della pagina js/viste/settimana.js. I colori e le misure comuni stanno
+   in css/app.css, qui solo quello che serve a questa pagina. */
+
+.settimana-giorni { list-style: none; margin: 0; padding-top: 4px; padding-bottom: 4px; }
+.settimana-giorno { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--linea); }
+.settimana-giorno:last-child { border-bottom: 0; }
+.settimana-data { min-width: 7em; color: var(--inchiostro-2); }
+.settimana-oggi { font-weight: 600; }

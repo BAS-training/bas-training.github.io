@@ -1,0 +1,88 @@
+// I testi di Impostazioni e dati (7.12), per js/viste/impostazioni.js. Stesse regole di scrittura di
+// js/testi.js (7.1), e la prova 9.8 li legge tutti.
+
+export const IMPOSTAZIONI = {
+  titolo: "Impostazioni",
+  sottotitolo: "Le tue scelte",
+  attacco: "Poche cose che aiutano il semaforo a leggerti meglio. Ogni voce dice dove sta il dato.",
+  salvato: "Salvato.",
+  demo: "Con i dati di esempio le scelte restano solo in questa pagina.",
+  telefono: "Sta su questo telefono.",
+  eta: {
+    titolo: "Età",
+    domanda: "Quanti anni hai?",
+    scelte: [
+      { id: "sotto40", testo: "Sotto i 40" },
+      { id: "40-49", testo: "40-49" },
+      { id: "50-54", testo: "50-54" },
+      { id: "55-59", testo: "55-59" },
+      { id: "60+", testo: "60 e più" },
+    ],
+    aiuto: "Da 50 anni il semaforo guarda la fatica su più giorni. Da 55 anni una notte molto buona non vale mai come verde. L'età non la prendo mai da intervals.icu.",
+    senza: "Finché non scegli, conto 40-49 anni.",
+  },
+  notte: {
+    titolo: "La notte",
+    domanda: "Cosa porti di notte?",
+    scelte: [
+      { id: "garmin", testo: "Un orologio Garmin" },
+      { id: "orologio", testo: "Un altro orologio" },
+      { id: "braccialetto", testo: "Un braccialetto" },
+      { id: "anello", testo: "Un anello" },
+      { id: "fascia", testo: "Una fascia cardio" },
+      { id: "nonso", testo: "Non lo so" },
+    ],
+    aiuto: "Ogni dispositivo legge la notte a modo suo. Con un anello o una fascia il semaforo si fida anche di differenze più piccole. Con Garmin il battito a riposo arriva dalla mezz'ora più tranquilla del giorno.",
+    cambioTitolo: "Ho cambiato orologio",
+    cambioTesto: "Se hai cambiato orologio o anello, segna il giorno. Da lì imparo di nuovo le tue notti, per due settimane.",
+    cambioQuando: "Quando l'hai cambiato?",
+    cambioTasto: "Ho cambiato orologio",
+    cambioSegnato: (data) => `Hai segnato il cambio ${data}. Da lì imparo di nuovo le tue notti, per due settimane.`,
+    cambioTogli: "Togli il cambio",
+    cambioData: "Scegli un giorno fra gli ultimi due mesi e oggi.",
+    aritmia: "Ho un'aritmia nota",
+    aritmiaAiuto: "Serve a leggere meglio le tue notti. Con un'aritmia una notte molto buona non vale mai come verde, e se capita spesso ti invito a parlarne con il medico.",
+  },
+  bici: {
+    titolo: "In bici",
+    domanda: "In bici usi la fascia cardio?",
+    scelte: [
+      { id: "si", testo: "Sì" },
+      { id: "no", testo: "No, al polso" },
+      { id: "nonso", testo: "Non lo so" },
+    ],
+    aiuto: "Il battito al polso in bici sbaglia spesso. Così so quanto fidarmi del carico dei tuoi giri.",
+  },
+  ciclo: {
+    titolo: "Ciclo",
+    casella: "Al mattino voglio poter segnare i giorni prima del ciclo",
+    aiuto: "Se la accendi, al mattino puoi segnare i giorni prima del ciclo, così il semaforo pesa meno una notte diversa dal solito. Sta solo su questo telefono e non va su intervals.icu.",
+  },
+  dati: {
+    titolo: "Dove stanno i tuoi dati",
+    righe: (giorni) => [
+      "Le tre risposte del mattino stanno su intervals.icu, nel giorno di ogni mattina. In viaggio ci va allo stesso modo la risposta sull'energia.",
+      `«Sto male», «Ieri sera…», il sonno e «Qualcosa non va?» in viaggio stanno su questo telefono per ${giorni} giorni, poi si cancellano da sole.`,
+      `Per ogni giorno restano su questo telefono anche il colore del semaforo, quanto ha pesato ogni voce e se c'è stato uno stop, per ${giorni} giorni.`,
+      "Queste impostazioni stanno su questo telefono finché non le cancelli.",
+      "Una copia dei dati presi da intervals.icu, al massimo 182 giorni, sta su questo telefono finché premi Esci, così la pagina chiede solo i giorni nuovi.",
+      "Noi non riceviamo niente.",
+    ],
+    privacy: "Come trattiamo i tuoi dati",
+  },
+  esci: {
+    titolo: "Esci",
+    esci: "Esci",
+    esciAiuto: "Togli da questo dispositivo la chiave, il consenso e la copia dei dati presi da intervals.icu. Le tue risposte e le tue scelte restano qui, così le ritrovi quando rientri.",
+    cancella: "Esci e cancella tutto da questo dispositivo",
+    cancellaAiuto: "Togli tutto quello che Come sto tiene qui, risposte e sintomi compresi. Se il dispositivo lo usano anche altri, scegli questo.",
+    demo: "Esci dall'esempio",
+    demoAiuto: "Torni alla pagina iniziale. I dati di esempio non restano da nessuna parte.",
+  },
+  fuori: {
+    testo: "Le impostazioni si aprono quando entri con i tuoi dati.",
+    entra: "Collega i tuoi dati",
+    resti: "Su questo dispositivo sono rimaste le tue risposte o le tue scelte di prima. Se vuoi, cancellale.",
+    niente: "Su questo dispositivo Come sto non tiene niente.",
+  },
+};

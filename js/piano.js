@@ -52,6 +52,8 @@ export const TIPI_SEDUTA = Object.freeze([
   "T1", "T2", "T3", "prova", "blocco", "carica", "unGiorno", "palestra", "tronco", "dopoEvento", "tappa",
 ]);
 const PIU_GIORNI = new Set(["weekend", "weekendCarico", "T3", "prova", "blocco"]);
+// Le sedute di più giorni, per chi le sposta tutte insieme (js/motore.js).
+export const PIU_GIORNI_DEL_PIANO = Object.freeze([...PIU_GIORNI]);
 const PROVE = new Set(["T1", "T2", "T3", "prova", "blocco", "weekendCarico", "carica", "unGiorno"]);
 const CARICHE = PROVE;   // le prove sono le sedute con le borse come all'evento
 const BICI = new Set([

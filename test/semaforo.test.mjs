@@ -5,8 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  aggiungiGiorni, giorniTra, giornoSettimana, calendario, baseHrv, baseFc, costruisciModello, notteValida,
-  proiettaFitness, fitnessAllaPartenza, salitaSettimanale, caricoSettimanaPer, puntiPerOra, settimane,
+  aggiungiGiorni, giorniTra, giornoSettimana, calendario, baseHrv, baseFc, costruisciModello, notteValida, settimane,
   normalizzaUscite, oggiNelFuso, decadimento, mattinoDelGiorno, GIORNI_STORICO, GIORNI_USCITE,
 } from "../js/modello.js";
 import {
@@ -15,9 +14,9 @@ import {
   partenza, zonaFreschezza, usciteGrandi, fasciaBattito, LIVELLI, ESITO_VOCE,
 } from "../js/semaforo.js";
 import {
-  VOCI, STOP, MEDICO, MESSAGGI, NOTE, PERCHE, CARICO_TRE_MATTINE, CONTROLLO, VIAGGIO, GUIDA_SEMAFORO, STO_MALE,
-  FIDUCIA, durataInParole,
+  VOCI, STOP, MEDICO, MESSAGGI, NOTE, PERCHE, CARICO_TRE_MATTINE, CONTROLLO, VIAGGIO, STO_MALE, FIDUCIA, durataInParole,
 } from "../js/testi.js";
+import { GUIDA_SEMAFORO } from "../js/testi-pagine.js";
 import { SEMAFORO, PIANO, MEMORIA } from "../js/parametri.js";
 import { CAMPI_USCITE } from "../js/api.js";
 import { numero, segno, durata } from "../js/formato.js";
@@ -194,27 +193,6 @@ test("fasce della Freschezza", () => {
   assert.equal(zonaFreschezza(-0.4).nome, "Molto carico");
   assert.equal(zonaFreschezza(-0.6).nome, "Troppo carico");
   assert.equal(zonaFreschezza(null), null);
-});
-
-test("Obiettivo: proiezione, scarico e salita settimanale, con la forma esponenziale", () => {
-  const f = proiettaFitness(32, 500, 28);
-  assert.ok(f > 50 && f < 52, `f ${f}`);
-  // con lo scarico delle ultime due settimane si arriva un po' più in basso
-  assert.ok(fitnessAllaPartenza(32, 500, 84) < proiettaFitness(32, 500, 84));
-  const s = salitaSettimanale(32, 60, 84);
-  assert.ok(s > 3 && s < 4.5, `salita ${s}`);
-  assert.equal(salitaSettimanale(32, 60, 10), null);
-  // il carico suggerito per la prossima settimana fa salire la Fitness proprio di quanto serve
-  const carico = caricoSettimanaPer(32, 3);
-  assert.ok(Math.abs(proiettaFitness(32, carico, 7) - 35) < 0.01);
-});
-
-test("punti per ora: dai giri della persona, altrimenti 40", () => {
-  assert.equal(puntiPerOra([]), 40);
-  const lista = normalizzaUscite([1, 2, 3].map((k) => ({
-    id: k, start_date_local: `2026-10-2${k}T08:00:00`, type: "Ride", moving_time: 7200, icu_training_load: 110,
-  })));
-  assert.equal(puntiPerOra(lista), 55);
 });
 
 test("settimane: le uscite finiscono nella settimana giusta", () => {

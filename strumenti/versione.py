@@ -2,7 +2,8 @@
 
 GitHub Pages tiene i file in memoria per qualche minuto: senza un numero di versione, subito dopo
 un aggiornamento un telefono potrebbe mescolare file vecchi e nuovi. Lo script aggiunge ?v=AAAAMMGGHHMM
-a ogni import tra i file in js/ e ai collegamenti di index.html, così tutti cambiano insieme.
+a ogni import tra i file in js/ e a tutti i collegamenti di index.html ai file css/ e js/, così tutti
+cambiano insieme.
 
 Uso:  python strumenti/versione.py
 """
@@ -20,9 +21,9 @@ for file in sorted((RADICE / "js").rglob("*.js")):
     if nuovo != testo:
         file.write_text(nuovo, encoding="utf-8")
 
+# Tutti i fogli di stile e gli script della pagina, anche quelli che arrivano dopo.
+COLLEGAMENTO = re.compile(r'''((?:href|src)=")((?:css|js)/[^"?]+\.(?:css|js))(?:\?v=\w+)?(")''')
 indice = RADICE / "index.html"
 testo = indice.read_text(encoding="utf-8")
-for percorso in ("css/app.css", "js/app.js"):
-    testo = re.sub(rf'{re.escape(percorso)}(?:\?v=\w+)?"', f'{percorso}?v={versione}"', testo)
-indice.write_text(testo, encoding="utf-8")
+indice.write_text(COLLEGAMENTO.sub(lambda m: f"{m.group(1)}{m.group(2)}?v={versione}{m.group(3)}", testo), encoding="utf-8")
 print(f"versione {versione}")

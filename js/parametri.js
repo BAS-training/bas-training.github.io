@@ -74,7 +74,6 @@ export const STIMA = congela({
   giornoInPiuDaH: 9,              // per 2-5 giorni l'app dice come scende la giornata con un giorno in più, 1.11, regola 7.7
   giornoInPiuGiorni: { da: 2, a: 5 },   // la frase vale per 2-5 giorni e mai oltre i giorni massimi del percorso, 1.11
   oreEbike: [4, 5, 6, 7, 8, 9],   // le ore al giorno chieste a chi va in e-bike, 1.8, stima nostra
-  tipiEbike: ["EBikeRide", "EMountainBikeRide"],   // l'ultimo giro lungo di questi tipi vale «Vado con la e-bike», 1.8
   obiettivoLibero: {
     oreGiro: [3, 4, 5, 6, 8],     // «Un giro lungo di … ore», 1.9
     giorniDiFila: [2, 3],         // «Più giorni di fila», 1.9
@@ -91,7 +90,6 @@ export const PASSO = congela({
   kmMinimi: 20,                   // stima nostra
   velocita: { minima: 8, massima: 40 },     // km/h di media, stima nostra
   metriPerKm: { minimi: 0, massimi: 40 },   // dislivello del dispositivo senza fattore, stima nostra
-  zeroOltreKm: 30,                // un giro all'aperto di oltre 30 km senza dislivello resta fuori, 6.3
   borseSenzaRispostaOltreOre: 3,  // oltre 3 ore senza la risposta sulle borse il giro resta fuori, 6.3
   giorni: 84,                     // prima gli ultimi 84 giorni, stima nostra
   giorniRiserva: 182,             // se non bastano, gli ultimi 182, stima nostra
@@ -508,7 +506,9 @@ export const DOMENICA = congela({
     settimaneFinali: 2,           // nelle ultime 2 coincide con il tapering, regola 2.7
   },
   giorniFacili: { segnali: 3, giorni: 7, riferimentoOre: 1, domenicheDiFila: 2, oreSenzaFebbre: 24 },   // con 3 segnali o due domeniche di fila con 2, regola 8.3, con la febbre si riparte dopo 24 ore senza, 4.4
-  medico: { giorni: 14, settimaneScarico: 3, pesoCalo: 0.05, pesoGiorni: 30 },   // regola 8.7, che dice 3-4 settimane, stima nostra, prudente
+  // Il peso non si legge mai, né da intervals.icu né dal telefono, quindi del medico di 8.7 resta la
+  // stanchezza che non passa (DPIA, peso escluso dal profilo e dal benessere).
+  medico: { giorni: 14, settimaneScarico: 3 },   // regola 8.7, che dice 3-4 settimane, stima nostra, prudente
 });
 
 // Il semaforo del mattino, usato da js/semaforo.js e da js/modello.js (capitolo 4).
@@ -740,6 +740,7 @@ export const MEMORIA = congela({
   // o ai giorni senza attività, e i 14 giorni valgono solo per la riga del medico, stima nostra, prudente.
   sfideSenzaFine: ["grande"],
   sfidaSenzaScelta: "weekend",    // quella che la pagina di prima mostrava senza una scelta salvata
+  guastoGiorni: 30,               // le chiavi .guasto restano 30 giorni dal primo avvio che le trova, poi si tolgono, stima nostra
 });
 
 // Le chiamate a intervals.icu, usato da js/api.js, js/app.js e js/modello.js (6.7).

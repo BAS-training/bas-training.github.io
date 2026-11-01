@@ -4,7 +4,7 @@
 // Funzioni pure, senza DOM e senza window, provate con node (test/stima.test.mjs).
 // Tutti i numeri stanno in js/parametri.js, nei gruppi STIMA, PASSO e BORSE.
 
-import { STIMA, PASSO, BORSE } from "./parametri.js?v=202610312043";
+import { STIMA, PASSO, BORSE, DATI } from "./parametri.js?v=202610312043";
 
 const ORA = 3600;                 // secondi in un'ora
 const KMH = 3.6;                  // da m/s a km/h
@@ -244,7 +244,7 @@ function giroPerPasso(u) {
   if (media < PASSO.velocita.minima || media > PASSO.velocita.massima) return null;
   const perKm = metri / km;
   if (perKm < PASSO.metriPerKm.minimi || perKm > PASSO.metriPerKm.massimi) return null;
-  if (metri === 0 && km > PASSO.zeroOltreKm) return null;
+  if (metri === 0 && km > DATI.dislivelloZeroOltreKm) return null;
   return { id: u.id ?? null, giorno, ore, km, metri, fondo, rimesso: u.rimessaNelPasso === true };
 }
 
@@ -294,7 +294,7 @@ function giorniCarichi(usciteCariche, ciclista, p, oggi) {
     if (!giorno || !fondo || u.rulli || u.eBike || !(u.secondi > 0) || !(u.metri > 0)) continue;
     if (!entro(giorno, oggi, BORSE.giorni)) continue;
     const km = u.metri / 1000;
-    if (!num(u.dislivello) && km > PASSO.zeroOltreKm) continue;   // senza dislivello il giro non si confronta
+    if (!num(u.dislivello) && km > DATI.dislivelloZeroOltreKm) continue;   // senza dislivello il giro non si confronta
     const giro = { km, metri: num(u.dislivello) ? u.dislivello : 0, fondo };
     const g = perGiorno.get(giorno) || { giorno, ore: 0, previste: 0, evento: false };
     g.ore += u.secondi / ORA;
@@ -398,11 +398,11 @@ export function percorsoLibero(obiettivo = {}) {
 // L'ultimo giro lungo in bici, per riconoscere chi va in e-bike (1.8).
 function ultimoGiroLungoInEbike(uscite) {
   const lunghi = uscite.filter((u) => u && !u.rulli && u.secondi >= PASSO.minutiMinimi * 60 && u.metri >= PASSO.kmMinimi * 1000
-    && (Object.hasOwn(PASSO.tipi, tipoDi(u) || "") || STIMA.tipiEbike.includes(tipoDi(u))));
+    && (Object.hasOwn(PASSO.tipi, tipoDi(u) || "") || DATI.tipiEbike.includes(tipoDi(u))));
   if (lunghi.length === 0) return false;
   const quando = (u) => u.inizio || giornoDi(u) || "";
   const ultimo = lunghi.reduce((a, b) => (quando(b) > quando(a) ? b : a));
-  return STIMA.tipiEbike.includes(tipoDi(ultimo)) || ultimo.eBike === true;
+  return DATI.tipiEbike.includes(tipoDi(ultimo)) || ultimo.eBike === true;
 }
 
 function inEbike(percorso, profilo, uscite) {

@@ -264,7 +264,9 @@ export function unisciLetture(cache, lette, oggi, { adesso = Date.now(), chiamat
 // Una lettura dell'apertura, con al massimo due chiamate per benessere e attività, più il profilo
 // dell'atleta quando tocca. atleta è quello già letto entrando, per non chiederlo due volte. Gli
 // errori di intervals.icu arrivano come ErroreApi, come per le altre chiamate. Restituisce quello di
-// unisciLetture, con letto vero se c'è stata una lettura.
+// unisciLetture, con letto vero se c'è stata una lettura e atletaIntero, il profilo così come è
+// arrivato quando è stato letto (altrimenti null), che serve solo all'impronta dell'atleta e non si
+// salva mai.
 export async function leggiNuovi(client, cache, oggi, { adesso = Date.now(), aggiorna = false, atleta = null } = {}) {
   const piano = lettureDaFare(cache, oggi, { adesso, aggiorna });
   let chiamate = 0;
@@ -275,5 +277,5 @@ export async function leggiNuovi(client, cache, oggi, { adesso = Date.now(), agg
     piano.dal ? conta(client.uscite(piano.dal, piano.al)) : Promise.resolve(null),
   ]);
   const unite = unisciLetture(cache, { dal: piano.dal, al: piano.al, benessere, uscite, atleta: profilo }, oggi, { adesso, chiamate });
-  return { ...unite, letto: Boolean(piano.dal), chiamate };
+  return { ...unite, letto: Boolean(piano.dal), chiamate, atletaIntero: profilo && typeof profilo === "object" ? profilo : null };
 }

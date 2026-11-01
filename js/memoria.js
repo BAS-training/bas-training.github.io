@@ -42,7 +42,15 @@ const VOCI = {
   coda: { chiave: "comesto.coda.v1", forma: "lista", copia: false },                   // finché le scritture non partono
   invito: { chiave: "comesto.invito.v1", forma: "oggetto", copia: true },              // finché non entra nell'obiettivo
   consenso: { chiave: "comesto.consenso", forma: "oggetto", copia: false },            // si cancella con Esci
+  // L'impronta dell'atleta a cui appartengono i dati del telefono, un hash dell'id di intervals.icu e
+  // mai l'id in chiaro. Resta con Esci, così chi entra dopo con un altro account se ne accorge, e non va
+  // nella copia, perché lega i dati a questo telefono.
+  atleta: { chiave: "comesto.atleta.v1", forma: "oggetto", copia: false },
 };
+
+// Per ogni chiave .guasto il giorno del primo avvio che l'ha trovata, per toglierla dopo
+// MEMORIA.guastoGiorni giorni. Non è una chiave dei dati, e la tocca solo pulisci.
+const GUASTI = "comesto.guasti";
 
 export const CHIAVI = Object.freeze(Object.fromEntries(Object.entries(VOCI).map(([nome, voce]) => [nome, voce.chiave])));
 const PER_CHIAVE = new Map(Object.values(VOCI).map((voce) => [voce.chiave, voce]));
@@ -434,7 +442,33 @@ export function creaMemoria(locale, { sessione = null, adesso = () => Date.now()
         (voce === VOCI.invito && obiettivo !== null && entrato(valore, obiettivo));
       if (via && togliDa(locale, voce.chiave)) esito.chiavi.push(voce.chiave);
     }
+    pulisciGuasti(oggi, esito);
     return esito;
+  }
+
+  // Le chiavi .guasto servono a chi vuole capire cosa è successo, non all'app. Restano
+  // MEMORIA.guastoGiorni giorni dal primo avvio che le trova, poi si tolgono. Il giorno sta in
+  // comesto.guasti, così il contenuto della chiave guasta resta com'era.
+  function pulisciGuasti(oggi, esito) {
+    let giorni = {};
+    try {
+      const letto = JSON.parse(testo(locale, GUASTI) || "{}");
+      if (oggetto(letto)) giorni = letto;
+    } catch { /* un elenco rotto si rifà */ }
+    const guaste = chiaviDi(locale).filter((k) => k.startsWith(PREFISSO) && k.endsWith(GUASTO));
+    const tenuti = {};
+    const limite = aggiungiGiorni(oggi, -MEMORIA.guastoGiorni);
+    for (const k of guaste) {
+      const dal = dataValida(giorni[k]) && giorni[k] <= oggi ? giorni[k] : oggi;
+      if (dal <= limite) {
+        if (togliDa(locale, k)) esito.chiavi.push(k);
+        else tenuti[k] = dal;
+      } else {
+        tenuti[k] = dal;
+      }
+    }
+    if (Object.keys(tenuti).length) scriviTesto(GUASTI, JSON.stringify(tenuti));
+    else if (testo(locale, GUASTI) !== null) togliDa(locale, GUASTI);
   }
 
   // L'oggetto del file come-sto-dati-AAAA-MM-GG.json (nomeCopia), con il numero di formato e tutte
@@ -517,5 +551,32 @@ export function creaMemoria(locale, { sessione = null, adesso = () => Date.now()
     return tolte;
   }
 
-  return Object.freeze({ leggi, scrivi, togli, migra, pulisci, copia, riprendi, esciCancellaTutto, cambia, tiene });
+  // «Esci» (6.6). Toglie il consenso, la copia dei dati presi da intervals.icu e le scritture ancora da
+  // mandare. Restano le risposte, le scelte e l'impronta dell'atleta, così chi entra dopo con un altro
+  // account se ne accorge. Il modo di entrare lo toglie js/credenziali.js. Restituisce le chiavi tolte.
+  function esci() {
+    const tolte = [];
+    for (const voce of [VOCI.consenso, VOCI.cache, VOCI.coda]) {
+      if (testo(locale, voce.chiave) !== null && togliDa(locale, voce.chiave)) tolte.push(voce.chiave);
+    }
+    return tolte;
+  }
+
+  // Toglie i dati di Come sto da questo telefono, ma non il modo di entrare e il consenso appena dato.
+  // Serve quando entra un account diverso da quello dei dati e la persona sceglie di cancellare quelli
+  // dell'altro (R21). Restituisce le chiavi tolte.
+  function cancellaDati() {
+    const tolte = [];
+    for (const voce of PER_CHIAVE.values()) {
+      if (voce === VOCI.consenso) continue;
+      if (testo(locale, voce.chiave) !== null && togliDa(locale, voce.chiave)) tolte.push(voce.chiave);
+    }
+    for (const k of chiaviDi(locale)) {
+      if (k.startsWith(PREFISSO) && (k.endsWith(GUASTO) || k === GUASTI) && togliDa(locale, k)) tolte.push(k);
+    }
+    tieneLaMemoria = true;
+    return tolte;
+  }
+
+  return Object.freeze({ leggi, scrivi, togli, migra, pulisci, copia, riprendi, esci, esciCancellaTutto, cancellaDati, cambia, tiene });
 }

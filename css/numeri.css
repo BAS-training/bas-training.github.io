@@ -1,0 +1,4 @@
+/* Numeri (7.11), le regole della pagina js/viste/numeri.js. I colori e le misure comuni stanno in
+   css/app.css, qui solo quello che serve a questa pagina. */
+
+.numeri-parte + .numeri-parte { margin-top: 32px; }

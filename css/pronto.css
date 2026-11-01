@@ -1,0 +1,4 @@
+/* Pronto? (7.7), le regole della pagina js/viste/pronto.js. I colori e le misure comuni stanno in
+   css/app.css, qui solo quello che serve a questa pagina. */
+
+.pronto-avventura > * + * { margin-top: 10px; }

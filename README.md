@@ -85,7 +85,7 @@ Altre regole del rilascio 1.
 
 La Freschezza (su intervals.icu si chiama Form) è la Fitness meno la Fatica, in percentuale della Fitness, con le fasce di intervals.icu più due fasce per il carico alto (da −30% a −50% e oltre −50%).
 
-Se cambia una soglia va cambiata in `js/parametri.js`, nella Guida (`GUIDA_SEMAFORO` in `js/testi.js`) e in questa tabella, che la prova `test/testi.test.mjs` confronta con la Guida.
+Se cambia una soglia va cambiata in `js/parametri.js`, nella Guida (`GUIDA_SEMAFORO` in `js/testi-pagine.js`) e in questa tabella, che la prova `test/testi.test.mjs` confronta con la Guida.
 
 ## Entra con intervals.icu
 

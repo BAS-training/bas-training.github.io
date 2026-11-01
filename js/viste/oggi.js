@@ -9,9 +9,9 @@ import { zonaFreschezza, ESITO_VOCE } from "../semaforo.js?v=202610312043";
 import { nomeTipo } from "../modello.js?v=202610312043";
 import { SEMAFORO } from "../parametri.js?v=202610312043";
 import {
-  SPIEGAZIONI, DOMANDE_MATTINO, OGGI, MATTINO, NUMERI_OGGI, STO_MALE, CAUSE, CONTROLLO, VIAGGIO, MESSAGGI,
-  FIDUCIA, TETTI, CAMBIO_DISPOSITIVO,
+  DOMANDE_MATTINO, OGGI, MATTINO, STO_MALE, CAUSE, CONTROLLO, VIAGGIO, MESSAGGI, FIDUCIA, TETTI, CAMBIO_DISPOSITIVO,
 } from "../testi.js?v=202610312043";
+import { SPIEGAZIONI, NUMERI_OGGI } from "../testi-numeri.js?v=202610312043";
 import { sparkline } from "../grafici.js?v=202610312043";
 import { pillola, spiegazione, bannerDemo, luceSemaforo } from "./comuni.js?v=202610312043";
 

@@ -7,7 +7,7 @@ import { h } from "../dom.js?v=202610312043";
 import { dataLunga } from "../formato.js?v=202610312043";
 import { aggiungiGiorni, oggiLocale } from "../modello.js?v=202610312043";
 import { SEMAFORO, MEMORIA } from "../parametri.js?v=202610312043";
-import { IMPOSTAZIONI } from "../testi.js?v=202610312043";
+import { IMPOSTAZIONI } from "../testi-impostazioni.js?v=202610312043";
 import { intestazione } from "./comuni.js?v=202610312043";
 
 const I = IMPOSTAZIONI;

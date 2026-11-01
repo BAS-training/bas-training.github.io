@@ -1,0 +1,5 @@
+/* La palestra (7.8), le regole della pagina js/viste/palestra.js. I colori e le misure comuni stanno
+   in css/app.css, qui solo quello che serve a questa pagina. */
+
+.palestra-esercizi { margin: 0; padding-left: 1.4em; }
+.palestra-esercizi li + li { margin-top: 8px; }

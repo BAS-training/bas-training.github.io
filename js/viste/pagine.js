@@ -4,9 +4,11 @@
 
 import { h, icona } from "../dom.js?v=202610312043";
 import {
-  SPIEGAZIONI, GUIDA_SEMAFORO, GUIDA_LIVELLI, GUIDA_COLONNE, GUIDA, DISPOSITIVI, DOMANDE_FREQUENTI,
-  DOMANDA_ESCI_CON_INTERVALS, LIMITI, CONSENSO, PRIVACY, COLLEGA,
-} from "../testi.js?v=202610312043";
+  GUIDA_SEMAFORO, GUIDA_LIVELLI, GUIDA_COLONNE, GUIDA, DISPOSITIVI, DOMANDE_FREQUENTI, DOMANDA_ESCI_CON_INTERVALS, LIMITI,
+  PRIVACY, COLLEGA,
+} from "../testi-pagine.js?v=202610312043";
+import { SPIEGAZIONI } from "../testi-numeri.js?v=202610312043";
+import { CONSENSO } from "../testi-app.js?v=202610312043";
 import { intestazione, luceSemaforo } from "./comuni.js?v=202610312043";
 import { OAUTH_ATTIVO } from "../config.js?v=202610312043";
 

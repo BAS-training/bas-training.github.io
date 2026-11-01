@@ -256,7 +256,7 @@ test("niente etichette sulla persona, nemmeno senza le ore accanto", () => {
 });
 
 test("Guida, domande frequenti, Privacy e Impostazioni dicono quello che l'app fa", () => {
-  const T = moduli["testi.js"];
+  const T = { ...moduli["testi.js"], ...moduli["testi-pagine.js"], ...moduli["testi-impostazioni.js"] };
   const guida = T.GUIDA.semaforo.paragrafi.join(" ");
   // il carico molto alto per tre mattine dà Rosso da solo (4.2, passo 8)
   assert.match(guida, /Il carico da solo arriva al massimo al giallo, salvo tre mattine di fila molto sopra il solito\./);
@@ -353,7 +353,7 @@ test("i numeri di risposte scritti nei testi sono quelli veri", () => {
 });
 
 test("la tabella del semaforo nel README è quella della Guida, e il README non ha i due punti", async () => {
-  const { GUIDA_SEMAFORO, GUIDA_COLONNE } = moduli["testi.js"];
+  const { GUIDA_SEMAFORO, GUIDA_COLONNE } = moduli["testi-pagine.js"];
   const readme = readFileSync(join(RADICE, "README.md"), "utf8");
   assert.ok(readme.includes(`| ${GUIDA_COLONNE.voce} | ${GUIDA_COLONNE.verde} | ${GUIDA_COLONNE.giallo} | ${GUIDA_COLONNE.rosso} |`), "intestazione della tabella");
   for (const r of GUIDA_SEMAFORO) {

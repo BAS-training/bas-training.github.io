@@ -266,7 +266,6 @@ const NOMI_TIPO = {
   AlpineSki: "Sci", BackcountrySki: "Scialpinismo", Elliptical: "Ellittica",
 };
 
-const TIPI_BICI = new Set(["Ride", "GravelRide", "MountainBikeRide", "VirtualRide", "EBikeRide", "EMountainBikeRide"]);
 const TIPI_ORE_BICI = new Set(DATI.tipiBici);
 
 export function nomeTipo(tipo, sorgente) {
@@ -331,14 +330,33 @@ function normalizzaAtleta(a) {
 
 const oggetto = (v) => (v && typeof v === "object" && !Array.isArray(v) ? v : {});
 
+// Fitness e Fatica del semaforo vengono da intervals.icu, finché la serie di Come sto non passa la
+// prova di coincidenza sui dati privati (6.5). Con CARICO.serie.fonteSemaforo «comesto» le prende
+// dalla serie di js/carico.js, giorno per giorno.
+function conLaSerie(giorni, serie) {
+  if (CARICO.serie.fonteSemaforo !== "comesto" || !Array.isArray(serie) || !serie.length) return giorni;
+  const perData = new Map(serie.filter((r) => r && typeof r.d === "string").map((r) => [r.d, r]));
+  for (const g of giorni) {
+    const r = perData.get(g.d);
+    if (!r || num(r.fitness) === null || num(r.fatica) === null) continue;
+    g.ctl = r.fitness;
+    g.atl = r.fatica;
+    if (num(r.faticaLenta) !== null) g.faticaLenta = r.faticaLenta;
+    g.forma = g.ctl - g.atl;
+    g.formaPct = g.ctl > 0 ? g.forma / g.ctl : null;
+  }
+  return giorni;
+}
+
 // Tutto quello che serve alle viste, calcolato una volta sola. Diario, storia, profilo e piano
 // arrivano dal telefono (js/memoria.js) e sono facoltativi.
 // diario   { [data]: { stoMale, senzaFebbre, cause, controllo, pedalata, viaggio } }, le risposte del mattino
 // storia   { [data]: il registro che valuta restituisce ogni giorno }, gli esiti dei giorni passati
 // profilo  { eta o fasciaEta, dispositivo, cambioDispositivo, aritmia, fasciaCardio, ftp }
 // piano    { fatiche: [{ tipo, inizio, fine }] }, i weekend, le prove e i blocchi già fatti
-export function costruisciModello({ atleta, benessere, uscite, diario, storia, profilo, piano } = {}, oggi = oggiLocale()) {
-  const giorni = calendario(benessere, oggi);
+// serie    le righe di serieCarico di js/carico.js, che valgono solo con fonteSemaforo «comesto»
+export function costruisciModello({ atleta, benessere, uscite, diario, storia, profilo, piano, serie } = {}, oggi = oggiLocale()) {
+  const giorni = conLaSerie(calendario(benessere, oggi), serie);
   const i = giorni.length - 1;
   const oggiG = giorni[i];
   const prof = oggetto(profilo);
@@ -372,62 +390,4 @@ export function costruisciModello({ atleta, benessere, uscite, diario, storia, p
     caricoMese: sommaCarico(giorni, i - 1, 28),
     uscite: normalizzaUscite(uscite),
   };
-}
-
-// --- La pagina Obiettivo, finché non arriva Pronto? (rilascio 3) ---
-
-// Le soglie di Fitness sono ordini di grandezza presi dall'esperienza di pochi ciclisti
-// che queste cose le hanno fatte, misurate alla partenza. Dicono "ci arrivi in fondo", non "vai forte".
-export const SFIDE = [
-  { id: "giornata", nome: "Una giornata lunga", descrizione: "4-5 ore in sella, per esempio 100 km con qualche salita.", minimo: 35, comodo: 50, oreTappa: 4.5 },
-  { id: "weekend", nome: "Due o tre giorni di fila", descrizione: "Un weekend in bikepacking o un evento di 2-3 giorni, 6-8 ore in sella al giorno.", minimo: 45, comodo: 60, oreTappa: 7 },
-  { id: "settimana", nome: "Una settimana di viaggio", descrizione: "7-10 giorni di fila, 7-9 ore in sella al giorno.", minimo: 60, comodo: 75, oreTappa: 8 },
-  { id: "grande", nome: "Due settimane e oltre", descrizione: "Un grande viaggio, 9-11 ore in sella al giorno per due settimane.", minimo: 65, comodo: 85, oreTappa: 10 },
-];
-
-const K = decadimento(CARICO.serie.fitness);   // quanto resta della Fitness da un giorno all'altro
-export const SCARICO_GIORNI = 14;      // le ultime due settimane si scarica
-export const SCARICO_QUOTA = 0.55;     // al 55% del carico di prima (Bosquet 2007)
-// Quanto della Fitness resta dopo lo scarico, se prima ci si allenava al proprio livello.
-export const RESTA_DOPO_SCARICO = SCARICO_QUOTA + (1 - SCARICO_QUOTA) * Math.pow(K, SCARICO_GIORNI);
-
-// Dove arriva la Fitness con un carico settimanale costante, con la forma della serie di 6.5.
-export function proiettaFitness(fitness, caricoSettimanale, giorni) {
-  const quotidiano = caricoSettimanale / 7;
-  let f = fitness;
-  for (let k = 0; k < giorni; k++) f = f * K + quotidiano * (1 - K);
-  return f;
-}
-
-// La Fitness il giorno della partenza continuando con lo stesso carico, scarico compreso.
-export function fitnessAllaPartenza(fitness, caricoSettimanale, giorni) {
-  const allenamento = Math.max(0, giorni - SCARICO_GIORNI);
-  const prima = proiettaFitness(fitness, caricoSettimanale, allenamento);
-  return proiettaFitness(prima, caricoSettimanale * SCARICO_QUOTA, Math.min(giorni, SCARICO_GIORNI));
-}
-
-// Di quanto deve salire la Fitness ogni settimana, fino allo scarico, per arrivare all'obiettivo.
-export function salitaSettimanale(fitness, obiettivo, giorni) {
-  const settimane = (giorni - SCARICO_GIORNI) / 7;
-  if (settimane <= 0) return null;
-  return (obiettivo / RESTA_DOPO_SCARICO - fitness) / settimane;
-}
-
-// Il carico della prossima settimana per far salire la Fitness di "salita" punti.
-// Con un carico costante L per 7 giorni: F7 = L + (F0 - L)·K^7, quindi L = F0 + salita / (1 - K^7).
-export function caricoSettimanaPer(fitness, salita) {
-  return Math.max(0, 7 * (fitness + salita / (1 - Math.pow(K, 7))));
-}
-
-// I punti che vale un'ora di bici al ritmo solito di una persona (mediana dei suoi giri), altrimenti 40.
-export function puntiPerOra(uscite) {
-  const valori = uscite
-    .filter((u) => TIPI_BICI.has(u.tipo) && u.secondi >= 2700 && u.carico > 0)
-    .map((u) => u.carico / (u.secondi / 3600));
-  return valori.length >= 3 ? mediana(valori) : 40;
-}
-
-export function giroPiuLungo(uscite, oggi, giorni = 56) {
-  const limite = aggiungiGiorni(oggi, -giorni);
-  return uscite.filter((u) => TIPI_BICI.has(u.tipo) && u.d >= limite).reduce((max, u) => Math.max(max, u.secondi || 0), 0);
 }

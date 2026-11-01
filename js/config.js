@@ -24,6 +24,14 @@ export const OAUTH = Object.freeze({
 
 export const OAUTH_ATTIVO = OAUTH.clientId !== null && OAUTH.clientId !== undefined && String(OAUTH.clientId).trim() !== "";
 
+// Le scritture sulle attività di intervals.icu (6.6), cioè sforzo, borse, palestra e giri a mano. Restano
+// spente finché non sono fatte a mano le prove dal vivo di 9.12 e finché il consenso non è il C0-2.0, che
+// le comprende. Spente, le risposte restano sul telefono e nella copia, e la coda non parte mai. Le
+// risposte del mattino su intervals.icu non c'entrano, vanno come nel rilascio 1.
+export const SCRITTURE = Object.freeze({
+  attivita: false,
+});
+
 // L'indirizzo a cui intervals.icu riporta chi ha dato il permesso. È l'origine più il percorso
 // della pagina, senza query né hash, e deve essere identico a uno di quelli registrati
 // nella pagina Manage App (intervals.icu non accetta asterischi).

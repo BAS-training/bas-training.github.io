@@ -79,10 +79,11 @@ function telefonoDiLucia() {
 }
 
 test("le chiavi sono quelle della tabella di 6.6, con il prefisso e la versione nel nome", () => {
+  // In più c'è l'impronta dell'atleta dei dati, per chi entra con un altro account (R21).
   assert.deepEqual(Object.values(CHIAVI).sort(), [
-    "comesto.cache.v1", "comesto.coda.v1", "comesto.consenso", "comesto.disponibilita.v1", "comesto.domenica.v1",
-    "comesto.esiti.v1", "comesto.invito.v1", "comesto.mattino.v1", "comesto.obiettivo.v1", "comesto.palestra.v1",
-    "comesto.piano.v1", "comesto.preferenze", "comesto.profilo.v1", "comesto.uscite.v1",
+    "comesto.atleta.v1", "comesto.cache.v1", "comesto.coda.v1", "comesto.consenso", "comesto.disponibilita.v1",
+    "comesto.domenica.v1", "comesto.esiti.v1", "comesto.invito.v1", "comesto.mattino.v1", "comesto.obiettivo.v1",
+    "comesto.palestra.v1", "comesto.piano.v1", "comesto.preferenze", "comesto.profilo.v1", "comesto.uscite.v1",
   ]);
   assert.ok(Object.isFrozen(CHIAVI));
   assert.ok(Object.values(CHIAVI).every((k) => k.startsWith(PREFISSO)));
@@ -649,4 +650,22 @@ test("togli toglie solo le chiavi della tabella", () => {
   // le credenziali le toglie js/credenziali.js, oppure Esci e cancella tutto
   assert.equal(memoria.togli(CHIAVE), false);
   assert.equal(locale.getItem(CHIAVE), CHIAVE_LUCIA);
+});
+
+test("le chiavi .guasto restano ${MEMORIA.guastoGiorni} giorni dal primo avvio che le trova, poi si tolgono", () => {
+  const locale = memoriaFinta({ [CHIAVI.profilo + GUASTO]: "{rotto", [CHIAVI.esiti]: {} });
+  const memoria = creaMemoria(locale, { adesso: () => ADESSO });
+  const dopo = (n) => giorniPrima(OGGI, -n);
+  // il primo avvio la trova e segna il giorno, il contenuto resta com'era
+  assert.deepEqual(memoria.pulisci(OGGI).chiavi, []);
+  assert.equal(locale.getItem(CHIAVI.profilo + GUASTO), "{rotto");
+  assert.deepEqual(grezzo(locale, "comesto.guasti"), { [CHIAVI.profilo + GUASTO]: OGGI });
+  assert.deepEqual(memoria.pulisci(dopo(MEMORIA.guastoGiorni - 1)).chiavi, []);
+  // dopo i giorni scritti in js/parametri.js si toglie, e con lei l'elenco dei giorni
+  assert.deepEqual(memoria.pulisci(dopo(MEMORIA.guastoGiorni)).chiavi, [CHIAVI.profilo + GUASTO]);
+  assert.equal(locale.getItem(CHIAVI.profilo + GUASTO), null);
+  assert.equal(locale.getItem("comesto.guasti"), null);
+  // le chiavi dei dati non c'entrano
+  assert.notEqual(locale.getItem(CHIAVI.esiti), null);
+  assert.deepEqual(memoria.migra().guaste, []);
 });

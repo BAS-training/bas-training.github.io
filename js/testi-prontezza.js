@@ -432,3 +432,11 @@ export const ESEMPI = congela({
   testoManca: [["volume"], ["lunga"], ["borse", { righe: [{ prova: "blocco", stato: "manca" }] }], ["continuita", { giorni: 24 }]],
   fraseProiezione: [["pronto"], ["quasiPronto", { manca: null }], ["pocoPronto", { proposta: { tipo: "giorni", giorni: 5 } }]],
 });
+
+// La pagina Pronto? segnaposto, finché 7.7 non c'è.
+export const PRONTO_PAGINA = congela({
+  titolo: "Pronto?",
+  senzaObiettivo: "Pronto per cosa? Scegli un evento o un'avventura tua, e qui vedi se ci arrivi pronto.",
+  scegli: "Scegli",
+  avventura: "La tua avventura",
+});
