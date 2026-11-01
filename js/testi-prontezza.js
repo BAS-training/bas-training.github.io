@@ -7,12 +7,14 @@
 import { dataLunga } from "./formato.js?v=202610312043";
 import { PASSO, PRONTEZZA, STIMA } from "./parametri.js?v=202610312043";
 import { arrotondaMezzora } from "./stima.js?v=202610312043";
-import { oreInParole, durataInParole } from "./testi-stima.js?v=202610312043";
+import { oreInParole, durataInParole, migliaia, PASSO_GIRI } from "./testi-stima.js?v=202610312043";
 
 const MINUTI = STIMA.arrotondaMinuti;
 const IN_LETTERE = ["zero", "una", "due", "tre", "quattro", "cinque", "sei", "sette", "otto", "nove", "dieci"];
 const lettere = (n) => (Number.isInteger(n) && n >= 0 && n < IN_LETTERE.length ? IN_LETTERE[n] : String(n));
 const giorniInParole = (n) => (n === 1 ? "1 giorno" : `${n} giorni`);
+const num = (v) => typeof v === "number" && Number.isFinite(v);
+const maiuscola = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function congela(oggetto) {
   for (const valore of Object.values(oggetto)) {
@@ -431,12 +433,245 @@ export const ESEMPI = congela({
   rigaFiducia: [[{ tipo: "ore", quanti: 6, sorgente: "STRAVA" }], [{ tipo: "borse", quanti: 3 }], [{ tipo: "stima" }], [{ tipo: "settimane", quanti: 2 }]],
   testoManca: [["volume"], ["lunga"], ["borse", { righe: [{ prova: "blocco", stato: "manca" }] }], ["continuita", { giorni: 24 }]],
   fraseProiezione: [["pronto"], ["quasiPronto", { manca: null }], ["pocoPronto", { proposta: { tipo: "giorni", giorni: 5 } }]],
+  nomeAvventura: [
+    [{ percorso: { evento: "Tuscany Trail", nome: "Originale" }, giorni: 5 }], [{ libero: { tipo: "ore", ore: 5 } }],
+    [{ libero: { tipo: "giro", km: 140 } }], [{ libero: { tipo: "giorni", giorni: 2 } }],
+  ],
+  rigaPercorso: [
+    [{ evento: "Tuscany Trail", nome: "Originale", km: 460, dislivello: 5900 }],
+    [{ evento: "NorthCape4000", nome: "Da Berlino (partenza intermedia)", km: 2960, dislivello: null }],
+    [null, { tipo: "giro", km: 140, metri: 2200, fondo: "gravel", conBorse: true }], [null, { tipo: "giorni", giorni: 3 }],
+    [null, { tipo: "ore", ore: 5 }],
+  ],
+  rigaGiorni: [
+    [{ giorni: 5, partenza: "2027-05-19", mancano: 70 }], [{ giorni: 1, partenza: "2027-05-19", mancano: 0 }],
+    [{ giorni: 4, partenza: "2027-05-19", mancano: 9 }], [{ giorni: 4 }], [{ partenza: "2027-05-19", mancano: -2 }],
+  ],
+  settimanaTipo: [[{ ore: 5.3, lunga: 4, palestra: 2 }], [{ ore: 3, palestra: 1 }]],
+  provaDaFare: [["blocco"], ["unGiorno"]],
+  anteprimaCorto: [[{ nome: "Newbie" }, 3, 3.2]],
+  anteprimaEsito: [["pronto", "verdetto"], ["quasiPronto", "proiezione"], ["pocoPronto", "proiezione"], ["conMargine"]],
+  partoIl: [["2027-05-19"]],
+  giroTolto: [["2026-10-17", 3.2]],
 });
 
-// La pagina Pronto? segnaposto, finché 7.7 non c'è.
+// --- La pagina Pronto? (7.7) ---
+
+// Da due settimane in su il conto alla partenza si dice in settimane, come in Oggi (7.4), stima nostra.
+const SETTIMANE_DA_GIORNI = 14;
+const DATA = /^\d{4}-\d{2}-\d{2}$/;
+
 export const PRONTO_PAGINA = congela({
   titolo: "Pronto?",
   senzaObiettivo: "Pronto per cosa? Scegli un evento o un'avventura tua, e qui vedi se ci arrivi pronto.",
+  soloSemaforo: "Per ora segui solo il semaforo del mattino. Se vuoi prepararti a un evento o a un'avventura tua, sceglila e qui vedi se ci arrivi pronto.",
   scegli: "Scegli",
+  preparazione: "La preparazione",
+  preparazioneConPiano: "La preparazione, con il piano",
   avventura: "La tua avventura",
+  prove: "Le prove con le borse",
+  proveDaFare: "Le prove che ti serviranno",
+  cosaCambia: "Cosa cambia se…",
+  storiaCorta: "Ancora presto per dirlo",
+  senzaData: "Manca la data",
+  senzaDataTesto: "Quando sai quando parti, qui vedi se ci arrivi pronto. Intanto ecco la tua giornata e una settimana tipo.",
+  rispondi: "Rispondi adesso",
 });
+
+// Le scritte nascoste davanti a ogni riga, per chi usa un lettore di schermo. A schermo lo stato lo
+// dice il segno, una spunta, un cerchio o una croce (2.9).
+export const STATI_RIGA = congela({
+  fatto: "Fatto.",
+  fatta: "Fatta.",
+  inProgramma: "In programma.",
+  quasi: "Quasi.",
+  manca: "Manca.",
+  consiglio: "Facoltativo.",
+  daFare: "Da fare.",
+});
+
+// Il nome dell'avventura sopra il titolo. «Tuscany Trail, Originale, in 5 giorni», «Il tuo giro di 5 ore».
+export function nomeAvventura({ percorso = null, libero = null, giorni = null } = {}) {
+  if (libero && typeof libero === "object") {
+    if (libero.tipo === "giro" && num(libero.km)) return `Il tuo giro di ${migliaia(libero.km)} km`;
+    if (libero.tipo === "giorni" && num(libero.giorni)) return `I tuoi ${lettere(libero.giorni)} giorni con le borse`;
+    if (num(libero.ore)) return `Il tuo giro di ${oreAlGiorno(libero.ore)}`;
+    return PRONTO_PAGINA.avventura;
+  }
+  if (!percorso || typeof percorso.evento !== "string") return PRONTO_PAGINA.avventura;
+  const nome = nomeBreve(percorso);
+  const quanti = num(giorni) && giorni > 1 ? `, in ${giorniInParole(giorni)}` : "";
+  return `${percorso.evento}${nome ? `, ${nome}` : ""}${quanti}`;
+}
+
+const FONDI = congela({ strada: "su strada", gravel: "su gravel", misto: "su fondo misto", mountainBike: "in mountain bike" });
+
+// La strada dell'avventura, solo i totali pubblici e mai la traccia (7.7). «Tuscany Trail, Originale,
+// 460 km e 5.900 m di salita.» Per l'avventura propria le scelte di 1.9.
+export function rigaPercorso(percorso, libero = null) {
+  if (libero && typeof libero === "object") {
+    if (libero.tipo === "giro" && num(libero.km)) {
+      const salita = num(libero.metri) && libero.metri > 0 ? ` e ${migliaia(libero.metri)} m di salita` : "";
+      const fondo = Object.hasOwn(FONDI, libero.fondo) ? `, ${FONDI[libero.fondo]}` : "";
+      return `Un giro di ${migliaia(libero.km)} km${salita}${fondo}${libero.conBorse ? ", con le borse" : ""}.`;
+    }
+    if (libero.tipo === "giorni" && num(libero.giorni)) return `${maiuscola(lettere(libero.giorni))} giorni di fila con le borse.`;
+    return num(libero.ore) ? `Un giro di ${oreAlGiorno(libero.ore)}.` : null;
+  }
+  if (!percorso || typeof percorso.evento !== "string") return null;
+  const nome = typeof percorso.nome === "string" && percorso.nome ? `, ${percorso.nome.replace(/^Da /, "da ")}` : "";
+  const km = num(percorso.km) ? `${migliaia(percorso.km)} km` : null;
+  const salita = num(percorso.dislivello) && percorso.dislivello > 0 ? `${migliaia(percorso.dislivello)} m di salita` : null;
+  const strada = [km, salita].filter(Boolean).join(" e ");
+  return `${percorso.evento}${nome}${strada ? `, ${strada}` : ""}.`;
+}
+
+// In quanti giorni e quando si parte. «In 5 giorni. Si parte mercoledì 13 gennaio, fra 10 settimane.»
+// mancano sono i giorni alla partenza, 0 oggi.
+export function rigaGiorni({ giorni = null, partenza = null, mancano = null } = {}) {
+  const quanti = num(giorni) && giorni > 1 ? `In ${giorniInParole(giorni)}.` : null;
+  let parti = null;
+  if (typeof partenza === "string" && DATA.test(partenza)) {
+    const data = dataLunga(partenza);
+    if (mancano === 0) parti = `Si parte oggi, ${data}.`;
+    else if (mancano === 1) parti = `Si parte domani, ${data}.`;
+    else if (Number.isInteger(mancano) && mancano > 1) {
+      const fra = mancano >= SETTIMANE_DA_GIORNI ? `${Math.floor(mancano / 7)} settimane` : `${mancano} giorni`;
+      parti = `Si parte ${data}, fra ${fra}.`;
+    } else if (Number.isInteger(mancano) && mancano < 0) parti = `La partenza era ${data}.`;
+    else parti = `Si parte ${data}.`;
+  }
+  return [quanti, parti].filter(Boolean).join(" ") || null;
+}
+
+// La settimana tipo di un obiettivo senza data (7.7). «Una settimana tipo, circa 5 ore e 20 in bici,
+// con un'uscita lunga di 5 ore e mezza e 2 sedute di palestra.»
+export function settimanaTipo({ ore = null, lunga = null, palestra = 0 } = {}) {
+  const totale = durata(ore);
+  if (!totale) return null;
+  const pezzi = [];
+  const l = durata(lunga);
+  if (l) pezzi.push(`un'uscita lunga di ${l}`);
+  if (Number.isInteger(palestra) && palestra > 0) pezzi.push(palestra === 1 ? "una seduta di palestra" : `${palestra} sedute di palestra`);
+  return `Una settimana tipo, circa ${totale} in bici${pezzi.length ? `, con ${elenco(pezzi)}` : ""}.`;
+}
+
+// Una prova che servirà, con il suo nome e a cosa serve, per chi non ha ancora la data o le settimane.
+export function provaDaFare(prova) {
+  const p = Object.hasOwn(PROVE, prova) ? PROVE[prova] : null;
+  return p ? `${p.nome}. ${p.perche}` : null;
+}
+
+const NOMI_BORSE = ["Leggere", "Normali", "Pesanti", "Molto pesanti"];
+const chili = (kg) => (Number.isInteger(kg) ? String(kg) : kg.toFixed(1).replace(".", ","));
+
+// Le borse dell'avventura con «Cambia» (1.3 e 7.7), quattro scelte a un tocco dai chili di STIMA.borseScelte.
+export const BORSE_PRONTO = congela({
+  cambia: "Cambia",
+  domanda: "Quanto pesano le borse piene, senza acqua e cibo?",
+  lascia: "Lascia così",
+  scelte: STIMA.borseScelte.map((kg, i) => ({ kg, testo: `${NOMI_BORSE[i] || "Borse"}, ${kg} kg` })),
+});
+
+// «Borse, circa 10 kg.» origine dice da dove vengono i chili, «tue» quelli scritti dalla persona,
+// «prova» quelli del test con le borse, «catalogo» quelli della maggior parte (1.3).
+export function rigaBorseKg(kg, origine = "tue") {
+  if (!num(kg) || kg <= 0) return null;
+  if (origine === "prova") return `Borse, circa ${chili(kg)} kg, come nella tua prova con le borse.`;
+  if (origine === "catalogo") return `Borse, circa ${chili(kg)} kg, come la maggior parte.`;
+  return `Borse, circa ${chili(kg)} kg.`;
+}
+
+// Le borse più leggere, in «Cosa cambia se…». ore sono quelle che le borse aggiungono a ogni giornata.
+export function rigaBorseLeggere(kg, ore) {
+  const quanto = num(ore) ? durataInParole(ore * 60) : null;
+  if (!num(kg) || kg <= 0 || !quanto) return null;
+  return `Con le borse più leggere la giornata si accorcia. Oggi i tuoi ${chili(kg)} kg pesano circa ${quanto} al giorno.`;
+}
+
+export const CAMBIA_PRONTO = congela({
+  borse: "Cambia le borse",
+  anteprima: "Ecco come cambia",
+  conferma: TASTI.conferma,
+  lascia: "Lascia com'è",
+});
+
+// La giornata nuova, prima di «Sì, cambia» (2.8). «In 5 giorni ogni giornata dura circa 5 ore e mezza.»
+export function anteprimaGiorni(giorni, H) {
+  if (!num(giorni) || giorni < 1 || !num(H) || H <= 0) return null;
+  if (giorni === 1) return `In un giorno starai in sella circa ${oreAlGiorno(H)}.`;
+  return `In ${giorniInParole(giorni)} ogni giornata dura circa ${oreAlGiorno(H)}.`;
+}
+
+// «Con il Newbie in 3 giorni ogni giornata dura circa 3 ore.»
+export function anteprimaCorto(percorso, giorni, H) {
+  if (!percorso || typeof percorso !== "object" || !num(giorni) || giorni < 1 || !num(H) || H <= 0) return null;
+  const quanto = giorni === 1 ? `starai in sella circa ${oreAlGiorno(H)}` : `ogni giornata dura circa ${oreAlGiorno(H)}`;
+  return `Con ${ilPercorso(percorso)} in ${giorniInParole(giorni)} ${quanto}.`;
+}
+
+// Il verdetto nuovo, prima di «Sì, cambia» (2.8). Prima della vigilia è dove si arriva con il piano.
+export function anteprimaEsito(esito, fase = "verdetto") {
+  if (fase === "proiezione") {
+    const f = fraseProiezione(esito);
+    return f ? `Con questa scelta, ${minuscola(f)}` : null;
+  }
+  const v = esito !== "nonValutabile" && Object.hasOwn(VERDETTI, esito) ? VERDETTI[esito] : null;
+  return v ? `Con questa scelta il verdetto diventa ${minuscola(v.titolo)}.` : null;
+}
+
+// Dopo una scelta fatta in questa pagina, una riga sola in alto.
+export const FATTO_PRONTO = congela({
+  giorni: "Fatto, ho cambiato i giorni. Qui sotto vedi come cambia la preparazione.",
+  corto: "Fatto, ho cambiato percorso. Qui sotto vedi come cambia la preparazione.",
+  borse: "Fatto, ho cambiato le borse. Le ore sono già rifatte.",
+  borseDalViaggio: "Fatto, ho cambiato le borse. Le tue ore vengono dalle uscite che hai fatto con le borse, quindi cambiano poco.",
+  data: "Fatto, ho segnato la partenza.",
+  ebike: "Fatto, ho segnato le tue ore in sella.",
+});
+
+// La data per un obiettivo che non ce l'ha (7.7).
+export const QUANDO_PARTI = congela({
+  domanda: "Quando parti?",
+  scegli: "Scegli una delle partenze, oppure un altro giorno.",
+  etichetta: "Il giorno della partenza",
+  salva: "Salva la data",
+  errore: "Scegli un giorno da domani in poi.",
+});
+
+// «Parto mercoledì 19 maggio»
+export function partoIl(giorno) {
+  return typeof giorno === "string" && DATA.test(giorno) ? `Parto ${dataLunga(giorno)}` : null;
+}
+
+// «Per chi ama i numeri», chiuso (7.7). Qui possono stare kJ, punti e il confronto con la Fitness (7.1),
+// e niente decide il verdetto.
+export const NUMERI_PRONTO = congela({
+  titolo: "Per chi ama i numeri",
+  fitness: "La Fitness",
+  fitnessCosa: "È la Fitness di Come sto, che conta anche i giri senza sensori e la palestra. Dice quanto lavoro hai messo da parte nelle ultime settimane, non se sei pronto.",
+  puntiOra: (k) => (num(k) ? `Il confronto usa i tuoi ${Math.round(k)} punti all'ora, dalle uscite con i sensori delle ultime sei settimane.` : null),
+  puntiOraSenzaDati: (k) => (num(k) ? `Il confronto usa ${Math.round(k)} punti all'ora, il valore di chi ha ancora poche uscite con i sensori.` : null),
+  giornata: "La giornata",
+  lavoro: (kj, punti) => (num(kj) && num(punti)
+    ? `Ogni giornata vale circa ${migliaia(Math.round(kj / 100) * 100)} kJ di lavoro sui pedali e ${migliaia(Math.round(punti / 10) * 10)} punti di carico.`
+    : null),
+  lunghe: "Le uscite lunghe",
+  passo: "Il tuo passo",
+  passoGiri: (n, giorni) => {
+    if (!num(n) || n < 1) return null;
+    const quanti = n === 1 ? "1 giro lungo" : `${n} giri lunghi`;
+    const quando = num(giorni) && giorni > 0 && giorni % 7 === 0 ? `delle ultime ${giorni / 7} settimane` : num(giorni) ? `degli ultimi ${giorni} giorni` : "recenti";
+    return `Per le tue ore in sella uso ${quanti} ${quando}.`;
+  },
+  forma: "Fitness meno Fatica, alla partenza",
+  formaTesto: (forma, da, a, fino) => `Ieri sera Fitness meno Fatica faceva ${forma}. Nei giorni prima di un viaggio come il tuo di solito sale, fino a stare fra ${da} e ${a}. Fino a ${fino} non è un allarme, se hai fatto lo scarico finale.`,
+});
+
+// Un giro lasciato fuori dal passo, con «Rimettilo» accanto (1.6). «Sabato 17 ottobre, 3 ore e 10. Non
+// usato per il tuo passo, sembra diverso dagli altri.»
+export function giroTolto(giorno, ore) {
+  if (typeof giorno !== "string" || !DATA.test(giorno)) return null;
+  const quanto = durata(ore);
+  return `${maiuscola(dataLunga(giorno))}${quanto ? `, ${quanto}` : ""}. ${PASSO_GIRI.tolto}`;
+}

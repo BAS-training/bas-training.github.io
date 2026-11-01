@@ -1,4 +1,57 @@
 /* Pronto? (7.7), le regole della pagina js/viste/pronto.js. I colori e le misure comuni stanno in
-   css/app.css, qui solo quello che serve a questa pagina. */
+   css/app.css, qui solo quello che serve a questa pagina. Verde, giallo e rosso restano del semaforo:
+   lo stato di una riga lo dice la forma del segno, spunta, cerchio o croce. */
 
-.pronto-avventura > * + * { margin-top: 10px; }
+.vista-pronto .carta > h2 { font-size: 19px; }
+
+/* le righe della preparazione e delle prove, con il loro segno */
+.pronto-righe { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.pronto-riga { display: grid; grid-template-columns: 22px minmax(0, 1fr); column-gap: 10px; align-items: start; }
+.pronto-riga-testo { color: var(--inchiostro-2); }
+.pronto-segno {
+  width: 22px; height: 22px; margin-top: 1px; fill: none; stroke: currentColor; stroke-width: 2.2;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.pronto-segno-spunta { color: var(--inchiostro); stroke-width: 2.6; }
+.pronto-segno-cerchio { color: var(--inchiostro-3); }
+.pronto-segno-croce { color: var(--inchiostro); }
+.pronto-riga-spunta .pronto-riga-testo { color: var(--inchiostro); }
+
+.pronto-nota, .pronto-cuore {
+  background: var(--carta-2); border-radius: 10px; padding: 10px 12px; color: var(--inchiostro-2); font-size: 15px;
+}
+.carta.pronto-cuore { border: none; border-left: 4px solid var(--inchiostro-3); border-radius: 10px; padding: 12px 14px; display: block; }
+.pronto-fiducia { border-top: 1px solid var(--linea); padding-top: 12px; display: flex; flex-direction: column; gap: 6px; color: var(--inchiostro-2); font-size: 15px; }
+
+/* la tua avventura, con le borse e le scelte a un tocco */
+.pronto-avventura > p:not(.piccolo) { color: var(--inchiostro); }
+.pronto-borse { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--linea); padding-top: 12px; }
+.pronto-scelte { border: none; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.pronto-scelte legend { font-weight: 650; padding: 0; margin-bottom: 10px; }
+.pronto-scelte .bottone { min-height: 44px; padding: 6px 16px; }
+.pronto-data-modulo { display: flex; flex-direction: column; gap: 12px; }
+
+/* «Cosa cambia se…», con la giornata nuova prima di «Sì, cambia» */
+.pronto-anteprima {
+  background: var(--carta-2); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+  border-left: 4px solid var(--accento);
+}
+.pronto-anteprima h3 { font-size: 16px; }
+
+/* «Per chi ama i numeri», chiuso */
+.carta.pronto-numeri { display: block; }
+.carta.pronto-numeri > * + * { margin-top: 16px; }
+.pronto-numeri > summary {
+  cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 4px 10px; min-height: 32px;
+}
+.pronto-numeri > summary::-webkit-details-marker { display: none; }
+.pronto-numeri > summary::before { content: "+"; width: 12px; font-weight: 700; color: var(--accento); flex: none; }
+.pronto-numeri[open] > summary::before { content: "\2212"; }
+.pronto-sommario { font-size: 17px; font-weight: 650; }
+.pronto-blocco { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--linea); padding-top: 12px; }
+.pronto-blocco h3 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--inchiostro-3); }
+.pronto-blocco p { color: var(--inchiostro-2); font-size: 15px; }
+.pronto-tolto { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+
+.pronto-dove h2 { font-size: 16px; }
+.pronto-dove .sezione-testo { font-size: 15px; }
