@@ -7,10 +7,11 @@
 // Funzioni pure, senza DOM e senza window, provate con node (test/piano.test.mjs).
 // I numeri stanno in js/parametri.js, nei gruppi PIANO e DOMENICA, i testi in js/testi-piano.js.
 
-import { CARICO, DOMANDE, DOMENICA, PIANO, PRONTEZZA, SEMAFORO } from "./parametri.js?v=202610312043";
-import { QUALITA, contoOre, giriUniti, inBici, mediana } from "./dati.js?v=202610312043";
-import { classeEvento, giorniDiBici, obiettivi, pilastroBorse, pilastroLunga, pilastroVolume } from "./prontezza.js?v=202610312043";
+import { CARICO, DOMANDE, DOMENICA, PIANO, PRONTEZZA, SEMAFORO, STIMA } from "./parametri.js?v=202610312043";
+import { QUALITA, contoOre, doloriCheTornano, giriUniti, inBici, mediana } from "./dati.js?v=202610312043";
+import { borseDellObiettivo, classeEvento, giorniDiBici, obiettivi, pilastroBorse, pilastroLunga, pilastroVolume } from "./prontezza.js?v=202610312043";
 import { SCHEDE, contoSedute, fasePalestra, sedutaPalestra } from "./palestra.js?v=202610312043";
+import { trovaPercorso } from "./catalogo.js?v=202610312043";
 import * as T from "./testi-piano.js?v=202610312043";
 
 const GIORNO_MS = 86400000;
@@ -45,7 +46,11 @@ function oggiIso(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-// I tipi di seduta.
+// I tipi di seduta, nell'ordine della pagina. Ognuno ha un titolo e un come in js/testi-piano.js.
+export const TIPI_SEDUTA = Object.freeze([
+  "riposo", "recupero", "facile", "media", "richiamo", "lunga", "scarico", "controllo", "weekend", "weekendCarico",
+  "T1", "T2", "T3", "prova", "blocco", "carica", "unGiorno", "palestra", "tronco", "dopoEvento", "tappa",
+]);
 const PIU_GIORNI = new Set(["weekend", "weekendCarico", "T3", "prova", "blocco"]);
 const PROVE = new Set(["T1", "T2", "T3", "prova", "blocco", "weekendCarico", "carica", "unGiorno"]);
 const CARICHE = PROVE;   // le prove sono le sedute con le borse come all'evento
@@ -54,10 +59,12 @@ const BICI = new Set([
   "T1", "T2", "T3", "prova", "blocco", "carica", "unGiorno", "tappa",
 ]);
 const NON_FACILI = new Set(["media", "richiamo"]);
+// Con una sola media a settimana servono almeno 3 uscite, così 2 su 3 sono facili (regola 2.1).
+const CONUNAMEDIA = Math.ceil(1 / (1 - PIANO.settimana.quotaFacili) - 1e-9);
 // Le settimane. Di carico base, N ed E, le altre no (regola 2.7 e prova 4 di 9.4).
 const DI_CARICO = new Set(["base", "N", "E"]);
 const NORMALI = new Set(["base", "N"]);
-const CALO_VOLUTO = new Set(["S", "F", "F7"]);   // contano come la settimana prima (regola 2.6)
+const CALO_VOLUTO = new Set(["S", "F", "F7", "tapering"]);   // contano come la settimana prima (regola 2.6)
 
 // --- I giorni disponibili e i loro tetti (3.1) ---
 
@@ -83,15 +90,16 @@ export function leggiDisponibilita(d = {}) {
 }
 
 // Il tetto di un giorno in minuti. uso è «facile» per i giri facili e la media, «chiave» per una seduta
-// chiave di un giorno, «piuGiorni» per weekend, prove e blocco. Il giorno con la stella è senza
-// limiti, l'altro giorno del weekend lo è per le sedute chiave e vale 1 ora e mezza per i giri facili,
-// i feriali 1 ora e mezza. Le sedute di più giorni usano ogni giorno disponibile senza limiti, come
-// l'altro giorno del weekend, così il blocco può andare anche di venerdì o di lunedì.
+// chiave di un giorno, «piuGiorni» per weekend, prove e blocco. Il tetto scelto in Impostazioni vale
+// sempre, per ogni seduta (3.1). Senza una scelta il giorno con la stella è senza limiti, l'altro
+// giorno del weekend lo è per le sedute chiave e vale 1 ora e mezza per i giri facili, i feriali 1
+// ora e mezza. Le sedute di più giorni usano ogni giorno disponibile senza limiti, come l'altro
+// giorno del weekend, così il blocco può andare anche di venerdì o di lunedì.
 function tettoDi(disp, dow, uso = "facile") {
   if (!disp.giorni.has(dow)) return 0;
-  if (uso === "piuGiorni") return SENZA_LIMITI;
   const proprio = disp.tetti[dow];
   if (proprio !== null) return proprio;
+  if (uso === "piuGiorni") return SENZA_LIMITI;
   if (dow === disp.stella) return SENZA_LIMITI;
   if (dow === SABATO || dow === DOMENICA_G) return uso === "chiave" ? SENZA_LIMITI : PIANO.tettiGiorni.altroWeekendFacile;
   return PIANO.tettiGiorni.feriale;
@@ -138,24 +146,34 @@ function perData(attivita) {
 // Lo storico (3.1). h4 è la media delle ore in bici delle ultime 4 settimane, L30 la più lunga degli
 // ultimi 30 giorni. Senza giri leggibili h4 viene dalla risposta del primo avvio (oreDichiarate in ore,
 // oppure fasciaOre da 0 a 4) e L30 vale 0,45 × h4 fra 1 e 3 ore. s ha uscite (le attività pulite),
-// e se si sanno settimane, fitness, k, doloriCheTornano, interruzione { giorni, orePrima },
-// crescitaRapida, domenica (la proposta dell'ultimo controllo), inizioPiano, fatiche, registro della
-// palestra, stomaco (le risposte dopo le lunghe), rossi e formaMinima (per lo scarico finale pieno).
+// e se si sanno settimane, fitness, k, giorni (i giorni puliti del benessere, per i dolori che
+// tornano) o doloriCheTornano, interruzione { giorni, orePrima }, crescitaRapida, domenica (la
+// proposta dell'ultimo controllo), registro della palestra, stomaco (le risposte dopo le lunghe),
+// rossi e formaMinima (per lo scarico finale pieno), eBikeEvento (vero con l'evento in e-bike, che
+// allora conta per intero).
+// Per rifare il piano il lunedì (3.12) s porta piano, quello salvato in comesto.piano.v1. Da lì
+// vengono, se non arrivano a parte, inizioPiano (il lunedì in cui è nato), schema (lo schema
+// scelto allora), portate (le sedute chiave delle settimane passate che cadono in quella di oggi,
+// come il giorno 2 di un weekend cominciato la domenica), fatiche (quelle già fatte, con fatichePiano)
+// e i tipi e le ore previste delle settimane passate. Le settimane passate si copiano poi così come
+// sono nel piano nuovo.
 export function leggiStorico(s = {}, oggi = oggiIso(), lunediInizio = null) {
   const dati = s && typeof s === "object" ? s : {};
   if (dati.normalizzato === true) return dati;
+  const eBikeEvento = dati.eBikeEvento === true;
   const uscite = lista(dati.uscite).filter((a) => a && typeof a.giorno === "string" && a.giorno < oggi && inBici(a));
   const mappa = perData(uscite);
-  const oreDi = (d) => (mappa.has(d) ? contoOre(mappa.get(d), d).ore : 0);
-  const lungaDi = (d) => (mappa.has(d) ? Math.max(0, ...giriUniti(mappa.get(d), d).map((g) => g.secondi / 3600)) : 0);
+  const oreDi = (d) => (mappa.has(d) ? contoOre(mappa.get(d), d, { eBikeEvento }).ore : 0);
+  const lungaDi = (d) => (mappa.has(d) ? Math.max(0, ...giriUniti(mappa.get(d), d, { eBikeEvento }).map((g) => g.secondi / 3600)) : 0);
   const conGiri = uscite.length > 0;
   const centri = PIANO.storicoDichiarato.centri;
+  const settimaneStoria = PIANO.storicoSettimane;
 
   let h4 = num(dati.h4) ? dati.h4 : null;
   if (h4 === null && conGiri) {
     let ore = 0;
-    for (let i = 1; i <= 28; i++) ore += oreDi(piuGiorni(oggi, -i));
-    h4 = ore / 4;
+    for (let i = 1; i <= 7 * settimaneStoria; i++) ore += oreDi(piuGiorni(oggi, -i));
+    h4 = ore / settimaneStoria;
   }
   if (h4 === null) {
     if (num(dati.oreDichiarate) && dati.oreDichiarate >= 0) h4 = dati.oreDichiarate;
@@ -185,58 +203,101 @@ export function leggiStorico(s = {}, oggi = oggiIso(), lunediInizio = null) {
     lunghe.push({ giorno: piuGiorni(oggi, -1), ore: l30 });
   }
 
-  // Le settimane vere prima del piano, per le regole di crescita. Senza giri valgono h4 e L30.
-  const inizio = lunediInizio || piuGiorni(oggi, -giornoSettimana(oggi));
+  // Il piano salvato e le sue settimane già passate, per rifarlo il lunedì (3.12).
+  const salvato = dati.piano && typeof dati.piano === "object" && Array.isArray(dati.piano.settimane) ? dati.piano : null;
+  const lunediOggi = piuGiorni(oggi, -giornoSettimana(oggi));
+  const passate = salvato ? salvato.settimane.filter((w) => w && dataDi(w.lunedi) && w.lunedi < lunediOggi) : [];
+  const perLunedi = new Map(passate.map((w) => [w.lunedi, w]));
+
+  // Le ore vere di una settimana, null se è finita prima del primo giro.
   const primoGiro = conGiri ? [...mappa.keys()].sort()[0] : null;
+  const oreVere = (lunedi) => {
+    if (!conGiri || piuGiorni(lunedi, 6) < primoGiro) return null;
+    let ore = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = piuGiorni(lunedi, i);
+      if (d >= oggi) break;
+      ore += oreDi(d);
+    }
+    return ore;
+  };
+
+  // Le settimane vere prima del piano, per le regole di crescita. Senza giri valgono h4 e L30. vera
+  // dice se le ore sono fatte davvero, e il tipo è quello del piano salvato, così uno scarico fatto
+  // conta come la settimana prima (regola 2.6).
+  const inizio = lunediInizio || lunediOggi;
   let settimane;
   if (Array.isArray(dati.settimane) && dati.settimane.length) {
     settimane = dati.settimane.filter((x) => x && num(x.ore)).map((x) => ({
-      lunedi: x.lunedi || null, ore: x.ore, tipo: x.tipo || "N", chiaveOre: num(x.chiaveOre) ? x.chiaveOre : num(x.lunga) ? x.lunga : Math.min(x.ore, l30),
+      lunedi: x.lunedi || null, ore: x.ore, tipo: x.tipo || "N", chiaveOre: num(x.chiaveOre) ? x.chiaveOre : num(x.lunga) ? x.lunga : Math.min(x.ore, l30), vera: true,
     }));
   } else {
     settimane = [];
-    for (let j = 4; j >= 1; j--) {
+    for (let j = settimaneStoria; j >= 1; j--) {
       const lunedi = piuGiorni(inizio, -7 * j);
-      if (!conGiri || piuGiorni(lunedi, 6) < primoGiro) {
-        settimane.push({ lunedi, ore: h4, tipo: "N", chiaveOre: Math.min(h4, l30) });
+      const ore = oreVere(lunedi);
+      if (ore === null) {
+        settimane.push({ lunedi, ore: h4, tipo: "N", chiaveOre: Math.min(h4, l30), vera: false });
         continue;
       }
-      let ore = 0;
       let lunga = 0;
       for (let i = 0; i < 7; i++) {
         const d = piuGiorni(lunedi, i);
         if (d >= oggi) break;
-        ore += oreDi(d);
         lunga = Math.max(lunga, lungaDi(d));
       }
-      settimane.push({ lunedi, ore, tipo: "N", chiaveOre: lunga });
+      settimane.push({ lunedi, ore, tipo: "N", chiaveOre: lunga, vera: true });
     }
   }
+  for (const w of settimane) {
+    const p = w.lunedi ? perLunedi.get(w.lunedi) : null;
+    if (!p) continue;
+    if (typeof p.tipo === "string") w.tipo = p.tipo;
+    w.blocco = lista(p.sedute).some((x) => x && x.tipo === "blocco" && x.possibile !== false);
+  }
+
+  // Le sedute chiave delle settimane passate che cadono nella settimana di oggi.
+  const portate = Array.isArray(dati.portate)
+    ? dati.portate.filter((x) => x && dataDi(x.giorno) && num(x.ore))
+    : passate.flatMap((w) => lista(w.sedute)).filter((x) => x && x.possibile !== false && dataDi(x.giorno) && num(x.ore)
+      && x.giorno >= lunediOggi && x.giorno <= piuGiorni(lunediOggi, 6)).map((x) => ({ ...x }));
+  const fatiche = Array.isArray(dati.fatiche)
+    ? dati.fatiche.filter((f) => f && dataDi(f.fine))
+    : salvato ? fatichePiano({ ...salvato, settimane: passate }, uscite, oggi, { eBikeEvento }) : [];
+  const schema = typeof dati.schema === "string" ? dati.schema : dati.schema && typeof dati.schema.nome === "string" ? dati.schema.nome
+    : salvato && salvato.schema && typeof salvato.schema.nome === "string" ? salvato.schema.nome : null;
+
   const interruzione = dati.interruzione && num(dati.interruzione.giorni) ? dati.interruzione : null;
+  const giorni = lista(dati.giorni);
   return {
     normalizzato: true,
     oggi,
     conGiri,
+    eBikeEvento,
     h4,
     l30,
     l42,
     lunghe,
     settimane,
     uscite,
+    oreVere,
     fitness: num(dati.fitness) ? dati.fitness : null,
     k: num(dati.k) && dati.k > 0 ? dati.k : null,
-    dolori: dati.doloriCheTornano === true,
+    dolori: dati.doloriCheTornano === true || (giorni.length > 0 && doloriCheTornano(giorni, oggi)),
     interruzione,
     crescita: dati.crescitaRapida === true || Boolean(dati.crescitaRapida && dati.crescitaRapida.avviso),
     domenica: dati.domenica && typeof dati.domenica === "object" ? dati.domenica : null,
-    inizioPiano: dataDi(dati.inizioPiano),
-    fatiche: lista(dati.fatiche).filter((f) => f && dataDi(f.fine)),
+    inizioPiano: dataDi(dati.inizioPiano) || (salvato ? dataDi(salvato.inizio) : null),
+    schema,
+    pianoSalvato: salvato,
+    passate,
+    portate,
+    fatiche,
     registro: lista(dati.registro),
     stomaco: lista(dati.stomaco),
     spostamenti: lista(dati.spostamenti),
     rossi: num(dati.rossi) ? dati.rossi : 0,
     formaMinima: num(dati.formaMinima) ? dati.formaMinima : null,
-    serieCarico: num(dati.serieCarico) ? dati.serieCarico : 0,
   };
 }
 
@@ -307,11 +368,17 @@ export function scegliSchema(classe, n, h4, l42, h, vObiettivo, opzioni = {}) {
 
 // --- Le righe del piano, dallo schema ---
 
-// Le ore di ogni giorno di una seduta chiave, da frazioni di H con i limiti in ore.
+// Le prove con le borse che il verdetto conta solo da 3 ore al giorno in su (2.4). Il test ha già il
+// suo minimo di 3 ore, l'uscita carica della regola 7.15 non è un test pieno.
+const PROVE_PIENE = new Set(["T2", "T3", "prova", "blocco", "weekendCarico", "unGiorno"]);
+
+// Le ore di ogni giorno di una seduta chiave, da frazioni di H con i limiti in ore. I giorni delle
+// prove con le borse stanno ad almeno 3 ore, così chi segue il piano supera le soglie di 2.4.
 function oreChiaveDi(chiave, H) {
   if (!chiave) return null;
   const ore = Array.isArray(chiave.ore) ? [...chiave.ore] : lista(chiave.h).map((f) => f * H);
-  return ore.map((o) => fra(o, num(chiave.minimo) ? chiave.minimo : 0, num(chiave.massimo) ? chiave.massimo : Infinity));
+  const minimo = Math.max(num(chiave.minimo) ? chiave.minimo : 0, PROVE_PIENE.has(chiave.tipo) ? PRONTEZZA.giornoCaricoOre : 0);
+  return ore.map((o) => fra(o, minimo, num(chiave.massimo) ? Math.max(chiave.massimo, minimo) : Infinity));
 }
 
 function conSostituzioni(righe, cambi) {
@@ -430,6 +497,9 @@ function nuovaChiave(r, tipo, giorno, ore, parte, di, classe) {
 // e domenica, oppure il giorno con la stella e il giorno disponibile più vicino, venerdì o lunedì. Il
 // blocco venerdì, sabato e domenica, oppure sabato, domenica e lunedì. Senza i giorni, la seduta di
 // due giorni diventa una lunga singola con la domanda del giorno da liberare, il blocco un weekend.
+// Ogni passo rispetta il tetto del giorno (3.1 e 3.7). Si sceglie il giorno che regge la seduta, e se
+// nessuno la regge la seduta porta il tetto del suo giorno, in ore, e applicaCrescita la accorcia lì
+// e scrive quanto manca.
 function assegnaDate(r, disp, partenza, classe) {
   r.sedute = [];
   const c = r.chiave;
@@ -440,12 +510,25 @@ function assegnaDate(r, disp, partenza, classe) {
     return d >= r.dal && d < partenza;
   };
   const libero = (i, uso) => dentro(i) && tettoDi(disp, i % 7, uso) > 0;
-  const crea = (tipo, giorni, ore) => giorni.map((i, k) => nuovaChiave(r, tipo, giornoI(i), ore[k], k + 1, giorni.length, classe));
+  const regge = (i, uso, ore) => libero(i, uso) && tettoDi(disp, i % 7, uso) >= ore * 60 - EPS;
+  const crea = (tipo, giorni, ore, uso) => giorni.map((i, k) => ({
+    ...nuovaChiave(r, tipo, giornoI(i), ore[k], k + 1, giorni.length, classe),
+    tetto: tettoDi(disp, i % 7, uso) / 60,
+  }));
+  // Fra i gruppi di giorni liberi il primo che regge tutte le sedute, altrimenti il primo.
+  const scegli = (gruppi, ore, uso) => {
+    const liberi = gruppi.filter((g) => g.every((i) => libero(i, uso)));
+    return liberi.find((g) => g.every((i, k) => regge(i, uso, ore[Math.min(k, ore.length - 1)]))) || liberi[0] || null;
+  };
+  const ORDINE = [SABATO, DOMENICA_G, VENERDI, 3, 2, 1, 0];
   const singola = (tipo, ore) => {
     const stella = disp.stella;
-    if (stella !== null && libero(stella, "chiave")) return crea(tipo, [stella], [ore]);
-    // La settimana nata dopo il giorno con la stella, un altro giorno della settimana che lo regge.
-    for (let i = 0; i < 7; i++) if (libero(i, "chiave") && tettoDi(disp, i, "chiave") >= ore * 60 - EPS) return crea(tipo, [i], [ore]);
+    // Il giorno con la stella se regge la seduta, poi un altro giorno della settimana che la regge,
+    // prima il weekend, e se non la regge nessuno il giorno libero con il tetto più alto.
+    const giorni = [...new Set([stella, ...ORDINE].filter((i) => i !== null))];
+    const scelto = giorni.find((i) => regge(i, "chiave", ore))
+      ?? giorni.filter((i) => libero(i, "chiave")).sort((a, b) => tettoDi(disp, b, "chiave") - tettoDi(disp, a, "chiave"))[0];
+    if (scelto !== undefined) return crea(tipo, [scelto], [ore], "chiave");
     return [{ ...nuovaChiave(r, tipo, giornoI(stella ?? SABATO), ore, 1, 1, classe), possibile: false }];
   };
   if (!PIU_GIORNI.has(c.tipo)) {
@@ -455,23 +538,23 @@ function assegnaDate(r, disp, partenza, classe) {
   const coppie = [[SABATO, DOMENICA_G]];
   if (disp.stella === SABATO) coppie.push([VENERDI, SABATO]);
   if (disp.stella === DOMENICA_G) coppie.push([DOMENICA_G, 7]);
-  const trovaCoppia = () => coppie.find((g) => g.every((i) => libero(i, "piuGiorni")));
+  const trovaCoppia = (ore) => scegli(coppie, ore, "piuGiorni");
   if (c.tipo === "blocco") {
-    const tre = [[VENERDI, SABATO, DOMENICA_G], [SABATO, DOMENICA_G, 7]].find((g) => g.every((i) => libero(i, "piuGiorni")));
+    const tre = scegli([[VENERDI, SABATO, DOMENICA_G], [SABATO, DOMENICA_G, 7]], c.ore, "piuGiorni");
     if (tre) {
-      r.sedute = crea("blocco", tre, c.ore);
+      r.sedute = crea("blocco", tre, c.ore, "piuGiorni");
       return;
     }
     r.avvisi.push({ tipo: "bloccoWeekend", testo: T.AVVISI.bloccoWeekend });
-    const coppia = trovaCoppia();
+    const coppia = trovaCoppia(c.ore.slice(0, 2));
     if (coppia) {
-      r.sedute = crea("weekendCarico", coppia, c.ore.slice(0, 2));
+      r.sedute = crea("weekendCarico", coppia, c.ore.slice(0, 2), "piuGiorni");
       return;
     }
   } else {
-    const coppia = trovaCoppia();
+    const coppia = trovaCoppia(c.ore);
     if (coppia) {
-      r.sedute = crea(c.tipo, coppia, c.ore);
+      r.sedute = crea(c.tipo, coppia, c.ore, "piuGiorni");
       return;
     }
   }
@@ -531,7 +614,8 @@ export function oreSettimanaChiave(oreSchema, oreChiave, ferialiNormale) {
 }
 
 // Il passo della lunga sulle sedute chiave di una settimana. Il blocco ha tutti i giorni nel passo
-// della lunga di prima, il giorno 2 di weekend e prove non supera mai il giorno 1.
+// della lunga di prima, il giorno 2 di weekend e prove non supera mai il giorno 1. Poi ogni seduta
+// sta nel tetto del suo giorno, e quello che il tetto toglie si scrive in s.tagliTetto (3.7 passo 8).
 function passoDellaSettimana(s, lunghe, dolori, classe) {
   const sedute = s.sedute.filter((x) => x.possibile !== false).sort(perGiorno);
   if (!sedute.length) return;
@@ -542,13 +626,25 @@ function passoDellaSettimana(s, lunghe, dolori, classe) {
     for (const x of lunghe) if (x.giorno >= dal && x.giorno < d && x.ore > m) m = x.ore;
     return m;
   };
+  const alTetto = (x) => {
+    if (!num(x.tetto) || x.ore <= x.tetto + EPS) return;
+    s.tagliTetto = [...lista(s.tagliTetto), { giorno: x.giorno, minuti: (x.ore - x.tetto) * 60, tetto: x.tetto * 60 }];
+    x.ore = x.tetto;
+  };
   const primo = sedute[0];
   const tetto = Math.min(passoLunga(l30(primo.giorno), dolori), daSei(classe) ? PIANO.uscitaMassima : Infinity);
   if (primo.tipo === "blocco") {
-    for (const x of sedute) x.ore = Math.min(x.ore, tetto);
+    for (const x of sedute) {
+      x.ore = Math.min(x.ore, tetto);
+      alTetto(x);
+    }
   } else {
     primo.ore = Math.min(primo.ore, tetto);
-    for (const x of sedute.slice(1)) x.ore = Math.min(x.ore, primo.ore);
+    alTetto(primo);
+    for (const x of sedute.slice(1)) {
+      x.ore = Math.min(x.ore, primo.ore);
+      alTetto(x);
+    }
   }
   if (primo.tipo === "T1" && primo.ore < PRONTEZZA.giornoCaricoOre - EPS) primo.nota = "corto";
 }
@@ -572,6 +668,22 @@ function stringiChiave(s, ore, riserva = 0) {
   const fattore = Math.max(0, spazio) / totale;
   for (const x of singole) x.ore = Math.max(PIANO.lungaDichiarata.minimo, x.ore * fattore);
 }
+
+// Le sedute chiave che non stanno sotto un tetto della settimana si accorciano fino a starci, con la
+// media, anche sotto un'ora. Così i piani corti non superano mai h4 di oltre il 30% o il 20% e la
+// settimana dopo un blocco resta al 70% (3.4, 3.5 punto 6 e 8.4). Il controllo di fattibilità dice
+// poi se le prove bastano.
+function stringiAlTetto(s, ore) {
+  const singole = s.sedute.filter((x) => x.possibile !== false);
+  const totale = somma(singole, (x) => x.ore);
+  const spazio = Math.max(0, ore - mediaOre());
+  if (totale <= spazio + EPS || !singole.length) return;
+  for (const x of singole) x.ore *= spazio / totale;
+}
+
+// La settimana più piccola del piano, un'ora di lunga e la media (3.5 e 3.7). Vale anche come
+// fondo del tetto dopo un blocco, perché il 70% di quasi niente non è una settimana, lettura nostra.
+const settimanaMinima = () => PIANO.lungaDichiarata.minimo + mediaOre();
 
 // Applica le regole di 3.5 alle settimane, in ordine. settimane sono le righe con le date e le sedute
 // chiave, storico quello di leggiStorico, k i punti per ora della persona. contesto ha H, vOb, A,
@@ -600,6 +712,9 @@ export function applicaCrescita(settimane, storico = {}, profilo = {}, k = null,
     s.avvisi = s.avvisi || [];
     const prev = storia[storia.length - 1] || { ore: st.h4, tipo: "N", chiaveOre: st.l30 };
     passoDellaSettimana(s, lunghe, dolori, classe);
+    for (const t of lista(s.tagliTetto)) {
+      s.avvisi.push({ tipo: "tettoGiorno", giorno: t.giorno, minuti: Math.round(t.minuti), testo: T.fraseTettoGiorno(t.minuti, t.giorno, t.tetto) });
+    }
     let oreChiave = oreChiaveDella(s);
     let ore = null;
     if (s.tipo === "base") {
@@ -623,21 +738,21 @@ export function applicaCrescita(settimane, storico = {}, profilo = {}, k = null,
     } else if (s.tipo === "corto") {
       ore = num(s.oreTarget) ? s.oreTarget : st.h4;
     }
+    // Da qui le regole possono solo abbassare (3.4). Le settimane con weekend e prove hanno già le
+    // sedute chiave più un'ora, e i tetti che seguono valgono anche per loro, che allora accorciano
+    // le sedute chiave (stringiAlTetto).
     if (ore !== null && num(s.oreMassime)) ore = Math.min(ore, s.oreMassime);
 
     // Dopo un blocco, o dopo una settimana oltre il 150% del solito, al massimo il 70% (regola 2.7).
-    // Il 70% del solito, non della settimana grande, lettura prudente.
+    // Il 70% del solito, non della settimana grande, lettura prudente, e mai sotto la settimana minima.
     if (ore !== null && storia.length) {
       const solito = mediaTre(storia, storia.length - 1);
       const grande = solito !== null && prev.ore > P.dopoBlocco.settimanaOltre * solito + EPS;
       if (prev.blocco || grande) {
-        ore = Math.min(ore, P.dopoBlocco.massimo * (solito ?? prev.ore));
+        ore = Math.min(ore, Math.max(P.dopoBlocco.massimo * (solito ?? prev.ore), settimanaMinima()));
         s.dopoBlocco = true;
       }
     }
-    // Le sedute chiave di weekend, prove e blocco seguono solo il passo della lunga, e la settimana
-    // ha sempre almeno un'ora in più (regola 3 di 3.5).
-    if (ore !== null && s.tipo === "E") ore = Math.max(ore, oreChiave + P.tettoSettimana.chiavePiu);
 
     // Le interruzioni (regola 2.9) e l'avviso di crescita rapida (regola 1.9), sulla prima settimana.
     if (idx === 0 && ore !== null && st.interruzione) {
@@ -658,31 +773,42 @@ export function applicaCrescita(settimane, storico = {}, profilo = {}, k = null,
     }
 
     // La Fitness (regola 2.6). Una settimana normale non la fa salire più dell'8% come media su tre
-    // settimane, né più di 5 punti sotto Fitness 60. Si tolgono ore facili, mai la seduta chiave.
+    // settimane, né più di 5 punti sotto Fitness 60. Si tolgono ore facili, mai la seduta chiave. Vale
+    // solo per una settimana che la fa salire, e toglie, non aggiunge.
     if (ore !== null && NORMALI.has(s.tipo) && F > 0) {
       let consentita = (P.fitness.quota * P.fitness.settimane - somma(salite.slice(-(P.fitness.settimane - 1)))) * F;
       if (F < P.fitness.sotto) consentita = Math.min(consentita, P.fitness.punti);
       const salita = F * r7 + ((kk * ore) / 7) * (1 - r7) - F;
-      if (salita > consentita + EPS) {
+      if (salita > EPS && salita > consentita + EPS) {
         const oreMassime = ((F + Math.max(0, consentita) - F * r7) / (1 - r7)) * (7 / kk);
-        ore = Math.max(oreMassime, oreChiave + mediaOre());
+        ore = Math.min(ore, Math.max(oreMassime, oreChiave + mediaOre()));
       }
     }
 
-    // La seduta chiave deve lasciare posto alla media, salvo le settimane con weekend e prove, che
-    // hanno già un'ora in più, e il piano corto tutto facile della regola 7.15.
+    // La seduta chiave deve lasciare posto alla media, e il piano corto tutto facile della regola 7.15
+    // la tiene nelle sue ore. Nelle settimane con weekend e prove le sedute chiave stanno nei tetti
+    // anche sotto un'ora. Nelle altre non scendono sotto un'ora, e la settimana minima di due ore può
+    // passare il tetto della crescita, mai quello dei piani corti.
     if (ore !== null && s.tipo === "corto" && oreChiave > ore + EPS) {
       stringiChiave(s, ore + mediaOre());
       oreChiave = oreChiaveDella(s);
-    } else if (ore !== null && s.tipo !== "E" && s.tipo !== "tapering" && s.tipo !== "corto") {
+    } else if (ore !== null && s.tipo === "E") {
+      if (oreChiave + mediaOre() > ore + EPS) {
+        stringiAlTetto(s, ore);
+        oreChiave = oreChiaveDella(s);
+      }
+    } else if (ore !== null && s.tipo !== "tapering" && s.tipo !== "corto") {
       const riserva = PIANO.facileBreve / 60;
       if (oreChiave + mediaOre() + riserva > ore + EPS) {
         stringiChiave(s, ore, Math.min(riserva, Math.max(0, ore - mediaOre() - PIANO.lungaDichiarata.minimo)));
         oreChiave = oreChiaveDella(s);
-        if (oreChiave + mediaOre() > ore) ore = oreChiave + mediaOre();
+        if (oreChiave + mediaOre() > ore) ore = Math.min(oreChiave + mediaOre(), num(s.oreMassime) ? s.oreMassime : Infinity);
+        if (oreChiave + mediaOre() > ore + EPS) {
+          stringiAlTetto(s, ore);
+          oreChiave = oreChiaveDella(s);
+        }
       }
     }
-    if (ore !== null && s.tipo === "E") ore = Math.max(ore, oreChiave + P.tettoSettimana.chiavePiu);
     ricordaLunghe(s, lunghe);
 
     s.oreChiave = oreChiave;
@@ -745,10 +871,13 @@ export function giorniTapering(partenza, durata, vRif) {
   return giorni;
 }
 
-// Le ore di riferimento, la media delle settimane −10 a −3, con le ore vere prima del piano.
+// Le ore di riferimento V_rif (3.6), la media delle settimane −10 a −3. Per le settimane del piano le
+// ore previste. Per quelle passate le ore fatte se sono meno di quelle previste dal piano salvato,
+// e dove la settimana vera manca quelle previste, poi h4 [stima nostra, prudente].
 function oreDiRiferimento(prime, st) {
   const perIndice = new Map(prime.filter((s) => s.indice < 0).map((s) => [s.indice, s]));
   const primo = prime.find((s) => s.indice < 0);
+  const previste = new Map(lista(st.passate).map((w) => [w.lunedi, num(w.orePiene) ? w.orePiene : num(w.ore) ? w.ore : null]));
   const valori = [];
   for (let w = PRONTEZZA.finestre.volume.da; w <= PRONTEZZA.finestre.volume.a; w++) {
     const s = perIndice.get(w);
@@ -758,8 +887,14 @@ function oreDiRiferimento(prime, st) {
     }
     if (!primo || w >= primo.indice) continue;
     const quante = primo.indice - w;
-    const vera = st.settimane[st.settimane.length - quante];
-    valori.push(vera ? vera.ore : st.h4);
+    const lunedi = piuGiorni(primo.lunedi, -7 * quante);
+    const vera = st.settimane.length >= quante ? st.settimane[st.settimane.length - quante] : null;
+    let fatte = vera && vera.vera !== false ? vera.ore : null;
+    if (fatte === null && typeof st.oreVere === "function") fatte = st.oreVere(lunedi);
+    const prevista = previste.has(lunedi) ? previste.get(lunedi) : null;
+    if (num(fatte) && num(prevista)) valori.push(Math.min(fatte, prevista));
+    else if (num(fatte)) valori.push(fatte);
+    else valori.push(num(prevista) ? prevista : st.h4);
   }
   return valori.length ? somma(valori) / valori.length : st.h4;
 }
@@ -790,8 +925,9 @@ function applicaTapering(prime, st, prof, contesto) {
     const proprie = num(s.oreTarget) && (s.tipo === "tapering" || s.tipo === "corto") ? s.oreTarget * s.quota : null;
     s.ore = proprie !== null ? Math.min(proprie, ore) : ore;
     s.giorniTapering = dentro;
+    s.inizioTapering = inizio;
     // Una settimana che tocca lo scarico finale per pochi giorni resta la sua, con le ore ridotte.
-    s.inTapering = s.tipo === "tapering" || s.tipo === "corto" || dentro >= 4;
+    s.inTapering = s.tipo === "tapering" || s.tipo === "corto" || dentro >= PIANO.tapering.settimanaDaGiorni;
     s.toccaTapering = true;
     // La seduta chiave lascia posto al richiamo, e non va mai oltre le ore dello scarico finale.
     const richiamo = s.tipo === "corto" ? 0 : S.richiamo.minimo / 60;
@@ -863,12 +999,12 @@ function attivitaPiano(giorno, minuti, tipo, extra = {}) {
 // V_min, se la lunga più lunga non arriva a 0,9 × LT o se una prova minima non c'è. Usa i pilastri di
 // js/prontezza.js, così piano e verdetto parlano la stessa lingua.
 function controlloFattibilita(attivita, contesto) {
-  const { partenza, classe, H, ob, esperienza, borseKg } = contesto;
+  const { partenza, classe, H, ob, esperienza, borseKg, eBikeEvento = false } = contesto;
   const dal = piuGiorni(partenza, 7 * PRONTEZZA.finestre.T1.da);
-  const giorni = giorniDiBici(attivita, { dal, al: piuGiorni(partenza, -1) });
+  const giorni = giorniDiBici(attivita, { dal, al: piuGiorni(partenza, -1), eBikeEvento });
   const volume = pilastroVolume(giorni, partenza, ob);
-  const lunga = pilastroLunga(attivita, partenza, classe, ob);
-  const borse = pilastroBorse(attivita, partenza, H, classe, esperienza, [], { borseKg });
+  const lunga = pilastroLunga(attivita, partenza, classe, ob, { eBikeEvento });
+  const borse = pilastroBorse(attivita, partenza, H, classe, esperienza, [], { borseKg, eBikeEvento });
   const motivi = [];
   if (volume.difetto > 0) motivi.push("volume");
   if (lunga.difetto > 0) motivi.push("lunga");
@@ -950,7 +1086,7 @@ export function faticheDi(sedute) {
 }
 
 // I giorni del piano di una settimana. I giorni prima della partenza nella settimana 0, se sono meno
-// di 4, hanno solo giri facili, senza il richiamo.
+// di PIANO.settimanaZeroSotto, hanno solo giri facili, senza il richiamo.
 const pianoGiorniDi = (giorni) => giorni.filter((g) => !g.fuori).length;
 
 const GRAVITA_LIMITE = { facile: 1, breve: 2, riposo: 3 };
@@ -985,13 +1121,15 @@ function seduteDiPalestra(fase, n) {
 
 // I sette giorni di una settimana con i passi di 3.7. settimana è una settimana del piano lungo, con
 // lunedi, indice, tipo, ore (quelle dei giorni del piano), sedute (le chiavi con la data), dal, al,
-// partenza e usciteMinime. palestra è la fase di fasePalestra di questa settimana, oppure
-// { fase, giaFatte } con le sedute fatte e messe prima. storico ha fatiche (quelle delle settimane
-// prima), portate (le sedute chiave della settimana prima che cadono nel suo lunedì), stomaco (i
-// grammi della lunga che allena lo stomaco) e limite (il limite del facile, se c'è).
+// partenza, usciteMinime e, nello scarico finale, inizioTapering. palestra è la fase di fasePalestra
+// di questa settimana, oppure { fase, giaFatte } con le sedute fatte e messe prima. storico ha
+// fatiche (quelle delle settimane prima), portate (le sedute chiave della settimana prima che cadono
+// in questa, che contano anche fra le fatiche), stomaco (i grammi della lunga che allena lo stomaco),
+// limite (il limite del facile, se c'è) e senzaBiciPrima (i giorni dello scarico finale senza bici
+// alla fine della settimana prima).
 // Restituisce { lunedi, indice, tipo, giorni, ore, oreMesse, mancano, uscite, facili, palestre,
-// chiave, avvisi, frase }, con ogni giorno { giorno, giornoSettimana, fuori, disponibile, tetto,
-// tettoChiave, sedute, ore }.
+// chiave, avvisi, frase, senzaBici }, con ogni giorno { giorno, giornoSettimana, fuori, disponibile,
+// tetto, tettoChiave, tettoPiuGiorni, sedute, ore }.
 export function settimanaConcreta(settimana, disponibilita = {}, profilo = {}, palestra = null, storico = {}) {
   const s = settimana || {};
   const disp = leggiDisponibilita(disponibilita);
@@ -1012,6 +1150,7 @@ export function settimanaConcreta(settimana, disponibilita = {}, profilo = {}, p
       disponibile: tettoDi(disp, i) > 0,
       tetto: tettoDi(disp, i, "facile"),
       tettoChiave: tettoDi(disp, i, "chiave"),
+      tettoPiuGiorni: tettoDi(disp, i, "piuGiorni"),
       sedute: [],
       ore: 0,
       limite: null,
@@ -1031,8 +1170,9 @@ export function settimanaConcreta(settimana, disponibilita = {}, profilo = {}, p
 
   // 1. Le sedute chiave, anche quelle portate dalla settimana prima.
   const proprie = lista(s.sedute).filter((x) => x && x.possibile !== false);
+  const portate = lista(st.portate).filter((x) => x && x.possibile !== false && pos.has(x.giorno)).map((y) => ({ ...y, portata: true }));
   const giorniChiave = new Set();
-  for (const x of [...lista(st.portate).map((y) => ({ ...y, portata: true })), ...proprie]) {
+  for (const x of [...portate, ...proprie]) {
     const i = pos.get(x.giorno);
     if (i === undefined || giorni[i].fuori) continue;
     let seduta = sedutaDaChiave(x);
@@ -1042,9 +1182,10 @@ export function settimanaConcreta(settimana, disponibilita = {}, profilo = {}, p
   }
   const oreChiave = somma(proprie, (x) => x.ore);
 
-  // 2. I giorni dopo weekend, prove, blocchi e uscite grandi (regole 2.5 e 8.8).
+  // 2. I giorni dopo weekend, prove, blocchi e uscite grandi (regole 2.5 e 8.8), anche quelli
+  // cominciati la settimana prima.
   const riposoN = prof.eta >= GD.daAnni ? GD.riposoDa50 : GD.riposo;
-  const fatiche = [...lista(st.fatiche), ...faticheDi(proprie)];
+  const fatiche = [...lista(st.fatiche), ...faticheDi([...portate, ...proprie])];
   const segna = (fine, k, cosa) => {
     const i = pos.get(piuGiorni(fine, k));
     if (i === undefined || giorniChiave.has(giorni[i].giorno)) return;
@@ -1069,9 +1210,10 @@ export function settimanaConcreta(settimana, disponibilita = {}, profilo = {}, p
   }
 
   // 3. L'uscita media con salite, una a settimana (regola 2.2). Nello scarico finale è il richiamo.
-  // Il piano corto della regola 7.15 è tutto facile, e non la mette.
+  // Il piano corto della regola 7.15 è tutto facile, e non la mette. Va solo in un giorno feriale e
+  // mai il giorno prima della seduta chiave. Se non c'è un giorno buono salta, e la pagina lo dice.
   let media = null;
-  const settimanaCorta = s.indice === 0 && pianoGiorniDi(giorni) < 4;
+  const settimanaCorta = s.indice === 0 && pianoGiorniDi(giorni) < PIANO.settimanaZeroSotto;
   if (!facileDomenica && tipoSett !== "corto" && !settimanaCorta) {
     const tipoMedia = s.inTapering || tipoSett === "tapering" || tipoSett === "corto" ? "richiamo" : "media";
     const resto = (num(s.ore) ? s.ore : 0) * 60 - oreChiave * 60;
@@ -1082,13 +1224,14 @@ export function settimanaConcreta(settimana, disponibilita = {}, profilo = {}, p
     const minimo = tipoMedia === "richiamo" ? S.richiamo.minimo : S.media.minimo;
     const primaDellaChiave = (g) => giorniChiave.has(piuGiorni(g.giorno, 1));
     const ultimoGiorno = (g) => partenza && giorniFra(g.giorno, partenza) <= 1;
+    // Al primo giro i giorni 4 e 5 dopo un blocco restano facili, al secondo vale anche lì (regola 2.2).
     const adatto = (g, livello) => !g.fuori && g.disponibile && g.tetto >= minimo && !g.sedute.length && !g.noMedia
-      && g.limite === null && !ultimoGiorno(g) && (livello >= 1 || !g.facileSePuoi) && (livello >= 2 || !primaDellaChiave(g));
+      && g.limite === null && !ultimoGiorno(g) && !primaDellaChiave(g) && (livello >= 1 || !g.facileSePuoi);
     const feriali = PIANO.media.ordineGiorni.map((i) => giorni[i]);
     let scelto = null;
     if (minuti >= minimo - EPS) {
-      for (let livello = 0; livello <= 2 && !scelto; livello++) scelto = feriali.find((g) => adatto(g, livello)) || null;
-      if (!scelto) scelto = [giorni[SABATO], giorni[DOMENICA_G]].find((g) => adatto(g, 2)) || null;
+      for (let livello = 0; livello <= 1 && !scelto; livello++) scelto = feriali.find((g) => adatto(g, livello)) || null;
+      if (!scelto) avvisi.push({ tipo: tipoMedia === "richiamo" ? "richiamoSalta" : "mediaSalta", testo: tipoMedia === "richiamo" ? T.AVVISI.richiamoSalta : T.AVVISI.mediaSalta });
     }
     if (scelto) {
       media = nuovaSeduta(tipoMedia, Math.min(minuti, scelto.tetto));
@@ -1124,7 +1267,7 @@ export function settimanaConcreta(settimana, disponibilita = {}, profilo = {}, p
   // è il giorno prima della seduta chiave.
   const pianoGiorni = giorni.filter((g) => !g.fuori);
   const riserva = () => {
-    if (pianoGiorni.length < 3) return;
+    if (pianoGiorni.length < PIANO.settimana.riposoDaGiorni) return;
     const vuoti = pianoGiorni.filter((g) => !g.sedute.length && !g.riservato);
     if (vuoti.some((g) => !g.disponibile) || pianoGiorni.some((g) => g.riservato)) return;
     const primaChiave = pianoGiorni.find((g) => giorniChiave.has(piuGiorni(g.giorno, 1)) && !g.sedute.length);
@@ -1222,7 +1365,7 @@ export function settimanaConcreta(settimana, disponibilita = {}, profilo = {}, p
     // facili. Se mancano, un giro facile corto prende il resto e la media scende verso un'ora.
     // Il giorno dopo weekend e prove vale anche un recupero di 30-45 minuti (regola 2.5).
     const corse = giorni.reduce((n, g) => n + g.sedute.filter((y) => BICI.has(y.tipo)).length, 0);
-    if (media && corse < 3) {
+    if (media && corse < CONUNAMEDIA) {
       const recupero = giorni.find((y) => !y.fuori && y.disponibile && !y.riservato && y.limite === "riposo" && !bici(y)
         && (disp.dueCose || !y.sedute.some((z) => z.tipo === "palestra")));
       const g = ordina()[0] || recupero || null;
@@ -1242,7 +1385,7 @@ export function settimanaConcreta(settimana, disponibilita = {}, profilo = {}, p
   } else {
     // Nelle settimane leggere le ore si dividono su più giri, così restano l'80% delle uscite.
     let corse = giorni.reduce((n, g) => n + g.sedute.filter((y) => BICI.has(y.tipo)).length, 0);
-    const minime = Math.max(num(s.usciteMinime) ? s.usciteMinime : 0, media ? 3 : 0);
+    const minime = Math.max(num(s.usciteMinime) ? s.usciteMinime : 0, media ? CONUNAMEDIA : 0);
     let candidati = ordina();
     if (facileDomenica) {
       const senzaBici = pianoGiorni.filter((g) => !bici(g)).length;
@@ -1296,6 +1439,61 @@ export function settimanaConcreta(settimana, disponibilita = {}, profilo = {}, p
     });
   }
 
+  // Nello scarico finale mai più di PIANO.tapering.giorniSenzaBici giorni di fila senza bici, salvo
+  // il viaggio (3.6). Una serie più lunga, anche cominciata la settimana prima, si spezza con un giro
+  // facile breve nel giorno libero più vicino alla sua fine. I minuti vengono da quelli che la
+  // settimana non ha usato, poi dagli altri giri, mai sotto la loro durata minima, e per ultima
+  // dalla seduta chiave, mai sotto un'ora, così le ore della settimana restano quelle.
+  const inScarico = (g) => !g.fuori && Boolean(s.inizioTapering) && g.giorno >= s.inizioTapering && (!partenza || g.giorno < partenza);
+  const passo = STIMA.arrotondaMinuti.passo;
+  const regge = (h) => h.disponibile && !h.riservato && h.limite !== "riposo" && h.tetto >= passo
+    && (disp.dueCose || !h.sedute.some((y) => y.tipo === "palestra"));
+  const minimoDi = (y) => (y.chiave ? PIANO.lungaDichiarata.minimo * 60 : y.tipo === "media" ? S.media.minimo : y.tipo === "richiamo" ? S.richiamo.minimo : PIANO.facileBreve);
+  const daCuiPrendere = () => {
+    const tutte = giorni.flatMap((h) => h.sedute).filter((y) => BICI.has(y.tipo) && !y.portata);
+    const facilissime = tutte.filter((y) => !y.chiave && !NON_FACILI.has(y.tipo)).sort((a, b) => b.minuti - a.minuti);
+    return [...facilissime, ...tutte.filter((y) => NON_FACILI.has(y.tipo)), ...tutte.filter((y) => y.chiave).sort((a, b) => b.minuti - a.minuti)];
+  };
+  const disponibili = () => Math.max(0, resto) + somma(daCuiPrendere(), (y) => Math.max(0, y.minuti - minimoDi(y)));
+  const prendi = (minuti) => {
+    let restano = minuti - Math.min(minuti, Math.max(0, resto));
+    resto = Math.max(0, resto - minuti);
+    for (const y of daCuiPrendere()) {
+      if (restano <= EPS) break;
+      const via = Math.min(restano, y.minuti - minimoDi(y));
+      if (via <= 0) continue;
+      y.minuti = Math.round(y.minuti - via);
+      y.carboidrati = carboidratiPer(y.minuti, y.tipo);
+      if (y.chiave) for (const z of proprie) if (z.giorno === giorni.find((h) => h.sedute.includes(y)).giorno && z.tipo === y.tipo) z.ore = y.minuti / 60;
+      restano -= via;
+    }
+  };
+  let senzaBici = num(st.senzaBiciPrima) ? st.senzaBiciPrima : 0;
+  let inizioSerie = 0;
+  for (let i = 0; i < 7; i++) {
+    const g = giorni[i];
+    if (!inScarico(g) || bici(g)) {
+      senzaBici = 0;
+      inizioSerie = i + 1;
+      continue;
+    }
+    senzaBici += 1;
+    if (senzaBici <= PIANO.tapering.giorniSenzaBici) continue;
+    for (let j = i; j >= inizioSerie; j--) {
+      const h = giorni[j];
+      if (!regge(h)) continue;
+      const minuti = Math.min(PIANO.facileBreve, h.tetto, Math.floor(disponibili() / passo + EPS) * passo);
+      if (minuti < passo) break;
+      prendi(minuti);
+      const x = nuovaSeduta("facile", minuti);
+      metti(h, x);
+      facili.push([h, x]);
+      senzaBici = i - j;
+      inizioSerie = j + 1;
+      break;
+    }
+  }
+
   // 6. Il riposo, e tronco e collo dopo i giri facili per chi non fa palestra o ne fa poca (5.1).
   for (const g of giorni) {
     if (!g.fuori && !g.sedute.length) metti(g, nuovaSeduta("riposo", 0));
@@ -1322,10 +1520,15 @@ export function settimanaConcreta(settimana, disponibilita = {}, profilo = {}, p
     + somma(proprie.filter((x) => !pos.has(x.giorno)), (x) => x.ore);
   const mancano = Math.max(0, (num(s.ore) ? s.ore : 0) - oreProprie) * 60;
   const giorniNo = pianoGiorni.filter((g) => g.giornoSettimana <= VENERDI && !g.disponibile).map((g) => g.giorno);
-  if (mancano >= 30 - EPS) avvisi.push({ tipo: "mancano", minuti: Math.round(mancano), testo: T.fraseMancano(mancano, giorniNo) });
+  if (mancano >= PIANO.avvisoMancanoMinuti - EPS) avvisi.push({ tipo: "mancano", minuti: Math.round(mancano), testo: T.fraseMancano(mancano, giorniNo) });
   const uscite = giorni.reduce((n, g) => n + g.sedute.filter((x) => BICI.has(x.tipo)).length, 0);
   const quanteFacili = giorni.reduce((n, g) => n + g.sedute.filter((x) => BICI.has(x.tipo) && !NON_FACILI.has(x.tipo)).length, 0);
   const prima = proprie[0] || null;
+  // I giorni dello scarico finale senza bici alla fine della settimana, per la settimana dopo.
+  let senzaBiciAllaFine = 0;
+  let k = 6;
+  for (; k >= 0 && inScarico(giorni[k]) && !bici(giorni[k]); k--) senzaBiciAllaFine += 1;
+  if (k < 0 && num(st.senzaBiciPrima)) senzaBiciAllaFine += st.senzaBiciPrima;
   const riassunto = {
     lunedi,
     indice: s.indice ?? null,
@@ -1340,6 +1543,7 @@ export function settimanaConcreta(settimana, disponibilita = {}, profilo = {}, p
     ultimaInFinestra,
     chiave: prima ? { tipo: prima.tipo, giorno: prima.giorno } : null,
     avvisi,
+    senzaBici: senzaBiciAllaFine,
   };
   riassunto.frase = T.fraseSettimana({ tipo: s.inTapering && tipoSett !== "corto" ? "tapering" : tipoSett, ore: riassunto.ore, palestre: riassunto.palestre, chiave: riassunto.chiave });
   return riassunto;
@@ -1387,18 +1591,38 @@ function faseDiPalestra(s, ctx) {
   const f = PP.ultimaPesante;
   const contieneFinestra = giorniFra(s.al, ctx.partenza) <= f.da && giorniFra(s.dal, ctx.partenza) >= f.a;
   if (contieneFinestra && massimo !== null) massimo = Math.max(massimo, 1);
-  const info = { settimane: ctx.settimaneTotali, settimaneAllaPartenza: w, giorniAllaPartenza: d, giorniEvento: ctx.G };
+  const info = { settimane: ctx.settimaneTotali, settimaneAllaPartenza: w, giorniAllaPartenza: d, giorniEvento: ctx.G, schema: ctx.schema || null };
   if (massimo !== null) info.palestraMassima = massimo;
   return fasePalestra(info, ctx.profiloPalestra, s.dal, ctx.registro);
+}
+
+// Le uscite in bici di una settimana del piano salvato, e i giorni dello scarico finale senza bici
+// alla sua fine, per continuare il piano rifatto il lunedì.
+const usciteDi = (w) => lista(w && w.giorni).reduce((n, g) => n + lista(g && g.sedute).filter((x) => x && BICI.has(x.tipo)).length, 0);
+function senzaBiciAllaFineDi(w, inizioTapering) {
+  const giorni = lista(w && w.giorni);
+  let n = 0;
+  for (let i = giorni.length - 1; i >= 0; i--) {
+    const g = giorni[i];
+    if (!g || g.fuori || !inizioTapering || g.giorno < inizioTapering || lista(g.sedute).some((x) => x && BICI.has(x.tipo))) break;
+    n += 1;
+  }
+  return n;
 }
 
 function concretizza(prime, ctx) {
   let fatiche = [...ctx.st.fatiche];
   let giaFatte = ctx.conto;
-  let precedenti = null;
-  let primaDelTapering = null;
+  // Il piano rifatto il lunedì continua dalle settimane passate di quello salvato.
+  const passate = lista(ctx.st.passate);
+  const ultimaPassata = passate[passate.length - 1] || null;
+  const primaPassata = [...passate].reverse().find((w) => w.tipo !== "tapering") || null;
+  let precedenti = ultimaPassata ? usciteDi(ultimaPassata) : null;
+  let primaDelTapering = primaPassata ? usciteDi(primaPassata) : null;
+  let senzaBiciPrima = ultimaPassata ? senzaBiciAllaFineDi(ultimaPassata, prime[0] && prime[0].inizioTapering) : 0;
   let ultimaFatta = false;
   const portate = new Map();
+  if (prime[0] && lista(ctx.st.portate).length) portate.set(prime[0].lunedi, ctx.st.portate.map((x) => ({ ...x })));
   for (const [i, s] of prime.entries()) {
     const fase = faseDiPalestra(s, ctx);
     const prossime = prime[i + 1] ? prime[i + 1].sedute : [];
@@ -1407,8 +1631,9 @@ function concretizza(prime, ctx) {
     if (s.inTapering && num(primaDelTapering ?? precedenti)) minime = Math.ceil(PIANO.tapering.uscite * (primaDelTapering ?? precedenti) * s.quota - EPS);
     const stomaco = ctx.partenza ? obiettivoCarboidrati(s, ctx.stomaco) : null;
     const c = settimanaConcreta({ ...s, partenza: ctx.partenza, usciteMinime: minime }, ctx.disp, ctx.prof, { fase, giaFatte, ultimaFatta }, {
-      fatiche, portate: portate.get(s.lunedi) || [], prossime, stomaco, limite: ctx.limite,
+      fatiche, portate: portate.get(s.lunedi) || [], prossime, stomaco, limite: ctx.limite, senzaBiciPrima,
     });
+    senzaBiciPrima = c.senzaBici;
     s.giorni = c.giorni;
     s.concreta = c;
     s.fase = fase
@@ -1505,6 +1730,7 @@ function settimanaPerFuori(s) {
     tipo: s.inTapering && s.tipo !== "corto" ? "tapering" : s.tipo,
     ore: s.ore,
     orePiene: s.orePiene,
+    oreSchema: num(s.oreTarget) ? s.oreTarget : null,
     dal: s.dal,
     al: s.al,
     chiave: prima ? { tipo: prima.tipo, giorno: prima.giorno, ore: sedute.map((x) => x.ore) } : null,
@@ -1512,7 +1738,10 @@ function settimanaPerFuori(s) {
     palestra: s.fase ? s.fase.sedute : 0,
     fase: s.fase,
     carboidrati: s.carboidrati ?? null,
-    giorni: lista(s.giorni).map((g) => ({ giorno: g.giorno, ore: g.ore, sedute: g.sedute, fuori: g.fuori, disponibile: g.disponibile, tetto: g.tetto, tettoChiave: g.tettoChiave })),
+    giorni: lista(s.giorni).map((g) => ({
+      giorno: g.giorno, ore: g.ore, sedute: g.sedute, fuori: g.fuori, disponibile: g.disponibile, tetto: g.tetto, tettoChiave: g.tettoChiave,
+      tettoPiuGiorni: g.tettoPiuGiorni, riservato: g.riservato === true, limite: g.limite || null,
+    })),
     avvisi: s.concreta ? s.concreta.avvisi : lista(s.avvisi),
     frase: s.concreta ? s.concreta.frase : null,
     uscite: s.concreta ? s.concreta.uscite : null,
@@ -1520,12 +1749,39 @@ function settimanaPerFuori(s) {
   };
 }
 
-// Il piano lungo. obiettivo ha percorso (o l'id), giorni e partenza (o data), libero se è
-// un'avventura propria. stima è quella di stimaH (servono H, basso, alto), profilo quello del primo
-// avvio con eta o fasciaEta, palestra, palestraSicurezza, esperienza, scaricoOgniTre e blocco.
-// storico è quello di leggiStorico, disponibilita quella di leggiDisponibilita. Restituisce { versione,
-// creato, firma, fase, obiettivo, schema, vObiettivo, obiettivi, inizio, settimane, giorni (la
-// settimana in corso), tapering, fattibilita, avvisi, fatiche, spostamenti }.
+// Le settimane del piano salvato già passate, copiate così come sono, come storia (3.12).
+const settimanePassate = (st) => lista(st.passate).map((w) => ({ ...JSON.parse(JSON.stringify(w)), passata: true }));
+
+// La settimana in corso nata a metà, con i giorni già passati presi dal piano salvato.
+function conGiorniPassati(settimana, st, oggi) {
+  if (!settimana || !st.pianoSalvato) return;
+  const salvata = lista(st.pianoSalvato.settimane).find((w) => w && w.lunedi === settimana.lunedi);
+  if (!salvata) return;
+  for (const g of lista(settimana.giorni)) {
+    if (!g.fuori || g.giorno >= oggi) continue;
+    const prima = lista(salvata.giorni).find((x) => x && x.giorno === g.giorno);
+    if (prima) Object.assign(g, { ore: prima.ore, sedute: JSON.parse(JSON.stringify(lista(prima.sedute))), passato: true });
+  }
+}
+
+// Il percorso dell'obiettivo come voce del catalogo o percorso libero, per le borse.
+function percorsoDi(p) {
+  if (p && typeof p === "object") return p;
+  return typeof p === "string" ? trovaPercorso(p) || null : null;
+}
+
+// Il piano lungo. obiettivo ha percorso (la voce del catalogo, il percorso libero o l'id), giorni,
+// partenza (o data), borseKg se le dice la persona, libero se è un'avventura propria. Senza borseKg
+// le borse vengono da borseDellObiettivo di js/prontezza.js, cioè dal percorso libero «anche con le
+// borse», dalla stima, dal profilo o dal catalogo, come per il verdetto. stima è quella di stimaH
+// (servono H, basso, alto, e la fonte per l'e-bike), profilo quello del primo avvio con eta o
+// fasciaEta, palestra, palestraSicurezza, esperienza, scaricoOgniTre, blocco ed ebike. storico è
+// quello di leggiStorico, con piano, quello salvato, per rifarlo il lunedì (3.12). Lo schema resta
+// quello scelto alla nascita del piano, con le settimane contate da inizioPiano, e le settimane
+// passate si copiano così come sono. disponibilita è quella di leggiDisponibilita. Restituisce
+// { versione, creato, firma, fase, obiettivo, schema, vObiettivo, obiettivi, inizio, settimane (con
+// le passate in testa, segnate passata), giorni (la settimana in corso), tapering, fattibilita,
+// avvisi, fatiche, spostamenti }.
 export function pianoLungo({ obiettivo = {}, stima = null, classe = null, profilo = {}, storico = {}, disponibilita = {}, oggi = oggiIso(), atleta = null } = {}) {
   const ob0 = obiettivo && typeof obiettivo === "object" ? obiettivo : {};
   const disp = leggiDisponibilita(disponibilita);
@@ -1534,13 +1790,18 @@ export function pianoLungo({ obiettivo = {}, stima = null, classe = null, profil
   const G = num(ob0.giorni) ? ob0.giorni : num(stima && stima.giorni) ? stima.giorni : 1;
   const H = num(stima && stima.H) && stima.H > 0 ? stima.H : num(ob0.H) && ob0.H > 0 ? ob0.H : null;
   const cl = classe || classeEvento(G);
-  const borseKg = num(ob0.borseKg) ? ob0.borseKg : num(prof.dati.borseKg) ? prof.dati.borseKg : null;
+  const borseKg = num(ob0.borseKg) ? ob0.borseKg : borseDellObiettivo(stima, prof.dati, percorsoDi(ob0.percorso));
+  // Con l'evento in e-bike l'e-bike conta per intero, come nel verdetto (2.2).
+  const eBikeEvento = prof.dati.ebike === true || Boolean(stima && stima.fonte && stima.fonte.tipo === "ebike");
   const percorso = idPercorso(ob0.percorso);
   const testa = {
     versione: PIANO.versione,
     creato: oggi,
     firma: firmaPiano({ percorso, giorni: G, partenza, disp, prof, H, libero: !partenza }),
-    obiettivo: { percorso, giorni: G, data: partenza, H, basso: stima && num(stima.basso) ? stima.basso : null, alto: stima && num(stima.alto) ? stima.alto : null, classe: cl, libero: Boolean(ob0.libero) || !partenza },
+    obiettivo: {
+      percorso, giorni: G, data: partenza, H, basso: stima && num(stima.basso) ? stima.basso : null, alto: stima && num(stima.alto) ? stima.alto : null,
+      classe: cl, libero: Boolean(ob0.libero) || !partenza, eBike: eBikeEvento,
+    },
     avvisi: [],
     settimane: [],
     giorni: [],
@@ -1550,7 +1811,7 @@ export function pianoLungo({ obiettivo = {}, stima = null, classe = null, profil
     fattibilita: null,
   };
   const lunediOggi = piuGiorni(oggi, -giornoSettimana(oggi));
-  const st = leggiStorico(storico, oggi, lunediOggi);
+  const st = leggiStorico({ ...(storico && typeof storico === "object" ? storico : {}), eBikeEvento }, oggi, lunediOggi);
   const limite = atleta || prof.dati.battitoNeiGiri !== undefined ? limiteFacile(atleta, prof.dati) : null;
   if (!partenza) return pianoLibero({ testa, disp, prof, st, H, oggi, lunediOggi, limite });
   if (oggi >= partenza) {
@@ -1567,8 +1828,25 @@ export function pianoLungo({ obiettivo = {}, stima = null, classe = null, profil
   const vOb = Math.min((ob.vMin + ob.vComodo) / 2, A);
   const settimane = settimanePiano(oggi, partenza);
   const N = settimane.filter((s) => s.indice < 0).length;
-  const sch = scegliSchema(cl, N, st.h4, st.l42, H, vOb, {});
-  const ctxRighe = { H, vOb, h4: Math.max(st.h4, PIANO.base.oreMinime), classe: cl, prof, borse: cl === UN_GIORNO && num(borseKg) && borseKg > PRONTEZZA.unGiornoBorseOltreKg };
+  // Lo schema si sceglie una volta, con le settimane contate dalla nascita del piano. Rifatto il
+  // lunedì il piano tiene lo schema, le prove nelle loro settimane e i piani corti solo se è nato
+  // con poche settimane (3.3 e 3.12). Lo schema B, che dipende dalla base di allora, resta quello
+  // salvato.
+  const gp = giornoSettimana(partenza);
+  const lunediMeno1 = piuGiorni(partenza, -(gp === DOMENICA_G ? 7 : gp + 1) - 6);
+  const N0 = st.inizioPiano && st.inizioPiano <= lunediOggi
+    ? Math.max(N, Math.round(giorniFra(st.inizioPiano, lunediMeno1) / 7) + 1)
+    : N;
+  let sch = scegliSchema(cl, N0, st.h4, st.l42, H, vOb, {});
+  const P3 = PIANO.scelta;
+  if (cl === DUE_CINQUE && N0 >= P3.dueCinqueB && N0 < P3.dueCinque && (st.schema === "A" || st.schema === "B") && st.schema !== sch.schema) {
+    sch = st.schema === "B" ? { ...sch, schema: "B", base: N0 - P3.dueCinqueB, ultime: null } : { ...sch, schema: "A", base: 0, ultime: N0 };
+  }
+  // Le ore dei piani corti sono quote di h4, quello di adesso o, se è meno, quello della nascita del
+  // piano, così rifacendolo il tetto di h4 + 30% o + 20% non sale con le settimane del piano stesso.
+  const h4Nascita = st.pianoSalvato && st.pianoSalvato.schema && num(st.pianoSalvato.schema.h4) ? st.pianoSalvato.schema.h4 : Infinity;
+  const h4Righe = Math.max(Math.min(st.h4, h4Nascita), PIANO.base.oreMinime);
+  const ctxRighe = { H, vOb, h4: h4Righe, classe: cl, prof, borse: cl === UN_GIORNO && num(borseKg) && borseKg > PRONTEZZA.unGiornoBorseOltreKg };
   const { righe } = righePiano(sch, N, ctxRighe);
   const perW = new Map(righe.map((r) => [r.w, r]));
   const prime = settimane.map((w) => {
@@ -1600,15 +1878,12 @@ export function pianoLungo({ obiettivo = {}, stima = null, classe = null, profil
     }
   }
 
-  const contesto = { H, vOb, A, partenza, classe: cl, oggi, schema: sch.schema, ob, esperienza, borseKg };
+  const contesto = { H, vOb, A, partenza, classe: cl, oggi, schema: sch.schema, ob, esperienza, borseKg, eBikeEvento };
   const k = st.k;
   const crescita = applicaCrescita(prime, st, prof, k, contesto);
-  const totali = st.inizioPiano && st.inizioPiano <= lunediOggi
-    ? Math.max(N, Math.round(giorniFra(st.inizioPiano, prime.find((s) => s.indice === -1)?.lunedi ?? lunediOggi) / 7) + 1)
-    : N;
   const ctx = {
-    st, disp, prof, partenza, G, settimaneTotali: totali, registro: st.registro, conto: contoSedute(st.registro, oggi).totali,
-    profiloPalestra: prof.dati, stomaco: st.stomaco, limite,
+    st, disp, prof, partenza, G, settimaneTotali: N0, registro: st.registro, conto: contoSedute(st.registro, oggi).totali,
+    profiloPalestra: prof.dati, stomaco: st.stomaco, limite, schema: sch.schema,
   };
   const fatiche = concretizza(prime, ctx);
   rispettaPasso(prime, st, cl);
@@ -1622,14 +1897,15 @@ export function pianoLungo({ obiettivo = {}, stima = null, classe = null, profil
   if (fattibilita.corto && !sch.adattare) avvisi.push({ tipo: "corto", testo: T.AVVISI.corto, motivi: fattibilita.motivi });
 
   const fuori = prime.map(settimanaPerFuori);
+  conGiorniPassati(fuori[0], st, oggi);
   return {
     ...testa,
     fase: "piano",
-    schema: { nome: sch.schema, base: sch.base, ultime: sch.ultime, adattare: sch.adattare, blocco: sch.blocco || null },
+    schema: { nome: sch.schema, base: sch.base, ultime: sch.ultime, adattare: sch.adattare, blocco: sch.blocco || null, h4: h4Righe },
     vObiettivo: vOb,
     obiettivi: { vMin: ob.vMin, vComodo: ob.vComodo, lt: ob.lt, prove: ob.prove },
     inizio: st.inizioPiano || lunediOggi,
-    settimane: fuori,
+    settimane: [...settimanePassate(st), ...fuori],
     giorni: fuori.length ? fuori[0].giorni : [],
     tapering: crescita.tapering,
     fattibilita,
@@ -1640,22 +1916,21 @@ export function pianoLungo({ obiettivo = {}, stima = null, classe = null, profil
 
 // La modalità libera, senza data (3.4, regola 9.10). La riga della settimana tipo più vicina alle ore
 // A, con crescita, scarico, palestra di mantenimento e controllo della domenica, senza prove e senza
-// scarico finale.
+// scarico finale. Le settimane si contano dalla nascita del piano (inizioPiano), e lo scarico cade
+// ogni 4 (ogni 3 con il 2+1), così il piano rifatto ogni lunedì lo tiene al suo posto (3.5 punto 5).
 function pianoLibero({ testa, disp, prof, st, H, oggi, lunediOggi, limite }) {
   const L = PIANO.libero;
   const riga = L.righe.reduce((m, r) => (Math.abs(r.ore - disp.ore) < Math.abs(m.ore - disp.ore) ? r : m));
   const inizio = st.inizioPiano && st.inizioPiano <= lunediOggi ? st.inizioPiano : lunediOggi;
   const primaSettimana = Math.round(giorniFra(inizio, lunediOggi) / 7) + 1;
-  const maxSerie = prof.dueUno ? PIANO.scarico.ogniDaAnni50 : PIANO.scarico.ogni;
-  let serie = st.serieCarico;
+  const ciclo = (prof.dueUno ? PIANO.scarico.ogniDaAnni50 : PIANO.scarico.ogni) + 1;
   const prime = [];
   for (let i = 0; i < L.settimane; i++) {
     const lunedi = piuGiorni(lunediOggi, 7 * i);
     const dal = i === 0 && oggi > lunedi ? oggi : lunedi;
     const giorni = giorniFra(dal, piuGiorni(lunedi, 6)) + 1;
     const k = primaSettimana + i;
-    const scarico = serie >= maxSerie;
-    serie = scarico ? 0 : serie + 1;
+    const scarico = k % ciclo === 0;
     const chiaveRiga = riga.chiavi[(k - 1) % riga.chiavi.length];
     let ore = chiaveRiga.ore;
     // Con un obiettivo libero di H ore la lunga cresce verso 0,75 × H.
@@ -1682,13 +1957,14 @@ function pianoLibero({ testa, disp, prof, st, H, oggi, lunediOggi, limite }) {
   const fatiche = concretizza(prime, ctx);
   rispettaPasso(prime, st, DUE_CINQUE);
   const fuori = prime.map(settimanaPerFuori);
+  conGiorniPassati(fuori[0], st, oggi);
   return {
     ...testa,
     fase: "libero",
     schema: { nome: "libero", riga: riga.ore },
     vObiettivo: Math.min(riga.ore, disp.ore),
     inizio,
-    settimane: fuori,
+    settimane: [...settimanePassate(st), ...fuori],
     giorni: fuori.length ? fuori[0].giorni : [],
     avvisi: crescita.avvisi,
     fatiche: fatiche.filter((f) => f.fine >= oggi).map((f) => ({ tipo: f.tipo, inizio: f.inizio, fine: f.fine })),
@@ -2248,7 +2524,7 @@ function usciteGrandiDi(uscite, oggi) {
   for (const [d, att] of mappa) ore.set(d, Math.max(0, ...giriUniti(att, d).map((g) => g.secondi / 3600)));
   const grandi = [];
   for (const [d, h] of ore) {
-    if (d < piuGiorni(oggi, -14) || h < U.oreMinime - EPS) continue;
+    if (d < piuGiorni(oggi, -DOMENICA.usciteGrandiGiorni) || h < U.oreMinime - EPS) continue;
     let prima = 0;
     for (let k = 1; k <= 7 * U.settimane; k++) prima = Math.max(prima, ore.get(piuGiorni(d, -k)) || 0);
     if (h + EPS >= U.ore || h + EPS >= U.volte * prima) grandi.push({ tipo: "uscitaGrande", inizio: d, fine: d });
@@ -2268,11 +2544,12 @@ export function crescitaRapida(serie, oggi, eta = null) {
     for (const r of righe) if (r.d <= d) v = r.f;
     return v;
   };
-  const f = [0, 7, 14, 21].map((k) => valore(piuGiorni(oggi, -k)));
+  // La Fitness di oggi e di 1, 2 e 3 settimane prima, e le salite di ogni settimana.
+  const f = Array.from({ length: C.settimane + 1 }, (_, k) => valore(piuGiorni(oggi, -7 * k)));
   const salita = (i) => (num(f[i]) && num(f[i + 1]) ? f[i] - f[i + 1] : null);
   const in7 = salita(0);
   const avviso = (num(in7) && in7 > (da50 ? C.in7GiorniDa50 : C.in7Giorni) + EPS)
-    || [0, 1, 2].every((i) => num(salita(i)) && salita(i) > (da50 ? C.perSettimanaDa50 : C.perSettimana) + EPS);
+    || Array.from({ length: C.settimane }, (_, i) => i).every((i) => num(salita(i)) && salita(i) > (da50 ? C.perSettimanaDa50 : C.perSettimana) + EPS);
   return {
     avviso,
     fino: avviso ? piuGiorni(oggi, SEMAFORO.crescitaRapidaGiorni) : null,
@@ -2325,37 +2602,59 @@ export function obiettivoCarboidrati(settimana, diario = []) {
 
 // --- Per il semaforo ---
 
+// Queste funzioni guardano anche i giorni passati. Il piano rifatto il lunedì li ha, perché
+// pianoLungo copia le settimane passate del piano salvato (3.12). opzioni.eBikeEvento vale di
+// default quello dell'obiettivo del piano, e con l'evento in e-bike l'e-bike conta per intero.
+const eBikeDel = (piano, opzioni) => (typeof opzioni.eBikeEvento === "boolean" ? opzioni.eBikeEvento : Boolean(piano && piano.obiettivo && piano.obiettivo.eBike));
+
+// Le sedute chiave del piano con la data, dalle settimane e dai giorni, ognuna una volta sola, anche
+// quelle portate nella settimana dopo.
+function seduteChiaveDel(piano) {
+  const viste = new Map();
+  const aggiungi = (x) => {
+    if (!x || !dataDi(x.giorno) || x.possibile === false || typeof x.tipo !== "string") return;
+    const ore = num(x.ore) ? x.ore : num(x.minuti) ? x.minuti / 60 : 0;
+    const chiave = `${x.giorno}|${x.tipo}|${x.parte || 1}`;
+    if (!viste.has(chiave)) viste.set(chiave, { giorno: x.giorno, tipo: x.tipo, ore, parte: x.parte || null, di: x.di || null });
+  };
+  for (const s of lista(piano && piano.settimane)) {
+    lista(s.sedute).forEach(aggiungi);
+    for (const g of lista(s.giorni)) for (const x of lista(g && g.sedute)) if (x && x.chiave) aggiungi({ ...x, giorno: g.giorno });
+  }
+  return [...viste.values()].sort(perGiorno);
+}
+
 // Le fatiche volute del piano già fatte, per giorniDiGuardia del semaforo ({ tipo, inizio, fine }).
 // Conta solo un giorno 1 fatto, cioè almeno metà della seduta in bici.
-export function fatichePiano(piano, uscite = [], oggi = oggiIso()) {
+export function fatichePiano(piano, uscite = [], oggi = oggiIso(), opzioni = {}) {
+  const eBikeEvento = eBikeDel(piano, opzioni);
   const mappa = perData(lista(uscite).filter((a) => a && inBici(a)));
-  const fatte = (d, minuti) => mappa.has(d) && contoOre(mappa.get(d), d).ore * 60 + EPS >= minuti / 2;
+  const fatte = (d, minuti) => mappa.has(d) && contoOre(mappa.get(d), d, { eBikeEvento }).ore * 60 + EPS >= minuti / 2;
+  const sedute = seduteChiaveDel(piano);
   const fatiche = [];
-  for (const s of lista(piano && piano.settimane)) {
-    for (const f of faticheDi(lista(s.sedute))) {
-      if (f.inizio >= oggi) continue;
-      const primo = lista(s.sedute).find((x) => x.giorno === f.inizio);
-      const minuti = primo ? (num(primo.ore) ? primo.ore * 60 : primo.minuti) : 0;
-      // Le uscite grandi il semaforo le vede da solo nelle uscite.
-      if (f.tipo !== "uscitaGrande" && fatte(f.inizio, minuti)) fatiche.push({ tipo: f.tipo, inizio: f.inizio, fine: f.fine });
-    }
+  for (const f of faticheDi(sedute)) {
+    if (f.inizio >= oggi) continue;
+    const primo = sedute.find((x) => x.giorno === f.inizio && x.tipo === f.seduta) || sedute.find((x) => x.giorno === f.inizio);
+    const minuti = primo ? primo.ore * 60 : 0;
+    // Le uscite grandi il semaforo le vede da solo nelle uscite.
+    if (f.tipo !== "uscitaGrande" && fatte(f.inizio, minuti)) fatiche.push({ tipo: f.tipo, inizio: f.inizio, fine: f.fine });
   }
   return fatiche;
 }
 
 // La modalità evento dal giorno 2 di un weekend, di una prova o di un blocco del piano, se il giorno 1
 // è stato fatto (4.5). Restituisce { tipo, giorno, giorni } per il semaforo, oppure null.
-export function modoEventoPiano(piano, uscite = [], oggi = oggiIso()) {
+export function modoEventoPiano(piano, uscite = [], oggi = oggiIso(), opzioni = {}) {
+  const eBikeEvento = eBikeDel(piano, opzioni);
   const mappa = perData(lista(uscite).filter((a) => a && inBici(a)));
-  for (const s of lista(piano && piano.settimane)) {
-    for (const x of lista(s.sedute)) {
-      if (!PIU_GIORNI.has(x.tipo) || !(x.parte > 1) || x.giorno !== oggi) continue;
-      const inizio = piuGiorni(x.giorno, -(x.parte - 1));
-      const primo = lista(s.sedute).find((y) => y.giorno === inizio) || lista(piano.settimane).flatMap((y) => lista(y.sedute)).find((y) => y.giorno === inizio);
-      const minuti = primo ? (num(primo.ore) ? primo.ore * 60 : primo.minuti) : 60;
-      if (mappa.has(inizio) && contoOre(mappa.get(inizio), inizio).ore * 60 + EPS >= minuti / 2) {
-        return { tipo: x.tipo === "blocco" ? "blocco" : x.tipo === "weekend" ? "weekend" : "prova", giorno: x.parte, giorni: x.di };
-      }
+  const sedute = seduteChiaveDel(piano);
+  for (const x of sedute) {
+    if (!PIU_GIORNI.has(x.tipo) || !(x.parte > 1) || x.giorno !== oggi) continue;
+    const inizio = piuGiorni(x.giorno, -(x.parte - 1));
+    const primo = sedute.find((y) => y.giorno === inizio && y.tipo === x.tipo) || sedute.find((y) => y.giorno === inizio);
+    const minuti = primo ? primo.ore * 60 : S.media.minimo;
+    if (mappa.has(inizio) && contoOre(mappa.get(inizio), inizio, { eBikeEvento }).ore * 60 + EPS >= minuti / 2) {
+      return { tipo: x.tipo === "blocco" ? "blocco" : x.tipo === "weekend" ? "weekend" : "prova", giorno: x.parte, giorni: x.di };
     }
   }
   return null;
@@ -2363,19 +2662,20 @@ export function modoEventoPiano(piano, uscite = [], oggi = oggiIso()) {
 
 // I giorni persi di fila fino a ieri, con meno del 30% delle ore previste (regola 2.9), per
 // storico.interruzione.
-export function giorniPersi(piano, uscite = [], oggi = oggiIso()) {
+export function giorniPersi(piano, uscite = [], oggi = oggiIso(), opzioni = {}) {
+  const eBikeEvento = eBikeDel(piano, opzioni);
   const mappa = perData(lista(uscite).filter((a) => a && inBici(a)));
   let previste = 0;
   let fatte = 0;
   let persi = 0;
-  for (let k = 1; k <= 60; k++) {
+  for (let k = 1; k <= PIANO.interruzioni.giorniCerca; k++) {
     const d = piuGiorni(oggi, -k);
     const g = giornoDi(piano, d);
     const s = settimanaDi(piano, d);
     if (!g && !s) break;
     const ore = g ? g.ore : s && num(s.ore) ? s.ore / 7 : 0;
     previste += ore;
-    fatte += mappa.has(d) ? contoOre(mappa.get(d), d).ore : 0;
+    fatte += mappa.has(d) ? contoOre(mappa.get(d), d, { eBikeEvento }).ore : 0;
     if (previste > 0 && fatte >= PIANO.interruzioni.sottoPrevisto * previste - EPS) break;
     persi = k;
   }

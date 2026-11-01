@@ -22,7 +22,7 @@ import {
 const ORA = 3600;
 const GIORNO_MS = 86400000;
 const EPS = 1e-9;
-const GIORNI_RICERCA = 60;        // fin dove si cercano i giorni consigliati senza un percorso
+const GIORNI_RICERCA = PRONTEZZA.giorniConsigliati.giorniCerca;
 
 export const ARRIVARE_E_ADATTARE = "arrivare e adattare";
 
@@ -219,13 +219,15 @@ function conEvento(a) {
 }
 
 // I giorni carichi prima della partenza. Per ogni data la più lunga uscita unita con la risposta
-// «Sì, come all'evento», senza i rulli. Senza risposta un giro vale «No». La notte fuori vale se è
-// segnata su uno dei due giorni che la chiudono.
+// «Sì, come all'evento» e di almeno 3 ore, senza i rulli, perché conta come giorno carico solo
+// un'uscita di almeno 3 ore (2.4). Vale per tutte le prove, per il blocco e per le uscite cariche di
+// più giorni. Senza risposta un giro vale «No». La notte fuori vale se è segnata su uno dei due
+// giorni che la chiudono.
 function giorniCarichi(uscite, partenza, { eBikeEvento = false } = {}) {
   const lista = [];
   for (const [d, attivita] of perGiorno((Array.isArray(uscite) ? uscite : []).map(conEvento))) {
     if (partenza && d >= partenza) continue;
-    const carichi = giriUniti(attivita, d, { eBikeEvento }).filter((g) => g.borse === "evento");
+    const carichi = giriUniti(attivita, d, { eBikeEvento }).filter((g) => g.borse === "evento" && g.secondi + EPS >= PRONTEZZA.giornoCaricoOre * ORA);
     if (!carichi.length) continue;
     const g = carichi.reduce((m, x) => (x.secondi > m.secondi ? x : m));
     lista.push({
@@ -265,7 +267,7 @@ function candidatiT3(uscita, h, classe, partenza) {
   for (let i = 0; i + 1 < uscita.length; i++) {
     const [a, b] = [uscita[i], uscita[i + 1]];
     if (a.giorno < inizio || !(a.notteFuori || b.notteFuori)) continue;
-    if (a.ore + EPS < primo || b.ore + EPS < s.giorno2 * h || a.ore + b.ore + EPS < PRONTEZZA.giornoCaricoOre) continue;
+    if (a.ore + EPS < primo || b.ore + EPS < s.giorno2 * h) continue;
     candidati.push([a, b]);
   }
   return candidati;
@@ -284,8 +286,8 @@ function candidatiBlocco(uscita, h, partenza) {
 }
 
 // Le ore minime di una prova di un giorno. Il test e l'uscita lunga con le borse sono test di viaggio,
-// quindi almeno 3 ore. La prova di un giorno con le borse ha la sola soglia, perché il piano mette
-// 0,5 × H anche quando H è corta (2.1).
+// quindi almeno 3 ore. La prova di un giorno con le borse ha la soglia di 0,45 × H (2.1), e come ogni
+// giorno carico vale solo da 3 ore in su, che giorniCarichi già chiede.
 function sogliaUnGiorno(prova, h, classe) {
   const s = PRONTEZZA.soglie;
   if (prova === "T1") return PRONTEZZA.giornoCaricoOre;
@@ -623,7 +625,8 @@ export function verdetto(pilastri, contesto = {}) {
 }
 
 // La fiducia del verdetto (2.5). giorni sono quelli di giorniDiBici (o le attività), uscite le
-// attività pulite, livelloH il livello della stima di H (0-3, null per le ore dette). opzioni ha
+// attività pulite, livelloH il livello della stima di H (0-3, null per le ore dette dalla persona,
+// con l'obiettivo libero a ore o la e-bike, che non abbassano la fiducia). opzioni ha
 // partenza, oggi, primoGiorno (il primo giorno con dati) ed eBikeEvento. Le ore senza durata valgono
 // zero nel verdetto, qui valgono la mediana degli altri giri. Restituisce { livello «alta», «media»
 // o «bassa», quota delle ore note, settimane di dati, motivo, titolo, testo }.
@@ -659,12 +662,13 @@ export function fiduciaVerdetto(giorni, uscite, livelloH, opzioni = {}) {
     && a.secondi + EPS >= fd.borseDaOre * ORA && a.giorno >= dalT1 && a.giorno <= alBorse);
   const primo = primoGiorno || primaData(uscite);
   const settimane = primo ? Math.max(0, Math.floor(giorniFra(primo, oggi && oggi < partenza ? oggi : partenza) / 7)) : 0;
+  const stimaBassa = num(livelloH) && livelloH < 1;
   let livello = "alta";
   let motivo = null;
   if (quota <= fd.media + EPS || settimane < fd.settimaneMinime) {
     livello = "bassa";
     motivo = quota <= fd.media + EPS ? motivoOre : { tipo: "settimane", quanti: settimane };
-  } else if (quota < fd.alta - EPS || senzaBorse.length || !(livelloH >= 1)) {
+  } else if (quota < fd.alta - EPS || senzaBorse.length || stimaBassa) {
     livello = "media";
     if (quota < fd.alta - EPS) motivo = motivoOre;
     else motivo = senzaBorse.length ? { tipo: "borse", quanti: senzaBorse.length } : { tipo: "stima" };
@@ -1101,8 +1105,10 @@ function eventoFatto(uscite, oggi) {
   return giorni.some((d, i) => i > 0 && giorniFra(giorni[i - 1], d) === 1);
 }
 
-// Le borse dell'obiettivo, quelle della stima, poi del profilo, poi del catalogo.
-function borseDellObiettivo(stima, profilo, percorso) {
+// Le borse dell'obiettivo in kg. Per un obiettivo libero quelle del percorso libero (il giro «anche
+// con le borse» o i giorni di fila), altrimenti quelle della stima, poi del profilo, poi del catalogo.
+// Le usa anche js/piano.js, così piano e verdetto chiedono le stesse prove.
+export function borseDellObiettivo(stima, profilo = {}, percorso = null) {
   if (percorso && percorso.libero) {
     const kg = percorso.modello ? percorso.modello.borseKg : percorso.borseKg;
     return num(kg) ? kg : 0;
@@ -1166,7 +1172,9 @@ export function valutaProntezza(dati = {}) {
   // e le settimane passate del piano.
   const dal = minore(piuGiorni(partenza, 7 * PRIMA_SETTIMANA), minore(primo || oggi, piuGiorni(oggi, -7 * PRONTEZZA.proiezione.settimaneConfronto)));
   const giorniB = giorniDiBici(uscite, { dal, al: piuGiorni(partenza, -1), eBikeEvento });
-  const fiducia = fiduciaVerdetto(giorniB, uscite, stima.livello, { partenza, oggi, primoGiorno: primo, eBikeEvento });
+  // Le ore scelte dalla persona, con l'obiettivo libero a ore o la e-bike, non sono una stima.
+  const oreDette = Boolean(stima.fonte && ["scelta", "ebike"].includes(stima.fonte.tipo));
+  const fiducia = fiduciaVerdetto(giorniB, uscite, oreDette ? null : num(stima.livello) ? stima.livello : 0, { partenza, oggi, primoGiorno: primo, eBikeEvento });
   const vigilia = oggi > finestra(partenza, PRONTEZZA.finestre.volume).al;
   const contesto = { classe, esperienza: esperto, vigilia, palestra: risultato.palestra };
   const proietta = (h, cl, proposta = null) => proiezione(giorniB, piano, oggi, partenza, h, cl, {

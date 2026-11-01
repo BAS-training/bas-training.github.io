@@ -11,6 +11,8 @@ import {
 import { CATALOGO, trovaPercorso } from "../js/catalogo.js";
 import { STIMA, PASSO } from "../js/parametri.js";
 import { preparaAttivita } from "../js/dati.js";
+import { formatoDurata } from "../js/formato.js";
+import { componiModulo } from "./modelli-testi.mjs";
 import {
   righeStima, fraseGiornata, fraseFonte, fraseBorse, fraseGiornoInPiu, fraseGiornataNormale,
   migliaia, oreInParole, durataInParole, scelteOreEbike, EBIKE, DA_DOVE_VENGONO, IN_CALENDARIO, PASSO_GIRI,
@@ -444,8 +446,35 @@ test("la frase della giornata e le altre righe di 1.11, come nella specifica", (
 
 test("ore, durate e numeri in parole", () => {
   assert.deepEqual([0.5, 1, 1.5, 7, 7.5].map(oreInParole), ["mezz'ora", "1 ora", "1 ora e mezza", "7 ore", "7 ore e mezza"]);
-  assert.deepEqual([45, 80, 210, 250, 30, 27.6, 2].map(durataInParole), ["45 minuti", "1 ora e 20", "3 ore e mezza", "4 ore e 10", "mezz'ora", "mezz'ora", null]);
+  // Le durate sono quelle di formatoDurata, e sotto l'ora sono minuti, anche la mezz'ora (7.1).
+  assert.deepEqual([45, 80, 210, 250, 30, 27.6, 2].map(durataInParole), ["45 minuti", "1 ora e 20", "3 ore e mezza", "4 ore e 10", "30 minuti", "30 minuti", null]);
+  for (const m of [3, 25, 30, 45, 80, 118, 125, 210, 250, 600]) assert.equal(durataInParole(m), formatoDurata(m), `${m} minuti`);
+  // Solo la frase delle borse di 1.11 dice la mezz'ora a parole.
+  assert.equal(fraseBorse({ avvisi: [{ tipo: "borse", kg: 8, ore: 0.5 }] }), "Con 8 kg di borse la giornata dura circa mezz'ora in più. In salita i chili pesano, in discesa non restituiscono niente.");
+  assert.equal(fraseBorse({ avvisi: [{ tipo: "borse", kg: 12, ore: 0.75 }] }), "Con 12 kg di borse la giornata dura circa 45 minuti in più. In salita i chili pesano, in discesa non restituiscono niente.");
   assert.deepEqual([115, 1500, 6740, 36000].map(migliaia), ["115", "1.500", "6.740", "36.000"]);
+});
+
+test("senza i giorni la stima usa i giorni tipici del percorso, mai tutto il percorso in un giorno", () => {
+  const percorso = trovaPercorso("tt-originale");
+  const s = stimaH({ percorso, oggi: OGGI });
+  assert.equal(s.giorni, percorso.giorniTipici[0]);
+  vicino(s.H, stimaH({ percorso, giorni: percorso.giorniTipici[0], oggi: OGGI }).H, 1e-9);
+  assert.ok(s.H < 12, `H ${s.H}`);
+  assert.equal(stimaH({ percorso: { ...percorso, giorniTipici: [] }, oggi: OGGI }).giorni, percorso.giorniMin);
+  assert.equal(stimaH({ percorso: percorsoLibero({ tipo: "giorni", giorni: 3, ore: 6 }), oggi: OGGI }).giorni, 3);
+});
+
+test("ogni modello di js/testi-stima.js si compone con i valori di prova di 9.8 e i suoi esempi", async () => {
+  const modulo = await import("../js/testi-stima.js");
+  const { muti, testi } = componiModulo(modulo);
+  assert.deepEqual(muti, [], "modelli che non danno nessun testo");
+  for (const t of testi) {
+    assert.ok(!t.includes(":"), t);
+    assert.ok(!VIETATE.test(t), t);
+    assert.ok(!/\b(T[123]|RIR)\b/.test(t), t);
+    assert.ok(!/\b\d+[.,]\d+\s*(ore|ora|minuti|min|h)\b/i.test(t), t);
+  }
 });
 
 test("nessun testo della stima ha i due punti, le parole vietate o i decimali nelle durate", () => {

@@ -86,13 +86,46 @@ test("il PUT dello sforzo manda solo icu_rpe, e l'esito si salva sul telefono", 
   assert.deepEqual(memoria.leggi(CHIAVE_CODA), []);
 });
 
-test("lo sforzo fuori dalla scala da 1 a 10 non si scrive, e nemmeno quello che intervals.icu ha già", () => {
+test("lo sforzo fuori dalla scala da 1 a 10 non si scrive, e nemmeno quello che intervals.icu ha già", async () => {
   const a = giro("i1");
   assert.equal(scriviSforzo(a, 0), null);
   assert.equal(scriviSforzo(a, 11), null);
   assert.equal(scriviSforzo(a, "tanto"), null);
-  assert.equal(scriviSforzo(giro("i2", { icu_rpe: 5 }), 5), null);
   assert.deepEqual(scriviSforzo(giro("i2", { icu_rpe: 5 }), 7).campi, { icu_rpe: 7 });
+  // Lo sforzo che intervals.icu ha già non entra in coda e non parte.
+  const memoria = memoriaFinta();
+  assert.deepEqual(inCoda(scriviSforzo(giro("i2", { icu_rpe: 5 }), 5), memoria, ADESSO), []);
+  const client = clientFinto();
+  await inviaCoda(client, memoria, { adesso: ADESSO });
+  assert.equal(client.chiamate.length, 0);
+});
+
+test("una risposta corretta che torna al valore letto o confermato toglie dalla coda quella sbagliata", async () => {
+  // Attività i5 letta con lo sforzo a 5 e senza etichette delle borse. Senza rete la persona risponde
+  // «Sì, come all'evento» con 8 kg e sforzo 7, poi si corregge con «No» e con lo sforzo di nuovo a 5.
+  const memoria = memoriaFinta();
+  const a = giro("i5", { icu_rpe: 5, tags: ["viaggio"] });
+  inCoda(scriviBorse(a, { borse: "evento", kg: 8 }), memoria, ADESSO);
+  inCoda(scriviSforzo(a, 7), memoria, ADESSO);
+  assert.equal(leggiCoda(memoria).length, 1);
+  inCoda(scriviBorse(a, { borse: "no" }), memoria, ADESSO + MINUTO);
+  inCoda(scriviSforzo(a, 5), memoria, ADESSO + MINUTO);
+  assert.deepEqual(leggiCoda(memoria), [], "non resta niente da mandare");
+  const client = clientFinto();
+  await inviaCoda(client, memoria, { adesso: ADESSO + 2 * MINUTO });
+  assert.equal(client.chiamate.length, 0, "su intervals.icu non arriva la risposta sbagliata");
+  // Con lo sforzo confermato a 6, un 7 in attesa e poi di nuovo 6, la coda si svuota lo stesso.
+  inCoda(scriviSforzo(a, 6), memoria, ADESSO);
+  await inviaCoda(client, memoria, { adesso: ADESSO });
+  assert.deepEqual(client.chiamate.map((c) => c.argomenti), [["i5", { icu_rpe: 6 }]]);
+  inCoda(scriviSforzo(a, 7), memoria, ADESSO + MINUTO);
+  assert.equal(leggiCoda(memoria).length, 1);
+  inCoda(scriviSforzo(a, 6), memoria, ADESSO + 2 * MINUTO);
+  assert.deepEqual(leggiCoda(memoria), []);
+  // Una correzione che resta diversa sostituisce quella di prima.
+  inCoda(scriviSforzo(a, 7), memoria, ADESSO + 3 * MINUTO);
+  inCoda(scriviSforzo(a, 8), memoria, ADESSO + 3 * MINUTO);
+  assert.deepEqual(leggiCoda(memoria).map((s) => s.campi), [{ icu_rpe: 8 }]);
 });
 
 test("le etichette nuove si aggiungono a quelle che ci sono, e quelle vecchie delle borse si rifanno", async () => {
@@ -111,8 +144,9 @@ test("le etichette nuove si aggiungono a quelle che ci sono, e quelle vecchie de
   assert.deepEqual(client.chiamate[1].argomenti[1], { tags: ["viaggio"] });
   // le etichette che non sono di Come sto non si scrivono e non si tolgono
   assert.equal(aggiungiEtichette(a, ["Viaggio lungo"]), null);
-  assert.equal(aggiungiEtichette(a, ["comesto-borse-parte"]), null);
   assert.equal(aggiungiEtichette(a, ["comesto-palestra-gambe"], ["viaggio"]), null);
+  // e un'etichetta che l'attività ha già non entra in coda
+  assert.deepEqual(inCoda(aggiungiEtichette(a, ["comesto-borse-parte"]), memoriaFinta(), ADESSO), []);
   assert.deepEqual(unisciEtichette(["viaggio", "comesto-palestra-alto"], ["comesto-palestra-gambe"]), ["viaggio", "comesto-palestra-gambe"]);
   assert.deepEqual(etichetteBorse({ borse: "parte", kg: 7.6 }), ["comesto-borse-parte", "comesto-kg-8"]);
   assert.deepEqual(etichetteBorse({ borse: "no", kg: 8, notteFuori: true }), []);
@@ -223,6 +257,58 @@ test("una scrittura fallita resta in coda e parte all'apertura dopo, nell'ordine
   assert.equal(dopo.rimaste, 0);
   assert.deepEqual(conRete.chiamate.map((c) => [c.nome, c.argomenti[0]]), [["salvaAttivita", "i10"], ["salvaAttivita", "i11"], ["salvaBenessere", "2026-10-31"]]);
   assert.deepEqual(conRete.chiamate[2].argomenti[1], { fatigue: 2, soreness: 3, injury: 1 });
+});
+
+test("una scrittura messa in coda mentre un invio è in volo resta, e parte", async () => {
+  const memoria = memoriaFinta();
+  inCoda(scriviSforzo(giro("i1"), 6), memoria, ADESSO);
+  let fine;
+  const inVolo = new Promise((r) => { fine = r; });
+  const client = clientFinto({ salvaAttivita: (id) => (id === "i1" ? inVolo.then(() => ({ id })) : { id }) });
+  const invio = inviaCoda(client, memoria, { adesso: ADESSO });
+  // Durante il PUT di i1 la persona risponde su i2, e corregge anche i1.
+  await Promise.resolve();
+  inCoda(scriviSforzo(giro("i2"), 4), memoria, ADESSO + 10);
+  inCoda(scriviSforzo(giro("i1"), 7), memoria, ADESSO + 10);
+  assert.equal(leggiCoda(memoria).length, 3, "quella in invio resta a parte, la correzione è una voce nuova");
+  fine();
+  const esito = await invio;
+  assert.deepEqual(client.chiamate.map((c) => c.argomenti), [["i1", { icu_rpe: 6 }], ["i2", { icu_rpe: 4 }], ["i1", { icu_rpe: 7 }]]);
+  assert.deepEqual([esito.inviate.length, esito.rimaste], [3, 0]);
+  assert.deepEqual(leggiCoda(memoria), []);
+  assert.equal(memoria.leggi(CHIAVE_USCITE).i1.scritture.icu_rpe.valore, 7);
+});
+
+test("due invii insieme non mandano due volte la stessa attività a mano", async () => {
+  const memoria = memoriaFinta();
+  inCoda(creaOAggiornaManuale(giroAMano({ inizio: "2026-10-30T09:00:00", secondi: 5400, sforzo: 5, codice: "abc123abcd" }), [], memoria), memoria, ADESSO);
+  let nuove = 0;
+  const client = clientFinto({ creaManuali: async (lista) => { await new Promise((r) => setTimeout(r, 20)); return lista.map((a) => ({ ...a, id: `i9${++nuove}` })); } });
+  const [primo, secondo] = await Promise.all([inviaCoda(client, memoria, { adesso: ADESSO }), inviaCoda(client, memoria, { adesso: ADESSO })]);
+  assert.equal(client.chiamate.filter((c) => c.nome === "creaManuali").length, 1, "un solo POST");
+  assert.deepEqual([primo.inviate.length, secondo.inviate.length, secondo.ferma], [1, 0, "inInvio"]);
+  const uscite = memoria.leggi(CHIAVE_USCITE);
+  assert.deepEqual(Object.keys(uscite), ["i91"]);
+  // Un invio interrotto resta segnato, e dopo due minuti riparte, ma se la lettura ha già
+  // l'attività con lo stesso external_id non si crea di nuovo.
+  const rimasta = memoriaFinta({ [CHIAVE_CODA]: [{ ...creaOAggiornaManuale(giroAMano({ inizio: "2026-10-30T09:00:00", secondi: 5400, codice: "zzz999zzzz" }), []), nata: "2026-10-31T07:00:00.000Z", stato: STATI.inInvio, invio: new Date(ADESSO - MINUTO).toISOString() }] });
+  const fermo = await inviaCoda(clientFinto(), rimasta, { adesso: ADESSO });
+  assert.deepEqual([fermo.ferma, fermo.rimaste], ["inInvio", 1]);
+  const dopo = clientFinto();
+  const lette = [{ id: "i95", start_date_local: "2026-10-30T09:00:00", type: "Ride", source: "MANUAL", moving_time: 5400, external_id: "comesto-u-zzz999zzzz" }];
+  const ripreso = await inviaCoda(dopo, rimasta, { adesso: ADESSO + 3 * MINUTO, lette });
+  assert.deepEqual([dopo.chiamate.length, ripreso.inviate.map((x) => x.id)], [0, ["i95"]]);
+  assert.equal(rimasta.leggi(CHIAVE_USCITE).i95.externalId, "comesto-u-zzz999zzzz");
+});
+
+test("la lettura del benessere chiede anche il battito del sonno", async () => {
+  const viste = await conFetchFinto(() => risposta(200, []), async () => {
+    await creaClient({ chiave: "chiave-di-prova-123" }).benessere("2026-10-01", "2026-10-31");
+  });
+  const campi = new URL(viste[0].url).searchParams.get("fields").split(",");
+  for (const campo of ["avgSleepingHR", "restingHR", "hrv", "sleepSecs", "fatigue", "soreness", "injury", "atlLoad"]) assert.ok(campi.includes(campo), campo);
+  // E arriva nel giorno pulito, dove il semaforo lo preferisce al battito a riposo.
+  assert.equal(normalizzaGiorno({ id: "2026-10-31", restingHR: 48, avgSleepingHR: 53 }).fcSonno, 53);
 });
 
 test("un 403 lascia la risposta sul telefono, senza errori a schermo", async () => {

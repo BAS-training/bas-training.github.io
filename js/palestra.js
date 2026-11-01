@@ -5,8 +5,8 @@
 // Nel codice la riserva è il RIR, le ripetizioni che restano a fine serie. A schermo è una frase.
 // Niente DOM e niente window, così il file si prova con node (test/palestra.test.mjs).
 
-import { PIANO, CARICO } from "./parametri.js?v=202610312043";
-import { numero } from "./formato.js?v=202610312043";
+import { PIANO, CARICO, STIMA } from "./parametri.js?v=202610312043";
+import { numero, formatoDurata } from "./formato.js?v=202610312043";
 
 const P = PIANO.palestra;
 
@@ -369,7 +369,7 @@ export const SCHEDE = congela({
     nome: "Correzioni per età e ossa",
     descrizione: "Si applicano da sole, con la tua età.",
     correzioni: [
-      { chi: `Da ${E.riservaDa} anni`, cosa: `Almeno ${P.familiarizzazione} settimane per cominciare. Entro le settimane 8-12 serie da 4-8 con 2 ripetizioni in riserva, almeno 2 serie per gli esercizi principali, mai fino a non farcela più.` },
+      { chi: `Da ${E.riservaDa} anni`, cosa: `Almeno ${P.familiarizzazione} settimane per cominciare. Entro le settimane 8-12 serie da 4-8, chiuse quando potresti farne ancora 2. Almeno 2 serie per gli esercizi principali, mai fino a non farcela più.` },
       { chi: `Da ${E.mantenimentoDa} anni`, cosa: "Nel mantenimento 2 sedute a settimana se si può, la seconda breve. Solleva sempre con l'idea di andare veloce." },
       { chi: `Da ${P.familiarizzazioneLungaDaAnni} anni, o senza altri sport oltre alla bici`, cosa: `${P.familiarizzazioneLunga} settimane per cominciare.` },
       { chi: `Per le ossa, da ${E.saltiDa} anni e senza problemi alle articolazioni né osteoporosi`, cosa: `Salti bassi ${S.giorni[0]}-${S.giorni[1]} giorni a settimana, da ${S.serieDa} a ${S.serieA} serie da ${S.ripetizioni}, crescendo in ${S.settimane} settimane.` },
@@ -400,7 +400,7 @@ export const TESTI_PALESTRA = congela({
   },
   giorno: {
     giallo: "Oggi scheda leggera, stesso peso e meno serie.",
-    gialloLeggero: "Oggi tieni una ripetizione in più in riserva. Niente salti.",
+    gialloLeggero: "Una ripetizione in meno in ogni serie, niente salti.",
     gialloTronco: "Oggi tutto a sforzo moderato, senza fretta.",
     gialloLeggeroTronco: "Oggi sforzo leggero, senza salti.",
     soloAlto: "Oggi niente gambe pesanti, solo tronco, collo e parte alta.",
@@ -421,7 +421,7 @@ export const TESTI_PALESTRA = congela({
   },
   rientro: {
     breve: "Sei stato qualche giorno senza pesi. Oggi il peso di prima, con una serie in meno.",
-    media: "Torni dopo qualche settimana senza pesi. Per una settimana una serie in meno e una ripetizione in più in riserva.",
+    media: "Torni dopo qualche settimana senza pesi. Per una settimana una serie in meno, e fermati una ripetizione prima del solito.",
     lunga: `Torni dopo più di ${R.mediaFino / 7} settimane senza pesi. Per ${R.lungaGiorni / 7} settimane serie leggere da ${SCHEDA_UNO_RIPETIZIONI.da}-${SCHEDA_UNO_RIPETIZIONI.a}, e a fine serie potresti farne ancora ${R.lungaRiserva[0]} o ${R.lungaRiserva[1]}.`,
     dopoEvento: `Dopo il viaggio si riparte piano. Le prime ${R.seduteDopoEvento} sedute sono leggere, serie da ${SCHEDA_UNO_RIPETIZIONI.da}-${SCHEDA_UNO_RIPETIZIONI.a}.`,
   },
@@ -487,18 +487,10 @@ function componi(modello, valori = {}) {
   return modello.replace(/\{(\w+)\}/g, (tutto, chiave) => (chiave in valori ? String(valori[chiave]) : tutto));
 }
 
-// Le durate a parole (7.1). Sotto l'ora in minuti, poi «1 ora e 20» o «3 ore e mezza», arrotondate a
-// 5 minuti sotto le 2 ore e a 10 sopra. Quando js/formato.js avrà formatoDurata si userà quella.
+// Le durate a parole (7.1), con formatoDurata di js/formato.js, e mai meno del passo più piccolo.
 function durataTesto(minuti) {
   const m = valido(minuti) && minuti > 0 ? minuti : 0;
-  const passo = m < 120 ? 5 : 10;
-  const t = Math.max(5, Math.round(m / passo) * passo);
-  if (t < 60) return `${t} minuti`;
-  const ore = Math.floor(t / 60);
-  const resto = t % 60;
-  const testoOre = ore === 1 ? "1 ora" : `${ore} ore`;
-  if (!resto) return testoOre;
-  return resto === 30 ? `${testoOre} e mezza` : `${testoOre} e ${resto}`;
+  return formatoDurata(Math.max(STIMA.arrotondaMinuti.passo, m));
 }
 
 const kgNumero = (kg) => numero(kg, Number.isInteger(kg) ? 0 : 1);
@@ -706,9 +698,10 @@ function conTetto(fase, piano) {
 // La fase di palestra per oggi. piano porta solo quello che serve, vedi il resoconto e la prova:
 // con la data settimane (N, le settimane del piano dalla −N alla −1), settimaneAllaPartenza (w, la
 // settimana di oggi è la −w, 0 nei giorni fra la −1 e la partenza), giorniAllaPartenza (0 il giorno
-// del via, negativi in viaggio), giorniEvento e, se c'è, palestraMassima (le sedute che lo schema
-// ammette in questa settimana). Senza data settimanaPiano, 1 la settimana in cui è nato il piano.
-// registro serve solo a riconoscere chi torna da più di 6 mesi di pausa.
+// del via, negativi in viaggio), giorniEvento, schema (il nome dello schema del piano, con lo schema
+// B chi non ha mai fatto palestra fa solo la familiarizzazione) e, se c'è, palestraMassima (le sedute
+// che lo schema ammette in questa settimana). Senza data settimanaPiano, 1 la settimana in cui è
+// nato il piano. registro serve solo a riconoscere chi torna da più di 6 mesi di pausa.
 export function fasePalestra(piano, profilo, oggi = null, registro = []) {
   const pr = leggiProfilo(profilo);
   const fase = {
@@ -767,8 +760,9 @@ export function fasePalestra(piano, profilo, oggi = null, registro = []) {
     return fase;
   }
 
-  // Chi comincia con meno di 8 settimane davanti fa solo la familiarizzazione, ferma 14 giorni prima.
-  if (percorso !== "esperto" && N < P.soloFamiliarizzazioneSotto) {
+  // Chi comincia con meno di 8 settimane davanti, o con lo schema B, fa solo la familiarizzazione,
+  // ferma 14 giorni prima (3.4 e regola 4.2).
+  if (percorso !== "esperto" && (N < P.soloFamiliarizzazioneSotto || P.soloFamiliarizzazioneSchemi.includes(piano.schema))) {
     const ultime = w <= P.ultimeSettimane;
     Object.assign(fase, {
       fase: ultime ? "ultime" : "costruzione", settimana: k, settimanaBlocco: k, familiarizzazione: true,

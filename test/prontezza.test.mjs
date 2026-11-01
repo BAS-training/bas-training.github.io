@@ -12,9 +12,10 @@ import {
   haEsperienza, ARRIVARE_E_ADATTARE,
 } from "../js/prontezza.js";
 import * as testi from "../js/testi-prontezza.js";
+import { componiModulo } from "./modelli-testi.mjs";
 import { CATALOGO, trovaPercorso } from "../js/catalogo.js";
 import { PRONTEZZA } from "../js/parametri.js";
-import { stimaH } from "../js/stima.js";
+import { stimaH, percorsoLibero } from "../js/stima.js";
 import { preparaAttivita } from "../js/dati.js";
 
 const GIORNO_MS = 86400000;
@@ -294,7 +295,7 @@ test("caso tipo come il Tuscany Trail, pronto con margine", () => {
     ...tranne(settimane(partenza, -16, -1, 8, 4), partenza, -39, -22),
     ...viaggio(partenza, -39, Array.from({ length: 18 }, (_, i) => 8 + (i % 3))),
   ];
-  const stima = { H: 9.9, T: 29.7, livello: 1, giorni: 3 };
+  const stima = { H: 9.6, T: 28.8, livello: 1, giorni: 3 };
   const r = valutaProntezza({ percorso: trovaPercorso("tt-originale"), giorni: 3, partenza, oggi: piu(partenza, -1), uscite, stima });
   assert.deepEqual(difetti(r), [0, 0, 0, 0]);
   assert.ok(r.pilastri.volume.margine && r.pilastri.lunga.margine);
@@ -386,6 +387,24 @@ test("l'uscita di 4 giorni più recente vale blocco e prova generale anche con u
   assert.deepEqual(senza.avvisi, []);
 });
 
+test("un giorno carico vale solo da 3 ore in su, anche nelle prove di più giorni e nelle uscite cariche di più giorni", () => {
+  // Luca, 7 giorni, H 7, nessuna esperienza, solo due giri di 2 ore «come all'evento» di fila.
+  const partenza = "2027-07-29";
+  const luca = pilastroBorse(viaggio(partenza, -41, [2, 2]), partenza, 7, "6-10", false);
+  assert.deepEqual([luca.uscitePiuGiorni, luca.difetto], [0, 2], "nessuna uscita carica di più giorni, difetto 2");
+  const conTre = pilastroBorse(viaggio(partenza, -41, [3, 3]), partenza, 7, "6-10", false);
+  assert.deepEqual([conTre.uscitePiuGiorni, conTre.difetto], [1, 1]);
+  // Anna, Tuscany Trail Newbie in 2 giorni con H 5,4, giorni di 3 ore e mezza e 2 ore e mezza con la
+  // notte fuori. La prova generale non è fatta, e con 3 ore il secondo giorno sì.
+  const anna = abbinaProve(viaggio(partenza, -40, [3.5, 2.5]), partenza, 5.4, "2-5");
+  assert.equal(anna.prove.T3.stato, "manca");
+  assert.equal(abbinaProve(viaggio(partenza, -40, [3.5, 3]), partenza, 5.4, "2-5").prove.T3.stato, "fatta");
+  // Il blocco e la prova di un giorno con le borse, allo stesso modo.
+  assert.equal(abbinaProve(viaggio(partenza, -50, [3, 3, 2.9]), partenza, 6, "11+").prove.blocco.stato, "manca");
+  assert.equal(pilastroBorse(viaggio(partenza, -40, [2.5]), partenza, 5, "1", false, [], { borseKg: 8 }).difetto, 1);
+  assert.equal(pilastroBorse(viaggio(partenza, -40, [3]), partenza, 5, "1", false, [], { borseKg: 8 }).difetto, 0);
+});
+
 test("un giro di 5 ore senza risposta sulle borse non è una prova, e nemmeno «Sì, in parte»", () => {
   const partenza = "2027-05-20";
   const prove = (borse) => abbinaProve([giro(partenza, -40, 5, { borse })], partenza, 7, "2-5").prove.T1.stato;
@@ -424,12 +443,14 @@ test("le mani segnate dopo un test danno «da sistemare», e un test dopo con «
 test("chi segue il piano supera sempre le soglie delle prove (2.4 e 9.4)", () => {
   const partenza = "2027-06-12";
   const fra = (x, a, b) => Math.min(b, Math.max(a, x));
-  // Le sedute carichi degli schemi di 3.4 nelle loro settimane, a giorni dalla partenza.
+  // Le sedute carichi degli schemi di 3.4 nelle loro settimane, a giorni dalla partenza. Ogni giorno
+  // di una prova con le borse sta ad almeno 3 ore, come lo mette il piano.
+  const tre = (ore) => ore.map((x) => Math.max(3, x));
   const schemi = {
-    A: (h) => [...viaggio(partenza, -68, [fra(0.5 * h, 3, 4)]), ...viaggio(partenza, -47, [0.7 * h]), ...viaggio(partenza, -26, [0.8 * h, 0.55 * h])],
-    B: (h) => [...viaggio(partenza, -54, [fra(0.5 * h, 3, 4)]), ...viaggio(partenza, -33, [0.7 * h]), ...viaggio(partenza, -26, [0.75 * h, 0.5 * h])],
-    C: (h) => [...viaggio(partenza, -96, [3.5]), ...viaggio(partenza, -75, [0.5 * h]), ...viaggio(partenza, -61, [0.55 * h, 0.36 * h]),
-      ...viaggio(partenza, -40, [0.6 * h, 0.6 * h, 0.55 * h]), ...viaggio(partenza, -26, [0.6 * h, 0.5 * h])],
+    A: (h) => [...viaggio(partenza, -68, [fra(0.5 * h, 3, 4)]), ...viaggio(partenza, -47, tre([0.7 * h])), ...viaggio(partenza, -26, tre([0.8 * h, 0.55 * h]))],
+    B: (h) => [...viaggio(partenza, -54, [fra(0.5 * h, 3, 4)]), ...viaggio(partenza, -33, tre([0.7 * h])), ...viaggio(partenza, -26, tre([0.75 * h, 0.5 * h]))],
+    C: (h) => [...viaggio(partenza, -96, [3.5]), ...viaggio(partenza, -75, tre([0.5 * h])), ...viaggio(partenza, -61, tre([0.55 * h, 0.36 * h])),
+      ...viaggio(partenza, -40, tre([0.6 * h, 0.6 * h, 0.55 * h])), ...viaggio(partenza, -26, tre([0.6 * h, 0.5 * h]))],
   };
   for (const h of [4, 5.5, 7, 9, 11]) {
     for (const nome of ["A", "B"]) {
@@ -443,9 +464,9 @@ test("chi segue il piano supera sempre le soglie delle prove (2.4 e 9.4)", () =>
     assert.equal(b.difetto, 0, `schema C con H ${h} per ${classe}`);
     assert.deepEqual(b.avvisi, [], "blocco e prova generale in due uscite diverse");
   }
-  // Schema D, un giorno con le borse, un giorno carico di 0,5 × H alla −6.
+  // Schema D, un giorno con le borse, un giorno carico di 0,5 × H alla −6, almeno 3 ore.
   for (const h of [3, 5, 7]) {
-    assert.equal(pilastroBorse(viaggio(partenza, -40, [0.5 * h]), partenza, h, "1", false, [], { borseKg: 8 }).difetto, 0, `schema D con H ${h}`);
+    assert.equal(pilastroBorse(viaggio(partenza, -40, tre([0.5 * h])), partenza, h, "1", false, [], { borseKg: 8 }).difetto, 0, `schema D con H ${h}`);
   }
   assert.equal(pilastroBorse([], partenza, 5, "1", false).stato, "nonServe", "senza borse per un giorno il pilastro non vale");
 });
@@ -515,7 +536,7 @@ test("verdetto, somme dei difetti e il pilastro più lontano", () => {
 test("stessi dati con Fitness 0 e 200, stesso verdetto", () => {
   const partenza = "2027-05-21";
   const uscite = [...tranne(settimane(partenza, -16, -1, 8, 4), partenza, -39, -22), ...viaggio(partenza, -39, Array.from({ length: 18 }, () => 8))];
-  const dati = { percorso: trovaPercorso("tt-originale"), giorni: 3, partenza, oggi: piu(partenza, -1), uscite, stima: { H: 9.9, T: 29.7, livello: 1, giorni: 3 } };
+  const dati = { percorso: trovaPercorso("tt-originale"), giorni: 3, partenza, oggi: piu(partenza, -1), uscite, stima: { H: 9.6, T: 28.8, livello: 1, giorni: 3 } };
   const zero = valutaProntezza({ ...dati, fitness: 0 });
   const duecento = valutaProntezza({ ...dati, fitness: 200 });
   assert.equal(zero.esito, duecento.esito);
@@ -560,6 +581,15 @@ test("fiducia media con le borse senza risposta o con la stima al livello 0, bas
   assert.deepEqual([borse.livello, borse.testo], ["media", "Mi manca la risposta sulle borse di un'uscita lunga. Toccala per dirmela."]);
   const corta = fiduciaVerdetto([], uscite, 1, { partenza, oggi, primoGiorno: piu(partenza, -36) });
   assert.deepEqual([corta.livello, corta.testo], ["bassa", "Ho le tue uscite da 5 settimane. Da 6 il verdetto è più sicuro."]);
+  // Più uscite senza la risposta sulle borse, al plurale.
+  assert.equal(testi.rigaFiducia({ tipo: "borse", quanti: 3 }), "Mi mancano le risposte sulle borse di 3 uscite lunghe. Toccale per dirmele.");
+  // Le ore scelte dalla persona, con un obiettivo libero a ore, non sono una stima e non abbassano la fiducia.
+  const libero = percorsoLibero({ tipo: "ore", ore: 5 });
+  const r = valutaProntezza({ percorso: libero, giorni: 1, partenza, oggi, uscite });
+  assert.deepEqual([r.fiducia.livello, r.fiducia.motivo], ["alta", null]);
+  assert.equal(fiduciaVerdetto([], uscite, null, { partenza, oggi }).livello, "alta", "null vuol dire ore dette");
+  // Senza livello una stima calcolata vale come il livello 0.
+  assert.equal(valutaProntezza({ percorso: trovaPercorso("tt-originale"), giorni: 4, partenza, oggi, uscite, stima: { H: 7, T: 28, giorni: 4 } }).fiducia.livello, "media");
 });
 
 test("con dati da 3 settimane il verdetto è «Non posso ancora dirlo»", () => {
@@ -844,6 +874,17 @@ function stringhe(valore, dove, lista = []) {
   else if (valore && typeof valore === "object") for (const [k, v] of Object.entries(valore)) stringhe(v, `${dove}.${k}`, lista);
   return lista;
 }
+
+test("ogni modello di js/testi-prontezza.js si compone con i valori di prova di 9.8 e i suoi esempi", () => {
+  const { muti, testi: composti } = componiModulo(testi);
+  assert.deepEqual(muti, [], "modelli che non danno nessun testo");
+  for (const t of composti) {
+    assert.ok(!t.includes(":"), t);
+    assert.ok(!VIETATE.test(t), t);
+    assert.ok(!/\b(T[123]|RIR)\b/.test(t), t);
+    assert.ok(!/\b\d+[.,]\d+\s*(ore|ora|minuti|min|h)\b/i.test(t), t);
+  }
+});
 
 test("nessun testo di «Pronto?» ha i due punti, le parole vietate, le sigle o i decimali nelle durate", () => {
   const fissi = stringhe(testi, "testi");

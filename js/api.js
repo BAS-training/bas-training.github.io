@@ -9,7 +9,8 @@ const BASE = "https://intervals.icu";
 const ATTESA_MASSIMA = 20000; // millisecondi, poi si rinuncia e si avvisa
 
 // Si chiedono solo i campi che servono: ogni mattina sul telefono sono 17 volte meno dati.
-const CAMPI_BENESSERE = "id,ctl,atl,atlLoad,ctlLoad,restingHR,hrv,hrvSDNN,sleepSecs,sleepScore,injury,fatigue,soreness";
+// avgSleepingHR è la FC media del sonno, che il semaforo preferisce al battito a riposo (4.3).
+const CAMPI_BENESSERE = "id,ctl,atl,atlLoad,ctlLoad,restingHR,avgSleepingHR,hrv,hrvSDNN,sleepSecs,sleepScore,injury,fatigue,soreness";
 const CAMPI_USCITE = "id,start_date_local,type,name,source,moving_time,distance,total_elevation_gain,icu_training_load,average_heartrate";
 
 export class ErroreApi extends Error {
@@ -144,7 +145,7 @@ export function creaClient({ chiave = null, token = null, ponte = false } = {}) 
 
 const GIORNO_MS = 86400000;
 const CAMPI_ATTIVITA_CACHE = CAMPI_ATTIVITA.split(",").filter((c) => c !== "name" && c !== "description");
-const CAMPI_BENESSERE_CACHE = [...new Set([...CAMPI_BENESSERE.split(","), "avgSleepingHR"])];
+const CAMPI_BENESSERE_CACHE = CAMPI_BENESSERE.split(",");
 
 function utc(iso) {
   const [a, m, g] = iso.slice(0, 10).split("-").map(Number);

@@ -255,7 +255,7 @@ export function rigaFiducia(motivo) {
     }
     case "borse":
       if (n === 1) return "Mi manca la risposta sulle borse di un'uscita lunga. Toccala per dirmela.";
-      return `Mi manca la risposta sulle borse di ${n} uscite lunghe. Toccale per dirmela.`;
+      return `Mi mancano le risposte sulle borse di ${n} uscite lunghe. Toccale per dirmele.`;
     case "stima":
       return `La tua giornata è ancora una stima prudente. Con ${PASSO.giriMinimi} giri lunghi registrati diventa tua.`;
     case "settimane":
@@ -418,3 +418,17 @@ export function testoDurabilita(uscite) {
 export function testoStomaco(uscite) {
   return `Uscite lunghe con il cibo del viaggio e lo stomaco a posto, ${uscite}.`;
 }
+
+// Gli ingressi di esempio dei modelli che vogliono il nome di una prova, un esito o un oggetto, che
+// la prova della scrittura (9.8) non sa costruire da sola. Ogni voce è una lista di argomenti.
+export const ESEMPI = congela({
+  testoProva: [
+    ["blocco", { stato: "fatta", tardi: false, da: "2027-04-03" }], ["blocco", { stato: "fatta", tardi: true, da: "2027-05-01" }],
+    ["unGiorno", { stato: "inProgramma", da: "2027-04-24" }], ["blocco", { stato: "manca" }, { proiezione: true }],
+  ],
+  testoBorse: [[{ difetto: 0, righe: [{ prova: "blocco", stato: "fatta" }, { prova: "unGiorno", stato: "fatta" }] }], [{ difetto: 2, righe: [{ prova: "blocco", stato: "manca" }] }]],
+  testoDaSistemare: [[{ aree: ["mani"], ultima: true }], [{ aree: ["sedere", "collo"], ultima: false }]],
+  rigaFiducia: [[{ tipo: "ore", quanti: 6, sorgente: "STRAVA" }], [{ tipo: "borse", quanti: 3 }], [{ tipo: "stima" }], [{ tipo: "settimane", quanti: 2 }]],
+  testoManca: [["volume"], ["lunga"], ["borse", { righe: [{ prova: "blocco", stato: "manca" }] }], ["continuita", { giorni: 24 }]],
+  fraseProiezione: [["pronto"], ["quasiPronto", { manca: null }], ["pocoPronto", { proposta: { tipo: "giorni", giorni: 5 } }]],
+});

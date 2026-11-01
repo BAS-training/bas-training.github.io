@@ -8,8 +8,12 @@ import { readFileSync } from "node:fs";
 import {
   QUALITA, qualita, normalizzaAttivita, normalizzaGiorno, doppioni, oreDelGiorno, contoOre, giriUniti,
   caricoNascosto, durataStub, preparaAttivita, palestraAbbinata, soloStrava, notteNonArrivaPiu, settimaneDiStoria,
+  doloriCheTornano, carteDelMattino, leggiInvito,
 } from "../js/dati.js";
 import { TESTI_DATI } from "../js/testi-dati.js";
+import { abbinaProve, valutaProntezza } from "../js/prontezza.js";
+import { fattoreCarico, potenzaDaGiri } from "../js/stima.js";
+import { pianoLungo } from "../js/piano.js";
 
 const vicino = (a, b, tolleranza) => Math.abs(a - b) <= tolleranza;
 const registrazione = (nome) => JSON.parse(readFileSync(new URL(`./registrazioni/${nome}.json`, import.meta.url), "utf8"));
@@ -24,6 +28,99 @@ function stub(id, inizio, sorgente = "STRAVA") {
 }
 
 const giorno = (id, extra = {}) => normalizzaGiorno({ id, ...extra });
+
+// --- La modalità evento e i dolori che tornano ---
+
+test("un evento fatto con l'app entra nei dati con modoEvento, e vale come uscita carica di più giorni", () => {
+  // Paolo fa un evento di 4 giorni con l'app, senza rispondere sulle borse. I giorni stanno negli
+  // esiti salvati con la modalità evento, il giorno dopo un weekend del piano no.
+  const giorni = ["2027-04-01", "2027-04-02", "2027-04-03", "2027-04-04"];
+  const grezze = [
+    ...giorni.map((d, i) => giro(`e${i}`, `${d}T08:00:00`, { moving_time: 6 * 3600, distance: 110000, total_elevation_gain: 1500, source: "WAHOO" })),
+    giro("w1", "2027-04-10T08:00:00", { moving_time: 4 * 3600, source: "WAHOO" }),
+  ];
+  const esiti = Object.fromEntries(giorni.map((d, i) => [d, { livello: "verde", evento: { tipo: "evento", giorno: i + 1, giorni: 4 } }]));
+  esiti["2027-04-10"] = { livello: "verde", evento: { tipo: "weekend", giorno: 2, giorni: 2 } };
+  const uscite = preparaAttivita(grezze, [], { esiti, oggi: "2027-05-01" });
+  const perId = Object.fromEntries(uscite.map((a) => [a.id, a]));
+  assert.deepEqual(giorni.map((d, i) => perId[`e${i}`].modoEvento), [true, true, true, true]);
+  assert.equal(perId.w1.modoEvento, false, "il weekend del piano chiede le borse come sempre");
+  assert.equal(perId.e0.motivoFuoriPasso, "evento", "fuori dal passo (1.6)");
+  assert.equal(potenzaDaGiri(uscite.filter((a) => a.modoEvento), {}, "2027-05-01"), null);
+  // Anche dalla risposta salvata per id.
+  assert.equal(normalizzaAttivita(giro("e9", "2027-04-01T08:00:00"), { modoEvento: true }).modoEvento, true);
+  // Vale come uscita carica di più giorni con la notte fuori (2.4), e come viaggio carico per il
+  // fattore carico (1.7), e conta come esperienza.
+  const partenza = "2027-06-12";
+  const prove = abbinaProve(uscite, partenza, 7, "6-10");
+  assert.equal(prove.uscitePiuGiorni, 1);
+  assert.equal(prove.prove.T3.stato, "fatta");
+  const fattore = fattoreCarico(uscite, {}, 130, { giorni: 4, oggi: "2027-05-01" });
+  assert.equal(fattore.livello, 3);
+  const r = valutaProntezza({ partenza, oggi: "2027-05-01", uscite, stima: { H: 7, T: 49, livello: 1, giorni: 7 }, giorni: 7 });
+  assert.equal(r.esperienza, true);
+});
+
+test("i dolori che tornano, un fastidio o un dolore in 3 mattine delle ultime 2 settimane", () => {
+  const oggi = "2027-03-15";
+  const giorniCon = (date, injury) => date.map((d) => normalizzaGiorno({ id: d, injury }));
+  assert.equal(doloriCheTornano(giorniCon(["2027-03-02", "2027-03-08", "2027-03-15"], 2), oggi), true);
+  assert.equal(doloriCheTornano(giorniCon(["2027-03-01", "2027-03-08", "2027-03-15"], 2), oggi), false, "il 1° marzo è fuori dalle 2 settimane");
+  assert.equal(doloriCheTornano(giorniCon(["2027-03-10", "2027-03-12"], 3), oggi), false, "due mattine non bastano");
+  assert.equal(doloriCheTornano(giorniCon(["2027-03-10", "2027-03-12", "2027-03-14"], 1), oggi), false, "«Niente» non conta");
+  assert.equal(doloriCheTornano([{ id: "2027-03-10", injury: 4 }, { id: "2027-03-11", injury: 2 }, { id: "2027-03-12", injury: 3 }], oggi), true, "anche i giorni letti");
+  // Il piano li legge dai giorni del benessere, e il passo della lunga scende al 10%.
+  const base = { obiettivo: { giorni: 4, partenza: "2027-07-26" }, stima: { H: 9 }, disponibilita: { ore: 10 }, oggi };
+  const sani = pianoLungo({ ...base, storico: { h4: 6, l30: 3 } });
+  const dolori = pianoLungo({ ...base, storico: { h4: 6, l30: 3, giorni: giorniCon(["2027-03-02", "2027-03-08", "2027-03-14"], 2) } });
+  const lunga = (p) => p.settimane[0].sedute[0].ore;
+  assert.ok(Math.abs(lunga(sani) - 3.6) < 1e-6, `${lunga(sani)}`);
+  assert.ok(Math.abs(lunga(dolori) - 3.3) < 1e-6, `${lunga(dolori)}`);
+});
+
+// --- Le carte del mattino e il link degli iscritti (9.7) ---
+
+test("al massimo una carta in più per apertura, due con le borse, nell'ordine di 6.4, e scadono dopo 14 giorni", () => {
+  const oggi = "2027-03-15";
+  const domande = [
+    { chiave: "seduta:2027-03-14", tipo: "seduta", giorno: "2027-03-14" },
+    { chiave: "palestra:i40", tipo: "palestra", giorno: "2027-03-13" },
+    { chiave: "sforzo:i41", tipo: "sforzo", giorno: "2027-03-14", fine: "2027-03-14T11:00:00" },
+    { chiave: "stub:s1", tipo: "stub", giorno: "2027-03-12" },
+    { chiave: "lunga:i42", tipo: "lunga", giorno: "2027-03-14", borse: true },
+  ];
+  assert.deepEqual(carteDelMattino(domande, {}, oggi).map((c) => c.chiave), ["lunga:i42", "stub:s1"], "due, perché una è sulle borse");
+  const senzaBorse = domande.filter((c) => c.tipo !== "lunga");
+  assert.deepEqual(carteDelMattino(senzaBorse, {}, oggi).map((c) => c.chiave), ["stub:s1"], "una sola");
+  // «Non lo so» chiude la carta, e una risposta data non torna.
+  assert.deepEqual(carteDelMattino(senzaBorse, { "stub:s1": "nonSo" }, oggi).map((c) => c.chiave), ["sforzo:i41"]);
+  assert.deepEqual(carteDelMattino(senzaBorse, { "stub:s1": { secondi: 7200 }, "sforzo:i41": 5 }, oggi).map((c) => c.chiave), ["palestra:i40"]);
+  // Lo sforzo da 30 minuti dopo la fine a mezzogiorno del giorno dopo, poi resta nella scheda.
+  const sforzo = [domande[2]];
+  assert.equal(carteDelMattino(sforzo, {}, "2027-03-14", "2027-03-14T11:20:00").length, 0, "troppo presto");
+  assert.equal(carteDelMattino(sforzo, {}, "2027-03-14", "2027-03-14T11:40:00").length, 1);
+  assert.equal(carteDelMattino(sforzo, {}, oggi, "2027-03-15T11:59:00").length, 1);
+  assert.equal(carteDelMattino(sforzo, {}, oggi, "2027-03-15T12:01:00").length, 0, "dopo mezzogiorno del giorno dopo");
+  assert.equal(carteDelMattino(sforzo, {}, "2027-03-17").length, 0);
+  // Una carta senza risposta scade dopo 14 giorni.
+  const vecchia = [{ chiave: "stub:s0", tipo: "stub", giorno: "2027-03-01" }];
+  assert.equal(carteDelMattino(vecchia, {}, "2027-03-15").length, 1);
+  assert.equal(carteDelMattino(vecchia, {}, "2027-03-16").length, 0);
+});
+
+test("il link degli iscritti tiene i valori buoni, ignora gli altri, e i buoni si ritrovano al ritorno", () => {
+  const buono = leggiInvito("?percorso=tt-originale&giorni=4&partenza=2027-05-20");
+  assert.deepEqual(buono, { percorso: "tt-originale", giorni: 4, partenza: "2027-05-20", valido: true });
+  assert.deepEqual(leggiInvito(new URLSearchParams("percorso=nessuno&giorni=4&partenza=2027-05-20")), { percorso: null, giorni: null, partenza: null, valido: false });
+  assert.deepEqual(leggiInvito({ percorso: "tt-originale", giorni: "9", partenza: "2027-05-20" }), { percorso: "tt-originale", giorni: null, partenza: "2027-05-20", valido: true }, "giorni fuori forbice");
+  assert.deepEqual(leggiInvito("percorso=tt-originale&giorni=5&partenza=2027-06-01"), { percorso: "tt-originale", giorni: 5, partenza: null, valido: true }, "data che non è una partenza");
+  assert.deepEqual(leggiInvito("percorso=tt-originale&giorni=4,5&partenza=20/05/2027&email=lucia@esempio.it").giorni, null);
+  assert.equal("email" in leggiInvito("percorso=tt-originale&email=lucia@esempio.it"), false, "niente della persona");
+  // Si salva prima di «Entra con intervals.icu» e al ritorno, con l'indirizzo pulito, si rilegge.
+  const memoria = new Map();
+  memoria.set("comesto.invito.v1", JSON.stringify(buono));
+  assert.deepEqual(JSON.parse(memoria.get("comesto.invito.v1")), buono);
+});
 
 // --- Gli stub ---
 

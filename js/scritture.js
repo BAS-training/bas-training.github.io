@@ -1,7 +1,8 @@
 // Le scritture verso intervals.icu (6.6 della specifica), fatte in modo da potersi ripetere senza
 // danni anche con la chiave incollata. Ogni risposta diventa una «scrittura». Va nella coda
 // (comesto.coda.v1) e parte subito se c'è rete, altrimenti all'apertura dopo, nell'ordine in cui è
-// nata. L'esito, con l'id che intervals.icu restituisce, si salva in comesto.uscite.v1.
+// nata. L'esito, con l'id che intervals.icu restituisce, si salva in comesto.uscite.v1. Una
+// scrittura in invio resta segnata nella coda, così due invii insieme non la mandano due volte.
 // L'app non cancella mai attività, non scrive mai su uno stub (Strava non si aggiorna) e non cambia
 // mai il carico di attività che non ha creato, salvo la seconda scelta facoltativa di 6.3.
 // La memoria e il client entrano come argomenti. memoria è { leggi(chiave), scrivi(chiave, valore) }
@@ -18,6 +19,7 @@ export const CHIAVE_USCITE = "comesto.uscite.v1";
 
 export const STATI = Object.freeze({
   daInviare: "da inviare",
+  inInvio: "in invio",      // un invio l'ha presa, e un altro invio non la rimanda finché è fresca
   inviata: "inviata",
   rifiutata: "rifiutata",   // intervals.icu ha risposto 403, la risposta resta sul telefono
   scartata: "scartata",     // una risposta che riprovando non cambia, per esempio l'attività non c'è più
@@ -94,9 +96,11 @@ export function etichettaPalestra(allenato) {
 
 // --- Le scritture ---
 
-// Una scrittura è { chiave, tipo, id, giorno, campi, etichette, attivita, descrizione }.
+// Una scrittura è { chiave, tipo, id, giorno, campi, etichette, attivita, descrizione, letti }.
 // tipo «attivita» è un PUT su un'attività che c'è già, «crea» un'attività a mano nuova, «benessere»
-// le risposte del mattino. Due scritture con la stessa chiave diventano un solo invio.
+// le risposte del mattino. Due scritture con la stessa chiave diventano un solo invio. letti sono i
+// valori dei campi che intervals.icu ha già, letti con l'attività, così una risposta che torna a
+// quei valori toglie dalla coda quella di prima.
 function scrittura(tipo, dati) {
   return {
     chiave: dati.chiave,
@@ -107,6 +111,7 @@ function scrittura(tipo, dati) {
     etichette: dati.etichette ?? null,
     attivita: dati.attivita ?? null,
     descrizione: dati.descrizione ?? null,
+    letti: dati.letti ?? null,
   };
 }
 
@@ -121,18 +126,23 @@ function scrivibile(a) {
 const suAttivita = (a, extra) => scrittura("attivita", { chiave: `attivita:${a.id}`, id: a.id, giorno: a.giorno || null, ...extra });
 
 // Lo sforzo di un'uscita leggibile (6.6), un PUT con il solo icu_rpe, da 1 a 10 (lo 0 non si scrive).
-// attivita è quella pulita da js/dati.js. null se non c'è niente da scrivere.
+// attivita è quella pulita da js/dati.js, o quella letta. Anche lo sforzo che intervals.icu ha già
+// diventa una scrittura, che inCoda unisce a quella in attesa e poi non manda niente se non resta
+// differenza, così una risposta corretta che torna al valore di prima non lascia partire quella
+// sbagliata. null fuori dalla scala o su un'attività che non si scrive.
 export function scriviSforzo(attivita, sforzo) {
   if (!scrivibile(attivita)) return null;
   const { minimo, massimo } = CHIAMATE.sforzoScritto;
   const valore = Math.round(Number(sforzo));
   if (!Number.isFinite(valore) || valore < minimo || valore > massimo) return null;
-  if (attivita.sforzoLetto === valore) return null;
-  return suAttivita(attivita, { campi: { icu_rpe: valore } });
+  const letto = num(attivita.sforzoLetto) ? attivita.sforzoLetto : num(attivita.icu_rpe) ? attivita.icu_rpe : null;
+  return suAttivita(attivita, { campi: { icu_rpe: valore }, letti: { icu_rpe: letto } });
 }
 
 // Etichette di Come sto aggiunte a quelle dell'attività, senza togliere le altre (6.6). togli sono
-// etichette o famiglie di Come sto da levare, per esempio quando le borse passano a «No».
+// etichette o famiglie di Come sto da levare, per esempio quando le borse passano a «No». Come per
+// lo sforzo, anche le etichette che l'attività ha già diventano una scrittura, che toglie dalla coda
+// quelle di una risposta di prima. null con etichette che non sono di Come sto.
 export function aggiungiEtichette(attivita, etichette, togli = []) {
   if (!scrivibile(attivita)) return null;
   const nuove = Array.isArray(etichette) ? etichette : [];
@@ -140,7 +150,6 @@ export function aggiungiEtichette(attivita, etichette, togli = []) {
   if (!nuove.every((t) => typeof t === "string" && ETICHETTA.test(t))) return null;
   if (!via.every((t) => typeof t === "string" && t.startsWith(PREFISSO_COMESTO))) return null;
   const attuali = Array.isArray(attivita.etichette) ? attivita.etichette : Array.isArray(attivita.tags) ? attivita.tags : [];
-  if (stesseEtichette(unisciEtichette(attuali, nuove, via), attuali)) return null;
   return suAttivita(attivita, { etichette: { lette: [...attuali], aggiungi: [...new Set(nuove)], togli: [...via] } });
 }
 
@@ -327,11 +336,12 @@ export function leggiCoda(memoria) {
 }
 
 // Due scritture sulla stessa chiave diventano una, al posto della prima, così sforzo e borse della
-// stessa attività partono con un solo PUT.
+// stessa attività partono con un solo PUT. I valori letti sono quelli della lettura più recente.
 function unisci(prima, dopo) {
   const s = { ...prima };
   if (dopo.tipo !== prima.tipo) return { ...dopo, nata: prima.nata, stato: prima.stato };
   if (dopo.campi) s.campi = { ...(prima.campi || {}), ...dopo.campi };
+  if (dopo.letti) s.letti = { ...(prima.letti || {}), ...dopo.letti };
   if (dopo.attivita) s.attivita = dopo.attivita;
   if (dopo.descrizione) s.descrizione = dopo.descrizione;
   if (dopo.etichette) {
@@ -346,8 +356,12 @@ function unisci(prima, dopo) {
   return s;
 }
 
-// Toglie da una scrittura quello che intervals.icu ha già confermato, secondo comesto.uscite.v1.
-// Un'attività a mano già creata non si crea una seconda volta.
+const uguali = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+// Toglie da una scrittura quello che intervals.icu ha già. Per ogni campo conta prima il valore
+// confermato in comesto.uscite.v1, che è più recente della lettura, poi quello letto con
+// l'attività. Per le etichette lo stesso, con quelle confermate e poi quelle lette. Un'attività a
+// mano già creata non si crea una seconda volta. null se non resta niente da mandare.
 function senzaConfermato(s, uscite) {
   if (s.tipo === "crea") {
     const fatta = Object.values(uscite).some((v) => v && v.externalId === s.attivita.external_id && v.scritture && v.scritture.creata && v.scritture.creata.stato === STATI.inviata);
@@ -355,30 +369,60 @@ function senzaConfermato(s, uscite) {
   }
   if (s.tipo !== "attivita") return s;
   const fatte = (uscite[s.id] && uscite[s.id].scritture) || {};
-  const confermato = (campo, valore) => fatte[campo] && fatte[campo].stato === STATI.inviata && JSON.stringify(fatte[campo].valore) === JSON.stringify(valore);
+  const confermato = (campo) => (fatte[campo] && fatte[campo].stato === STATI.inviata ? fatte[campo] : null);
+  const letti = s.letti && typeof s.letti === "object" ? s.letti : {};
   const nuova = { ...s, campi: s.campi ? { ...s.campi } : null };
   if (nuova.campi) {
-    for (const [campo, valore] of Object.entries(nuova.campi)) if (confermato(campo, valore)) delete nuova.campi[campo];
+    for (const [campo, valore] of Object.entries(nuova.campi)) {
+      const c = confermato(campo);
+      const base = c ? c.valore : Object.hasOwn(letti, campo) && letti[campo] !== null ? letti[campo] : undefined;
+      if (base !== undefined && uguali(base, valore)) delete nuova.campi[campo];
+    }
     if (!Object.keys(nuova.campi).length) nuova.campi = null;
   }
-  if (nuova.etichette && fatte.tags && fatte.tags.stato === STATI.inviata) {
-    const dopo = unisciEtichette(fatte.tags.valore, nuova.etichette.aggiungi, nuova.etichette.togli);
-    if (stesseEtichette(dopo, fatte.tags.valore)) nuova.etichette = null;
+  if (nuova.etichette) {
+    const c = confermato("tags");
+    const base = c ? c.valore : nuova.etichette.lette;
+    if (Array.isArray(base) && stesseEtichette(unisciEtichette(base, nuova.etichette.aggiungi, nuova.etichette.togli), base)) nuova.etichette = null;
   }
   return nuova.campi || nuova.etichette || nuova.descrizione ? nuova : null;
 }
 
-// Mette una scrittura in coda (comesto.coda.v1) e restituisce la coda. Una scrittura già confermata
-// non rientra, e una con la stessa chiave di una ancora da inviare si unisce a quella e ne tiene il
-// posto. Senza memoria restituisce lo stesso la coda, che allora vive solo in questa apertura.
+// Una scrittura che un invio ha preso da meno di CHIAMATE.inInvioMinuti. Più vecchia vuol dire che
+// l'invio si è interrotto, per esempio chiudendo la pagina, e la scrittura può ripartire.
+function inInvio(s, adesso) {
+  if (!s || s.stato !== STATI.inInvio || typeof s.invio !== "string") return false;
+  const da = adesso - Date.parse(s.invio);
+  return Number.isFinite(da) && da >= 0 && da < CHIAMATE.inInvioMinuti * 60000;
+}
+
+// Mette una scrittura in coda (comesto.coda.v1) e restituisce la coda. Una scrittura con la stessa
+// chiave di una ancora da inviare si unisce a quella e ne tiene il posto. Dopo l'unione si toglie
+// quello che intervals.icu ha già, quindi una risposta corretta che torna al valore letto o
+// confermato toglie anche quella di prima, e una scrittura che non cambia più niente esce dalla
+// coda. Accanto a una scrittura della stessa chiave già in invio la nuova resta a parte e intera,
+// perché quello che intervals.icu avrà dopo quell'invio non si sa ancora, e parte dopo. Senza
+// memoria restituisce lo stesso la coda, che allora vive solo in questa apertura.
 export function inCoda(scrittura, memoria, adesso = Date.now()) {
   const coda = leggiCoda(memoria);
   if (!valida(scrittura)) return coda;
-  const nuova = senzaConfermato(copia(scrittura), leggiUscite(memoria));
-  if (!nuova) return coda;
-  const i = coda.findIndex((s) => s.chiave === nuova.chiave);
-  if (i >= 0) coda[i] = unisci(coda[i], nuova);
-  else coda.push({ ...nuova, nata: new Date(adesso).toISOString(), stato: STATI.daInviare });
+  const nuova = copia(scrittura);
+  const uscite = leggiUscite(memoria);
+  const inVolo = coda.some((s) => s.chiave === nuova.chiave && inInvio(s, adesso));
+  const pulita = (s) => (inVolo ? s : senzaConfermato(s, uscite));
+  const i = coda.findIndex((s) => s.chiave === nuova.chiave && !inInvio(s, adesso));
+  if (i >= 0) {
+    const unita = pulita(unisci(coda[i], nuova));
+    if (unita) coda[i] = { ...unita, nata: coda[i].nata, stato: STATI.daInviare };
+    else coda.splice(i, 1);
+  } else {
+    const sola = pulita(nuova);
+    if (!sola) return coda;
+    // Chiave e data di nascita distinguono una voce, anche accanto a quella in invio.
+    let quando = adesso;
+    while (coda.some((s) => s.chiave === sola.chiave && s.nata === new Date(quando).toISOString())) quando += 1;
+    coda.push({ ...sola, nata: new Date(quando).toISOString(), stato: STATI.daInviare });
+  }
   scrivi(memoria, CHIAVE_CODA, coda);
   return coda;
 }
@@ -443,6 +487,9 @@ async function invia(client, s, perId, conto) {
     return { giorno: s.giorno, campi: s.campi };
   }
   if (s.tipo === "crea") {
+    // Un invio interrotto dopo il POST l'ha già creata, e la lettura più fresca la mostra.
+    const gia = [...perId.values()].find((a) => externalIdDi(a) === s.attivita.external_id);
+    if (gia) return { id: String(gia.id), campi: null };
     conto.chiamate += 1;
     const risposta = await client.creaManuali([s.attivita]);
     const lista = Array.isArray(risposta) ? risposta : risposta ? [risposta] : [];
@@ -456,28 +503,67 @@ async function invia(client, s, perId, conto) {
   return { id: s.id, campi };
 }
 
+// La coda salvata, oppure null se la memoria non c'è o non la tiene.
+function codaSalvata(memoria) {
+  try {
+    const v = memoria && typeof memoria.leggi === "function" ? memoria.leggi(CHIAVE_CODA) : null;
+    return Array.isArray(v) ? v.filter(valida) : null;
+  } catch {
+    return null;
+  }
+}
+
+const stessaVoce = (a, b) => a.chiave === b.chiave && (a.nata ?? null) === (b.nata ?? null);
+
 // Manda le scritture della coda, nell'ordine in cui sono nate, e non lancia mai errori.
 //  - Confermata, esce dalla coda e l'esito va in comesto.uscite.v1, con l'id di un'attività creata.
 //  - Un 403 la toglie dalla coda come «rifiutata», e la risposta resta sul telefono, senza errori.
 //  - Una risposta che riprovando non cambia (400, 404 e simili) la toglie come «scartata».
 //  - Senza rete, con intervals.icu lento, con un 429, un 401 o un errore del server si ferma, e il
 //    resto riparte all'apertura dopo, nello stesso ordine.
-// lette sono le attività della lettura appena fatta, per rifare le etichette su quelle di adesso.
-// coda è quella restituita da inCoda, per quando la memoria del telefono non c'è.
-// Restituisce { inviate, rifiutate, scartate, rimaste, ferma, chiamate }.
+//  - Prima di mandarla la segna «in invio» nella coda salvata. Un altro invio che la trova così, da
+//    meno di CHIAMATE.inInvioMinuti, si ferma e la lascia a chi l'ha presa, quindi un'attività a mano
+//    non parte mai con due POST.
+// La coda si rilegge dalla memoria a ogni giro e se ne toglie solo la voce mandata, per chiave e per
+// data di nascita, così le scritture nate durante un invio restano e partono. coda è quella
+// restituita da inCoda, e vale solo quando la memoria del telefono non c'è o non ha la coda.
+// lette sono le attività della lettura appena fatta, per rifare le etichette su quelle di adesso e
+// per ritrovare un'attività a mano già creata.
+// Restituisce { inviate, rifiutate, scartate, rimaste, ferma, chiamate }, con ferma «inInvio»
+// quando un altro invio è al lavoro.
 export async function inviaCoda(client, memoria, { lette = [], adesso = Date.now(), coda: data = null } = {}) {
-  const coda = Array.isArray(data) ? data.filter(valida) : leggiCoda(memoria);
   const esito = { inviate: [], rifiutate: [], scartate: [], rimaste: 0, ferma: null, chiamate: 0 };
   const perId = new Map();
   for (const a of Array.isArray(lette) ? lette : []) if (a && a.id !== undefined && a.id !== null) perId.set(String(a.id), a);
-  while (coda.length) {
+  let locale = Array.isArray(data) ? data.filter(valida) : [];
+  // Le voci finite in questo invio non si riprendono, anche se la memoria non è riuscita a toglierle.
+  const finite = [];
+  const attuale = () => (codaSalvata(memoria) ?? locale).filter((v) => !finite.some((f) => stessaVoce(f, v)));
+  const cambia = (voce, fai) => {
+    const salvata = codaSalvata(memoria);
+    if (salvata) scrivi(memoria, CHIAVE_CODA, fai(salvata));
+    locale = fai(locale);
+  };
+  const togli = (voce) => {
+    finite.push(voce);
+    cambia(voce, (lista) => lista.filter((v) => !stessaVoce(v, voce)));
+  };
+  const segna = (voce, campi) => cambia(voce, (lista) => lista.map((v) => (stessaVoce(v, voce) ? { ...v, ...campi } : v)));
+  for (;;) {
+    const coda = attuale();
+    if (!coda.length) break;
+    const testa = coda[0];
+    if (inInvio(testa, adesso)) {
+      esito.ferma = "inInvio";
+      break;
+    }
     // Quello che è già confermato, rimasto in coda perché la memoria non si è salvata, non riparte.
-    const s = senzaConfermato(coda[0], leggiUscite(memoria));
+    const s = senzaConfermato(testa, leggiUscite(memoria));
     if (!s) {
-      coda.shift();
-      scrivi(memoria, CHIAVE_CODA, coda);
+      togli(testa);
       continue;
     }
+    segna(testa, { stato: STATI.inInvio, invio: new Date(adesso).toISOString() });
     try {
       const risultato = await invia(client, s, perId, esito);
       registra(memoria, s, risultato, STATI.inviata, adesso);
@@ -491,13 +577,13 @@ export async function inviaCoda(client, memoria, { lette = [], adesso = Date.now
         registra(memoria, s, { campi: s.campi || {} }, STATI.scartata, adesso);
         esito.scartate.push(s.chiave);
       } else {
+        segna(testa, { stato: STATI.daInviare, invio: null });
         esito.ferma = tipo || "errore";
         break;
       }
     }
-    coda.shift();
-    scrivi(memoria, CHIAVE_CODA, coda);
+    togli(testa);
   }
-  esito.rimaste = coda.length;
+  esito.rimaste = attuale().length;
   return esito;
 }

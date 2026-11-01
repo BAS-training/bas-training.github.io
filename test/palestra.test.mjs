@@ -153,6 +153,26 @@ test("principiante con 6 settimane, solo la scheda 1, ultima seduta almeno 14 gi
   for (const v of forza(ultime)) if (v.riserva) assert.ok(v.riserva.da >= 4, v.id);
 });
 
+test("principiante con lo schema B, solo la scheda 1 anche con 8-11 settimane, ultima seduta almeno 14 giorni prima", () => {
+  for (const settimane of [8, 9, 11]) {
+    let piuVicino = Infinity;
+    const schede = new Set();
+    for (let g = lunediMeno(PARTENZA, settimane); g < PARTENZA; g = piu(g, 1)) {
+      const f = fasePalestra(pianoDelGiorno(g, PARTENZA, settimane, 4, { schema: "B" }), LUCIA, g);
+      schede.add(f.scheda);
+      assert.ok(f.messaggi.some((m) => m.chiave === "beneficio"), `${settimane} settimane, ${g}`);
+      if (f.scheda === 1) piuVicino = Math.min(piuVicino, fra(g, PARTENZA));
+    }
+    assert.deepEqual([...schede].filter(Boolean), [1], `${settimane} settimane, nessuna scheda pesante`);
+    assert.equal(piuVicino, 14, `${settimane} settimane`);
+  }
+  // Con lo schema A e le stesse settimane il principiante passa alla scheda 2, e l'esperto resta
+  // con la costruzione anche nello schema B.
+  assert.ok(schedePerSettimana(LUCIA, 11).includes(2));
+  const lunedi = lunediMeno(PARTENZA, 9);
+  assert.equal(fasePalestra(pianoDelGiorno(lunedi, PARTENZA, 9, 4, { schema: "B" }), MARCO, lunedi).scheda, 3);
+});
+
 test("esperto di 45 anni, scheda 3 con riserva 2, e a 35 anni 1-2", () => {
   const inizio = lunediMeno(PARTENZA, 16);
   const f = fasePalestra(pianoDelGiorno(inizio, PARTENZA, 16), MARCO, inizio);
@@ -349,15 +369,20 @@ test("giallo, stesso peso e un terzo delle serie in meno, e con le gambe indolen
   const lunga = sedutaPalestra(3, 2, "A", MARCO, registro, { livello: "verde", lungaVicina: { data: "2027-02-06", minuti: 300 } });
   assert.equal(gambe(lunga).length, 0);
   assert.deepEqual(lunga.righe, ["Sabato hai la lunga di 5 ore. Oggi niente gambe pesanti, solo tronco, collo e parte alta."]);
-  // Giallo leggero, una ripetizione in più in riserva e niente salti, come anche con pochi dati.
+  // Giallo leggero, una ripetizione in più in riserva e niente salti, come anche con pochi dati. A
+  // schermo con le parole della carta di Oggi (7.4), mai la riserva come sigla o come gergo.
   for (const livello of ["giallo-leggero", "nessuno"]) {
     const s = sedutaPalestra(3, 2, "A", MARCO, registro, livello);
     assert.ok(!s.esercizi.some((v) => v.gruppo === "salti"));
     assert.equal(voce(s, "squat").riserva.da, 3);
     assert.equal(voce(s, "squat").serie.da, 3);
     assert.equal(voce(s, "squat").kg, 60);
-    assert.equal(s.righe[0], "Oggi tieni una ripetizione in più in riserva. Niente salti.");
+    assert.equal(s.righe[0], "Una ripetizione in meno in ogni serie, niente salti.");
   }
+  // Nessun testo della palestra dice la riserva a parole come «in riserva».
+  const testi = JSON.stringify(TESTI_PALESTRA) + JSON.stringify(SCHEDE);
+  assert.ok(!/in riserva/.test(testi), "la riserva si dice con «potresti farne ancora»");
+  assert.equal(TESTI_PALESTRA.rientro.media, "Torni dopo qualche settimana senza pesi. Per una settimana una serie in meno, e fermati una ripetizione prima del solito.");
   // Tronco e collo non hanno pesi, e il semaforo lo dice con altre parole.
   assert.equal(sedutaPalestra(7, 2, null, MARCO, [], "giallo").righe[0], TESTI_PALESTRA.giorno.gialloTronco);
   const leggero = sedutaPalestra(7, 2, null, MARCO, [], "giallo-leggero");

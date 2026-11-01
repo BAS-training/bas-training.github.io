@@ -5,8 +5,9 @@
 // Niente DOM e niente window, così si prova con node (test/dati.test.mjs).
 // I numeri stanno in js/parametri.js, nel gruppo DATI.
 
-import { DATI, PASSO, CHIAMATE } from "./parametri.js?v=202610312043";
+import { DATI, PASSO, CHIAMATE, PIANO, DOMANDE } from "./parametri.js?v=202610312043";
 import { QUALITA, fonteCarico, divisoreSforzo, puntiOra, inBici, inPalestra, mediana } from "./carico.js?v=202610312043";
+import { CATALOGO } from "./catalogo.js?v=202610312043";
 
 export { QUALITA, inBici, inPalestra };
 
@@ -127,6 +128,7 @@ function motivoFuoriPasso(a) {
   if (a.eBike) return "ebike";
   if (!TIPI_PASSO.has(a.tipo)) return "tipo";
   if (a.commute) return "commute";
+  if (a.modoEvento) return "evento";
   if (a.borse === "parte" || a.borse === "evento") return "borse";
   if (a.metri > 0 && num(a.dislivello) !== null) {
     const km = a.metri / 1000;
@@ -142,7 +144,9 @@ function motivoFuoriPasso(a) {
 // per quell'id, con le risposte della persona, e vince sulle etichette lette. Uno stub è
 // un'attività con source STRAVA o GARMIN_CONNECT e senza moving_time. Il carico viene da
 // fonteCarico con il divisore di base. preparaAttivita lo rifà con il divisore personale, unisce i
-// doppioni e stima la durata degli stub. Restituisce null per un'attività senza id o senza inizio.
+// doppioni e stima la durata degli stub. modoEvento è vero per un giro fatto in modalità evento,
+// dalla voce del telefono o, in preparaAttivita, dagli esiti salvati del giorno. Restituisce null
+// per un'attività senza id o senza inizio.
 export function normalizzaAttivita(a, detto = null) {
   if (!a || typeof a !== "object" || a.id === null || a.id === undefined || typeof a.start_date_local !== "string") return null;
   const inizio = a.start_date_local;
@@ -221,6 +225,7 @@ export function normalizzaAttivita(a, detto = null) {
     kg: pos(d.kg) ?? lette.kg,
     notteFuori: typeof d.notteFuori === "boolean" ? d.notteFuori : lette.notteFuori,
     allenato: ALLENATO.has(d.allenato) ? d.allenato : lette.allenato,
+    modoEvento: d.modoEvento === true,
     tipoLetto,
     tipoCorretto,
     secondiTotali: elapsed,
@@ -327,6 +332,7 @@ function unisciRisposte(tenuta, tolta) {
   if (tenuta.kg === null && tolta.kg !== null) tenuta.kg = tolta.kg;
   if (tenuta.notteFuori === null && tolta.notteFuori !== null) tenuta.notteFuori = tolta.notteFuori;
   if (tenuta.allenato === null && tolta.allenato !== null) tenuta.allenato = tolta.allenato;
+  if (tolta.modoEvento) tenuta.modoEvento = true;
   if (tolta.esclusaDalPasso) tenuta.esclusaDalPasso = true;
   tenuta.doppioni.push({ id: tolta.id, sorgente: tolta.sorgente, caricoIcu: tolta.caricoIcu }, ...tolta.doppioni);
   segnaPasso(tenuta);
@@ -491,16 +497,33 @@ export function durataStub(stub, giorno, k, attivita = []) {
 
 // --- Tutto insieme ---
 
+// Un giorno in modalità evento per un evento o un viaggio fatto con l'app, dagli esiti salvati del
+// giorno (comesto.esiti.v1, con evento { tipo, giorno, giorni }). Weekend, prove e blocchi del
+// piano no, perché le borse di quei giri si chiedono come sempre.
+function giornoDiViaggio(esito) {
+  const e = esito && typeof esito === "object" ? esito.evento : null;
+  return Boolean(e && typeof e === "object" && DATI.tipiEvento.includes(e.tipo));
+}
+
 // Le attività pulite, dalla lista grezza di intervals.icu ai campi che usano gli altri moduli.
 // Riconosce ogni attività con le risposte del telefono (detti = comesto.uscite.v1, per id), toglie
 // i doppioni, sceglie la fonte del carico con il divisore personale, stima la durata e il carico
 // degli stub con il carico nascosto del giorno. giorni sono i giorni puliti con normalizzaGiorno.
-// Restituisce la lista dalla più recente, come oggi in js/modello.js.
-export function preparaAttivita(grezze, giorni = [], { detti = {}, profilo = {}, oggi = null } = {}) {
+// esiti sono quelli salvati per giorno (comesto.esiti.v1), e i giri dei giorni di un evento o di un
+// viaggio fatto con l'app prendono modoEvento, così valgono come uscita carica di più giorni (2.4)
+// e restano fuori dal passo (1.6). Restituisce la lista dalla più recente, come oggi in js/modello.js.
+export function preparaAttivita(grezze, giorni = [], { detti = {}, profilo = {}, oggi = null, esiti = {} } = {}) {
   const risposte = detti && typeof detti === "object" ? detti : {};
+  const perGiornoEsiti = esiti && typeof esiti === "object" ? esiti : {};
   const lette = (Array.isArray(grezze) ? grezze : [])
     .map((a) => normalizzaAttivita(a, a && a.id !== undefined && a.id !== null ? risposte[String(a.id)] : null))
     .filter(Boolean);
+  for (const a of lette) {
+    if (!a.modoEvento && giornoDiViaggio(perGiornoEsiti[a.giorno]) && inBici(a)) {
+      a.modoEvento = true;
+      segnaPasso(a);
+    }
+  }
   const pulite = doppioni(lette);
   const divisore = divisoreSforzo(pulite);
   for (const a of pulite) if (!a.stub) conCarico(a, fonteCarico(a, profilo, divisore));
@@ -551,6 +574,91 @@ export function notteNonArrivaPiu(giorni) {
   const notti = lista.filter((g) => Boolean(g.hrv || g.fc || g.fcSonno || g.sonno));
   if (!notti.length) return false;
   return giorniFra(notti[notti.length - 1].d, lista[lista.length - 1].d) >= DATI.notteMancaGiorni;
+}
+
+// --- Le carte in più del mattino (6.4) ---
+
+// L'ordine delle carte in più. Prima borse e sforzo della lunga di ieri o di oggi, nella stessa
+// carta, poi uno stub che conta, poi lo sforzo di un giro senza sensori, poi «Cosa hai allenato?»
+// per una palestra arrivata dal dispositivo, poi la seduta del piano senza niente registrato.
+const ORDINE_CARTE = ["lunga", "stub", "sforzo", "palestra", "seduta"];
+
+// Lo sforzo si chiede da 30 minuti dopo la fine dell'uscita fino a mezzogiorno del giorno dopo.
+// Dopo resta nella scheda dell'uscita, «a memoria», e non è più una carta. Senza l'ora vale il giorno.
+function sforzoInTempo(carta, oggi, adesso) {
+  const limite = `${piuGiorni(carta.giorno, 1)}T${String(DOMANDE.sforzoFinoAlleOre).padStart(2, "0")}:00`;
+  if (typeof adesso === "string" && minutiDi(adesso) !== null) {
+    const fine = typeof carta.fine === "string" ? minutiDi(carta.fine) : null;
+    if (fine !== null && minutiDi(adesso) < fine + DOMANDE.sforzoDaMinuti) return false;
+    return minutiDi(adesso) < minutiDi(limite);
+  }
+  return giorniFra(carta.giorno, oggi) <= 1;
+}
+
+// Le carte in più di questa apertura (6.4). domande sono le carte possibili, { chiave, tipo, giorno,
+// borse, fine }, con tipo fra quelli di ORDINE_CARTE, giorno quello dell'uscita o della seduta,
+// borse vero se la carta chiede le borse e fine l'ora locale in cui l'uscita è finita. risposte sono
+// le risposte date, per chiave, e anche «nonSo» chiude la carta, così una carta con una risposta non
+// torna più. Le carte senza risposta scadono dopo DOMANDE.scadenzaGiorni giorni. Restituisce al
+// massimo DOMANDE.carteInPiu carte, DOMANDE.carteInPiuConBorse quando una è sulle borse, nell'ordine
+// di 6.4 e, a parità, dalla più recente. adesso, l'ora locale, serve alla finestra dello sforzo.
+export function carteDelMattino(domande, risposte = {}, oggi, adesso = null) {
+  if (typeof oggi !== "string" || !GIORNO.test(oggi)) return [];
+  const date = risposte && typeof risposte === "object" ? risposte : {};
+  const aperte = (Array.isArray(domande) ? domande : [])
+    .filter((c) => c && typeof c.chiave === "string" && ORDINE_CARTE.includes(c.tipo) && typeof c.giorno === "string" && GIORNO.test(c.giorno))
+    .filter((c) => !Object.hasOwn(date, c.chiave) || date[c.chiave] === null || date[c.chiave] === undefined)
+    .filter((c) => c.giorno <= oggi && giorniFra(c.giorno, oggi) <= DOMANDE.scadenzaGiorni)
+    .filter((c) => c.tipo !== "sforzo" || sforzoInTempo(c, oggi, adesso))
+    .sort((a, b) => ORDINE_CARTE.indexOf(a.tipo) - ORDINE_CARTE.indexOf(b.tipo) || (a.giorno < b.giorno ? 1 : a.giorno > b.giorno ? -1 : 0));
+  const conBorse = aperte.slice(0, DOMANDE.carteInPiuConBorse).some((c) => c.borse === true);
+  return aperte.slice(0, conBorse ? DOMANDE.carteInPiuConBorse : DOMANDE.carteInPiu);
+}
+
+// --- Il link per gli iscritti (6.9) ---
+
+// percorso, giorni e partenza dal link «Apri il tuo piano», da un URLSearchParams, da un oggetto o dal
+// testo dopo il punto di domanda. Il percorso deve essere nel catalogo, i giorni fra i suoi minimi e
+// massimi e la partenza una delle sue. Un valore che non torna si ignora, e senza un percorso buono
+// si ignorano anche giorni e partenza. Nel link non c'è mai niente della persona, e gli altri
+// parametri non si leggono. Restituisce { percorso, giorni, partenza, valido }, da salvare in
+// comesto.invito.v1 prima di «Entra con intervals.icu».
+export function leggiInvito(parametri, catalogo = CATALOGO) {
+  let valori = parametri;
+  if (typeof parametri === "string") valori = new URLSearchParams(parametri.replace(/^[?#]/, ""));
+  const prendi = (k) => {
+    const v = valori && typeof valori.get === "function" ? valori.get(k) : valori && typeof valori === "object" ? valori[k] : null;
+    return typeof v === "string" ? v.trim() : typeof v === "number" ? String(v) : null;
+  };
+  const id = prendi("percorso");
+  const percorso = id ? (Array.isArray(catalogo) ? catalogo : []).find((p) => p && p.id === id) || null : null;
+  const giorni = percorso && /^\d{1,2}$/.test(prendi("giorni") || "") ? Number(prendi("giorni")) : null;
+  const partenza = prendi("partenza");
+  return {
+    percorso: percorso ? percorso.id : null,
+    giorni: percorso && giorni !== null && giorni >= percorso.giorniMin && giorni <= percorso.giorniMax ? giorni : null,
+    partenza: percorso && partenza && GIORNO.test(partenza) && Array.isArray(percorso.partenze) && percorso.partenze.includes(partenza) ? partenza : null,
+    valido: Boolean(percorso),
+  };
+}
+
+// I dolori che tornano (3.1), cioè un fastidio o un dolore segnato in almeno 3 mattine delle ultime
+// 2 settimane, oggi compreso. giorni sono i giorni puliti di normalizzaGiorno, con infortunio sulla
+// scala 1-4 di intervals.icu (1 niente, 2 un fastidio, 3 un dolore, 4 un infortunio), oppure quelli
+// letti con injury. Vero o falso.
+export function doloriCheTornano(giorni, oggi) {
+  const D = PIANO.doloriCheTornano;
+  if (typeof oggi !== "string" || !GIORNO.test(oggi.slice(0, 10))) return false;
+  const fino = oggi.slice(0, 10);
+  const dal = piuGiorni(fino, -(D.giorni - 1));
+  const mattine = new Set();
+  for (const g of Array.isArray(giorni) ? giorni : []) {
+    const d = g && (typeof g.d === "string" ? g.d : typeof g.giorno === "string" ? g.giorno : typeof g.id === "string" ? g.id : null);
+    if (!d || d < dal || d > fino) continue;
+    const v = num(g.infortunio) ?? num(g.injury);
+    if (v !== null && v >= D.acciacchiDa) mattine.add(d);
+  }
+  return mattine.size >= D.mattine;
 }
 
 // Le settimane di storia, dalla prima attività a oggi, per la storia corta (6 settimane) e

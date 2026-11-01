@@ -189,6 +189,7 @@ export const PRONTEZZA = congela({
     fattoreLunga: 1.5,            // giorni = T / (1,5 × L_rif) per eccesso, regola 7.11
     settimaneLunga: 6,            // L_rif è la più lunga delle ultime 6 settimane, regola 7.11
     settimaneLRif: 8,             // quando mancano 8 settimane o meno, altrimenti il picco del piano, 2.8
+    giorniCerca: 60,              // fin dove si cercano i giorni consigliati senza un percorso, stima nostra
   },
   // Gli specchi, che non decidono (2.6). Il k senza dati è CARICO.puntiOraSenzaDati.
   specchi: {
@@ -371,8 +372,9 @@ export const PIANO = congela({
   facileBreve: 30,                // nello scarico e nello scarico finale un giro facile dura da 30 minuti, così restano l'80% delle uscite, stima nostra
   disponibilita: { giorni: [1, 3, 5, 6], stella: 5, ore: [4, 6, 8, 10, 12], orePredefinite: 6 },   // martedì, giovedì, sabato e domenica, stella sul sabato, 3.1
   storicoDichiarato: { centri: [1.5, 3, 5, 7, 9], predefinito: 3 },   // h4 senza giri, da «meno di 2» a «più di 8», 3.1, stima nostra
+  storicoSettimane: 4,            // h4 è la media delle ultime 4 settimane, e le 4 settimane vere prima del piano, 3.1
   lungaDichiarata: { quota: 0.45, minimo: 1, massimo: 3 },   // L30 = 0,45 × h4 fra 1 e 3 ore, 3.1, stima nostra, prudente
-  doloriCheTornano: { mattine: 3, giorni: 14 },   // un fastidio o un dolore in 3 mattine delle ultime 2 settimane, 3.1
+  doloriCheTornano: { mattine: 3, giorni: 14, acciacchiDa: 2 },   // un fastidio o un dolore (injury da 2, con l'infortunio) in 3 mattine delle ultime 2 settimane, 3.1
   base: { crescita: 0.075, oreMinime: 1.5 },   // settimane di base, regola 2.6 che dice 5-10%, stima nostra
   passoLunga: { quota: 0.20, minuti: 45, quotaDolori: 0.10, giorniFermi: 7, giorni: 30 },   // il minore fra +20% e +45 minuti sulla più lunga di 30 giorni, regola 2.4
   tettoSettimana: { quota: 0.15, settimane: 3, sottoOre: 3, passoSotto: 0.5, chiavePiu: 1 },   // regola 2.6, stima nostra, prudente, e regola 2.2
@@ -387,11 +389,14 @@ export const PIANO = congela({
     unGiorno: { giorni: 7, fasi: [{ da: 7, a: 4, fattore: 0.60 }, { da: 3, a: 1, fattore: 0.35 }] },   // evento di un giorno, stima nostra
     uscite: 0.8,                  // restano almeno l'80% delle uscite, regola 2.8
     giorniSenzaBici: 3,           // mai più di 2-3 giorni di fila senza bici, salvo il viaggio, regola 2.8
+    settimanaDaGiorni: 4,         // una settimana con almeno 4 giorni nello scarico finale è dello scarico finale, stima nostra
     pieno: { forma: -30, settimane: 3, rossi: 2 },   // con la Forma sotto −30 o più giorni Rosso nelle 2-3 settimane prima, regola 2.8
   },
-  interruzioni: { sottoPrevisto: 0.3, giorni: 7, giorniRidotta: 21, ridotta: 0.75 },   // oltre 21 giorni il piano si rifà, regola 2.9
+  interruzioni: { sottoPrevisto: 0.3, giorni: 7, giorniRidotta: 21, ridotta: 0.75, giorniCerca: 60 },   // oltre 21 giorni il piano si rifà, regola 2.9, i giorni persi si cercano negli ultimi 60, stima nostra
+  avvisoMancanoMinuti: 30,        // le ore che non ci stanno si scrivono da mezz'ora in su, 3.7 passo 8, stima nostra
+  settimanaZeroSotto: 4,          // con meno di 4 giorni fra la −1 e la partenza solo giri facili, senza il richiamo, stima nostra
   crescitaRapida: { in7Giorni: 7, perSettimana: 5, settimane: 3, in7GiorniDa50: 5, perSettimanaDa50: 4, daAnni: 50 },   // punti di Fitness, regola 1.9
-  settimana: { giorniRiposo: 1, quotaFacili: 2 / 3 },   // un giorno senza bici e palestra, regola 8.16, 2 uscite su 3 facili, regola 2.1
+  settimana: { giorniRiposo: 1, riposoDaGiorni: 3, quotaFacili: 2 / 3 },   // un giorno senza bici e palestra nelle settimane da 3 giorni di piano, regola 8.16, 2 uscite su 3 facili, regola 2.1
   // Regole 2.5 e 8.8. Dopo un blocco 3-5 facili, i primi 3 sempre, il quarto e il quinto salvo la media
   // della settimana, che la regola 2.2 vuole anche lì. Dopo un'uscita grande 2 giorni (3 da 50 anni) di
   // riposo o di giro molto facile fino a 60 minuti, la regola 8.8 dice 1-2 e 2-3, stima nostra, prudente.
@@ -439,6 +444,7 @@ export const PIANO = congela({
     familiarizzazioneLunga: 4,    // da 60 anni o senza altri sport oltre alla bici, regola 4.9
     familiarizzazioneLungaDaAnni: 60,   // regola 4.9
     soloFamiliarizzazioneSotto: 8,   // settimane davanti, sotto vale solo la scheda 1, la regola 4.2 dice 6-8, stima nostra, prudente
+    soloFamiliarizzazioneSchemi: ["B"],   // con lo schema B chi non ha mai fatto palestra fa solo la scheda 1, 3.4 e regola 4.2
     rimandaFinoA: 3,              // con 3 settimane o meno la palestra si rimanda a dopo l'evento, 5.1
     pausaPrincipianteGiorni: 182, // chi torna da più di 6 mesi di pausa rifà il percorso dei principianti, regola 4.1
     sedute: { costruzione: 2, mantenimento: 1, mantenimentoDa50: 2, ultime: 1 },   // a settimana, regole 4.2, 4.6 e 4.9
@@ -490,6 +496,7 @@ export const DOMENICA = congela({
   S7: { rossi: 2, gialliORossi: 4 },   // senza il Giallo leggero, regola 8.1
   settimaneCerca: 8,              // per le 4 settimane della norma si guarda fino a 8 settimane prima, saltando quelle leggere, stima nostra
   oreDopoFatiche: 72,             // weekend, prove, blocchi e uscite grandi restano fuori, regola 8.2
+  usciteGrandiGiorni: 14,         // le uscite grandi si cercano nelle ultime 2 settimane, che bastano per la settimana e le 72 ore prima, stima nostra
   settimanaFacile: {
     segnali: 2,                   // regola 8.3
     ore: 0.55,                    // della media delle ultime 3 settimane di carico, regola 8.3 che dice 40-50% in meno
@@ -615,6 +622,7 @@ export const DATI = congela({
   dislivelloZeroOltreKm: 30,      // un giro all'aperto senza dislivello vale per le ore e non per il passo, 6.3
   palestraAbbinamentoOre: 2,      // la stessa seduta dall'app e dall'orologio, 5.6 e 6.3
   soloStrava: { quota: 0.5, giorni: 60 },   // più di metà delle attività di 60 giorni sono stub, 6.4
+  tipiEvento: ["evento", "viaggio"],   // la modalità evento di un evento o di un viaggio fatto con l'app, che vale come uscita carica di più giorni, 2.4 e 4.5
 });
 
 // La serie di carico di Come sto, usato da js/carico.js e da js/modello.js (6.5).
@@ -685,4 +693,5 @@ export const CHIAMATE = congela({
   serverPrimaDiPersone: 1500,     // con OAuth, Verifica C1 e stima nostra, prudente
   sforzoScritto: { minimo: 1, massimo: 10 },   // icu_rpe da 1 a 10, lo 0 non si scrive, 6.6
   scartaCodici: [400, 404, 409, 410, 422],   // risposte che riprovando non cambiano, la scrittura esce dalla coda, stima nostra
+  inInvioMinuti: 2,               // una scrittura segnata «in invio» da meno di 2 minuti non riparte, più di due chiamate da 20 secondi, stima nostra
 });

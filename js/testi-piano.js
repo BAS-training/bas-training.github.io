@@ -5,8 +5,8 @@
 // I grammi dei carboidrati non compaiono, il cibo si dice con il cibo (3.9).
 // Niente DOM, così le prove li compongono con node.
 
-import { dataLunga } from "./formato.js?v=202610312043";
-import { DOMENICA, PIANO } from "./parametri.js?v=202610312043";
+import { dataLunga, formatoDurata } from "./formato.js?v=202610312043";
+import { DOMENICA, PIANO, STIMA } from "./parametri.js?v=202610312043";
 
 function congela(oggetto) {
   for (const valore of Object.values(oggetto)) {
@@ -26,23 +26,16 @@ function utc(iso) {
   return Date.UTC(a, m - 1, g);
 }
 
-// Il nome del giorno della settimana, «sabato».
-export function nomeGiorno(iso) {
+// Il nome del giorno della settimana, «sabato». Un aiuto dei testi, non un testo.
+function nomeGiorno(iso) {
   return NOMI_GIORNI[(new Date(utc(iso)).getUTCDay() + 6) % 7];
 }
 
-// Le durate a parole (7.1). Sotto l'ora in minuti, poi «1 ora e 20» o «3 ore e mezza», a 5 minuti
-// sotto le 2 ore e a 10 sopra, mai decimali. null senza durata.
+// Le durate a parole (7.1), con formatoDurata di js/formato.js, mai sotto il passo più piccolo.
+// null senza durata.
 export function durata(minuti) {
   if (!(minuti > 0)) return null;
-  const passo = minuti < 120 ? 5 : 10;
-  const m = Math.max(5, Math.round(minuti / passo) * passo);
-  if (m < 60) return `${m} minuti`;
-  const ore = Math.floor(m / 60);
-  const resto = m % 60;
-  const base = ore === 1 ? "1 ora" : `${ore} ore`;
-  if (!resto) return base;
-  return resto === 30 ? `${base} e mezza` : `${base} e ${resto}`;
+  return formatoDurata(Math.max(STIMA.arrotondaMinuti.passo, minuti));
 }
 
 const oreInParole = (ore) => durata(ore * 60);
@@ -70,11 +63,6 @@ const NOMI = congela({
   palestra: { nome: "Palestra", conArticolo: "la palestra", f: true },
   tronco: { nome: "Tronco e collo", conArticolo: "tronco e collo", f: false },
 });
-
-export const TIPI = Object.freeze([
-  "riposo", "recupero", "facile", "media", "richiamo", "lunga", "scarico", "controllo", "weekend", "weekendCarico",
-  "T1", "T2", "T3", "prova", "blocco", "carica", "unGiorno", "palestra", "tronco", "dopoEvento", "tappa",
-]);
 
 const ORDINALI = ["primo", "secondo", "terzo"];
 const DI_PIU_GIORNI = new Set(["weekend", "weekendCarico", "T3", "prova"]);
@@ -298,6 +286,8 @@ export const AVVISI = congela({
   interruzioneLunga: "Sei stato fermo più di tre settimane. Rifaccio il piano da quello che fai adesso, e in Pronto rivediamo l'avventura.",
   crescita: "La Fitness è salita in fretta. Questa settimana le ore restano uguali, e per sette giorni niente sforzi al massimo.",
   senzaGiornata: "Prima dimmi quante ore pensi di stare in sella al giorno.",
+  mediaSalta: "Questa settimana il giro con le salite non trova un giorno adatto in settimana. Lo saltiamo, va bene così.",
+  richiamoSalta: "Questa settimana il giro con le accelerazioni non trova un giorno adatto in settimana. Lo saltiamo, va bene così.",
 });
 
 const NOMI_PROVE_SETTIMANA = congela({
@@ -346,8 +336,21 @@ export function fraseSettimana(s) {
 export function fraseMancano(minuti, giorniNo = []) {
   const d = durata(minuti);
   if (!d) return null;
-  const perche = giorniNo.length ? `, perché ${elencoGiorni(giorniNo)} non puoi` : "";
+  const lista = Array.isArray(giorniNo) ? giorniNo.filter(dataValida) : [];
+  const perche = lista.length ? `, perché ${elencoGiorni(lista)} non puoi` : "";
   return `Questa settimana mancano ${d} rispetto al piano${perche}. Va bene così, non si recuperano.`;
+}
+
+const dataValida = (v) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
+
+// Una seduta chiave accorciata dal tetto del giorno scelto in Impostazioni (3.1 e 3.7 passo 8).
+// «Questa settimana mancano 45 minuti rispetto al piano, perché sabato puoi pedalare fino a 3 ore.
+// Va bene così, non si recuperano.»
+export function fraseTettoGiorno(minuti, giorno, tetto) {
+  const d = durata(minuti);
+  const fino = durata(tetto);
+  if (!d || !fino || !dataValida(giorno)) return null;
+  return `Questa settimana mancano ${d} rispetto al piano, perché ${nomeGiorno(giorno)} puoi pedalare fino a ${fino}. Va bene così, non si recuperano.`;
 }
 
 // Il conto alla partenza dell'occhiello (7.4), «Mancano 9 settimane alla partenza».
@@ -460,10 +463,18 @@ export const TESTI_DOMENICA = congela({
   spento: "In viaggio il controllo della domenica è spento.",
 });
 
-// La frase dei due segnali, con quello che li ha fatti scattare.
+// La frase dei due segnali, con quello che li ha fatti scattare. Senza l'elenco restano l'apertura e
+// la chiusura.
 export function testoDueSegnali(segnali = []) {
-  const frasi = segnali.map((s) => FRASI_SEGNALI[s]).filter(Boolean);
+  const frasi = (Array.isArray(segnali) ? segnali : []).map((s) => FRASI_SEGNALI[s]).filter(Boolean);
   return [TESTI_DOMENICA.dueApertura, ...frasi, TESTI_DOMENICA.dueChiusura].join(" ");
 }
 
 export { FRASI_SEGNALI };
+
+// Gli ingressi di esempio dei modelli che vogliono un tipo di seduta o una data, che la prova della
+// scrittura (9.8) non sa costruire da sola. Ogni voce è una lista di argomenti.
+export const ESEMPI = congela({
+  domandaGiorno: [["weekend", "2027-04-11"], ["blocco", "2027-04-12"], ["prova", "2027-04-11"]],
+  fraseTettoGiorno: [[45, "2027-04-10", 180], [80, "2027-04-11", 120]],
+});

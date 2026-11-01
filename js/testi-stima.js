@@ -3,7 +3,7 @@
 // parole, H sempre alla mezz'ora, mai watt, punti o percentuali, e mai il dislivello di lavoro.
 // Niente DOM, così le prove le compongono con node.
 
-import { daIso } from "./formato.js?v=202610312043";
+import { daIso, formatoDurata } from "./formato.js?v=202610312043";
 import { PASSO, STIMA } from "./parametri.js?v=202610312043";
 import { arrotondaMezzora } from "./stima.js?v=202610312043";
 
@@ -51,18 +51,10 @@ function estremo(ore) {
   return Number.isInteger(ore) ? String(ore) : oreInParole(ore);
 }
 
-// Minuti in parole come vuole il 7.1. «25 minuti», «mezz'ora», «1 ora e 20», «3 ore e mezza».
-// null sotto la metà del passo, perché zero minuti non si dicono.
+// Minuti in parole come vuole il 7.1, con formatoDurata di js/formato.js. «25 minuti», «30 minuti»,
+// «1 ora e 20», «3 ore e mezza». null sotto la metà del passo, perché zero minuti non si dicono.
 export function durataInParole(minuti) {
-  const passo = minuti < MINUTI.lungheDa ? MINUTI.passo : MINUTI.passoLunghe;
-  const m = Math.round(minuti / passo) * passo;
-  if (m <= 0) return null;
-  if (m < 60) return m === 30 ? "mezz'ora" : `${m} minuti`;
-  const ore = Math.floor(m / 60);
-  const resto = m % 60;
-  const base = ore === 1 ? "1 ora" : `${ore} ore`;
-  if (resto === 0) return base;
-  return resto === 30 ? `${base} e mezza` : `${base} e ${resto}`;
+  return typeof minuti === "number" && minuti >= MINUTI.passo / 2 ? formatoDurata(minuti) : null;
 }
 
 const chili = (kg) => (Number.isInteger(kg) ? String(kg) : kg.toFixed(1).replace(".", ","));
@@ -114,9 +106,11 @@ export function fraseGiornoInPiu(stima) {
   return a ? `Con un giorno in più la giornata scende a circa ${oreInParole(arrotondaMezzora(a.H))}.` : null;
 }
 
+// La frase delle borse di 1.11, l'unica che dice la mezz'ora a parole, «circa mezz'ora in più».
 export function fraseBorse(stima) {
   const a = avviso(stima, "borse");
-  const quanto = a ? durataInParole(a.ore * 60) : null;
+  const durata = a ? durataInParole(a.ore * 60) : null;
+  const quanto = durata === formatoDurata(30) ? "mezz'ora" : durata;
   if (!quanto) return null;
   return `Con ${chili(a.kg)} kg di borse la giornata dura circa ${quanto} in più. In salita i chili pesano, in discesa non restituiscono niente.`;
 }
@@ -142,6 +136,19 @@ export function fraseFonte(stima) {
 export function scelteOreEbike() {
   return STIMA.oreEbike.map(oreInParole);
 }
+
+// Gli ingressi di esempio dei modelli che vogliono una stima, che la prova della scrittura (9.8) non
+// sa costruire da sola. Ogni voce è una lista di argomenti.
+export const ESEMPI = Object.freeze({
+  fraseBorse: [[{ avvisi: [{ tipo: "borse", kg: 8, ore: 0.5 }] }], [{ avvisi: [{ tipo: "borse", kg: 12.5, ore: 1.2 }] }]],
+  fraseGiornoInPiu: [[{ avvisi: [{ tipo: "giornoInPiu", giorni: 5, H: 7.6 }] }]],
+  fraseFonte: [
+    [{ H: 7.5, fonte: { tipo: "giri", giri: 9 } }], [{ H: 7.5, fonte: { tipo: "ftp" } }], [{ H: 7.5, fonte: { tipo: "media" } }],
+    [{ H: 7.5, fonte: { tipo: "nessuna" } }], [{ H: 7.5, fonte: { tipo: "uscitaCarica", uscite: 2 } }],
+    [{ H: 7.5, fonte: { tipo: "uscitaCarica", uscite: 1, data: "2027-04-12" } }], [{ H: 7.5, fonte: { tipo: "viaggioCarico", data: "2027-04-08" } }],
+    [{ H: 7.5, fonte: { tipo: "ebike" } }],
+  ],
+});
 
 // Tutte le righe della stima, nell'ordine della pagina. Con la e-bike senza risposta, la domanda.
 export function righeStima(stima) {

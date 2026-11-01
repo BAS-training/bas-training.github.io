@@ -279,12 +279,16 @@ export function potenzaDaGiri(uscite, profilo = {}, oggi = oggiIso()) {
   return null;
 }
 
+// La risposta sulle borse di un'uscita. Un giro di un evento fatto con l'app, senza risposta, vale
+// «come all'evento», perché l'evento vale come uscita carica di più giorni (1.7 e 2.4).
+const borseDi = (u) => u.borse ?? (u.modoEvento === true ? "evento" : null);
+
 // Le uscite cariche di almeno 3 ore degli ultimi 365 giorni, unite per giorno, con le ore vere e
 // quelle previste senza borse alla potenza di oggi (1.7).
 function giorniCarichi(usciteCariche, ciclista, p, oggi) {
   const perGiorno = new Map();
   for (const u of Array.isArray(usciteCariche) ? usciteCariche : []) {
-    if (!u || (u.borse !== "evento" && u.borse !== "parte")) continue;   // «Sì, come all'evento» e «Sì, in parte»
+    if (!u || (borseDi(u) !== "evento" && borseDi(u) !== "parte")) continue;   // «Sì, come all'evento» e «Sì, in parte»
     const giorno = giornoDi(u);
     const fondo = Object.hasOwn(PASSO.tipi, tipoDi(u) || "") ? PASSO.tipi[tipoDi(u)] : null;
     if (!giorno || !fondo || u.rulli || u.eBike || !(u.secondi > 0) || !(u.metri > 0)) continue;
@@ -295,7 +299,7 @@ function giorniCarichi(usciteCariche, ciclista, p, oggi) {
     const g = perGiorno.get(giorno) || { giorno, ore: 0, previste: 0, evento: false };
     g.ore += u.secondi / ORA;
     g.previste += oreGiro(giro, p, ciclista);
-    g.evento = g.evento || u.borse === "evento";
+    g.evento = g.evento || borseDi(u) === "evento";
     perGiorno.set(giorno, g);
   }
   return [...perGiorno.values()].filter((g) => g.ore >= BORSE.oreMinime).sort((a, b) => (a.giorno < b.giorno ? -1 : 1));
@@ -454,7 +458,10 @@ const MOLTIPLICATORE = STIMA.punti.moltiplicatori;
 // ore senza arrotondare, e in mezzore arrotondati per lo schermo. Mai watt a schermo.
 export function stimaH({ percorso, giorni, profilo = {}, atleta = null, uscite = [], prove = null, oggi = oggiIso() } = {}) {
   if (!percorso) return null;
-  const G = num(giorni) && giorni >= 1 ? giorni : (num(percorso.giorni) ? percorso.giorni : 1);
+  // Senza i giorni scelti valgono quelli dell'obiettivo libero, poi i primi giorni tipici del
+  // catalogo, poi i giorni minimi, mai tutto il percorso in un giorno (1.1 e 1.12).
+  const tipici = Array.isArray(percorso.giorniTipici) ? percorso.giorniTipici.find((g) => num(g) && g >= 1) : null;
+  const G = [giorni, percorso.giorni, tipici, percorso.giorniMin].find((g) => num(g) && g >= 1) ?? 1;
   const lista = Array.isArray(uscite) ? uscite : [];
   const m = percorso.modello || {};
   const avvisi = [];
@@ -469,7 +476,7 @@ export function stimaH({ percorso, giorni, profilo = {}, atleta = null, uscite =
   if (percorso.libero && !percorso.modello) return oreDette(percorso.ore, G, percorso, { tipo: "scelta" }, avvisi);
 
   const potenza = potenzaGiornata({ profilo, atleta, uscite: lista, oggi });
-  const cariche = Array.isArray(prove) ? prove : lista.filter((u) => u && (u.borse === "evento" || u.borse === "parte"));
+  const cariche = Array.isArray(prove) ? prove : lista.filter((u) => u && (borseDi(u) === "evento" || borseDi(u) === "parte"));
   // Le borse dell'avventura. Un obiettivo libero senza borse non ne ha mai, e il test di viaggio
   // cambia le borse solo dove l'evento le porta (1.3).
   const kgTest = num(profilo.borseKg) || !(m.borseKg > 0) ? null : borseDelTest(cariche);
