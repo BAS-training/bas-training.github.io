@@ -408,12 +408,15 @@ function inEbike(percorso, profilo, uscite) {
 }
 
 // Le borse dell'ultimo test di viaggio con i chili detti, se la persona non li ha scritti (1.3).
+// js/dati.js mette i chili detti in kg.
+const chiliDi = (u) => u.borseKg ?? u.chili ?? u.kg;
+
 function borseDelTest(cariche) {
   const test = (Array.isArray(cariche) ? cariche : [])
-    .filter((u) => u && u.borse === "evento" && u.secondi >= BORSE.oreMinime * ORA && num(u.borseKg ?? u.chili))
+    .filter((u) => u && u.borse === "evento" && u.secondi >= BORSE.oreMinime * ORA && num(chiliDi(u)))
     .sort((a, b) => ((giornoDi(a) || "") < (giornoDi(b) || "") ? -1 : 1));
   const ultimo = test[test.length - 1];
-  return ultimo ? ultimo.borseKg ?? ultimo.chili : null;
+  return ultimo ? chiliDi(ultimo) : null;
 }
 
 function strada(percorso, G) {

@@ -143,6 +143,8 @@ export const PRONTEZZA = congela({
   bloccoGiorni: 3,                // regola 3.8
   giorniProvaFinita: 21,          // l'ultimo test pieno finisce almeno 21 giorni prima, dopo conta con la nota «fatta tardi», regola 6.7
   doppioUso: { giorni: 3, daGiorni: 21, aGiorni: 42 },   // 3 giorni carichi finiti fra 21 e 42 giorni prima valgono blocco e prova generale, 2.4, stima nostra
+  // Le settimane −k. Una prova vale se comincia dalla sua finestra in poi, fino alla partenza, e finita
+  // negli ultimi 21 giorni conta con la nota «fatta tardi» (2.4). La fine dice dove la mette il piano.
   finestre: {
     volume: { da: -10, a: -3 },   // otto settimane con gli scarichi, regola 7.7
     lunga: { da: -8, a: -3 },     // 1 giorno e 2-5 giorni, regola 7.8
@@ -151,6 +153,24 @@ export const PRONTEZZA = congela({
     T2: { da: -10, a: -3 },       // regole 6.7 e 6.8
     T3: { da: -10, a: -1 },       // fino alla partenza, entro 21 giorni con la nota «fatta tardi», 2.4
     blocco: { da: -9, a: -4 },    // regola 6.8
+    unGiorno: { da: -10, a: -3 }, // la prova di un giorno con le borse, come l'uscita lunga carica, stima nostra, prudente
+  },
+  // I percorsi corti dello stesso evento, dal più lungo (2.8). Un percorso che non c'è prende quelli
+  // dello stesso evento con meno km.
+  percorsiCorti: {
+    "tt-originale": ["tt-newbie"],
+    "tt-originale-detour": ["tt-originale", "tt-newbie-detour", "tt-newbie"],
+    "tt-newbie-detour": ["tt-newbie"],
+    "tg-lungo": ["tg-corto"],
+    "tg-medio": ["tg-corto"],
+    "tge-is-classic": ["tge-is-express"],
+    "ur-pa-lungo": ["ur-pa-corto"],
+    "ur-vds-lungo": ["ur-vds-corto"],
+    "ur-fc-lungo": ["ur-fc-corto"],
+    "nc4k-rovereto": ["nc4k-berlino"],
+    "ffp-completo": ["ffp-puma", "ffp-guanaco", "ffp-huemul"],
+    "ffp-puma": ["ffp-guanaco", "ffp-huemul"],
+    "ffp-guanaco": ["ffp-huemul"],
   },
   continuitaGiorni: 56,           // il buco più lungo fra il giorno −56 e il −1, regola 2.9
   pilastri: {
@@ -159,7 +179,10 @@ export const PRONTEZZA = congela({
     continuita: { difetto1Da: 21, difetto2Da: 28 },   // giorni di fila senza bici, regola 2.9
   },
   verdetto: { settimaneMinime: 4, quasiPronto: 1, pocoPronto: 2 },   // settimane con dati su 8, somme dei difetti, 2.5, stima nostra
-  fiducia: { alta: 0.9, media: 0.7, settimaneMinime: 6, borseDaOre: 3 },   // quote delle ore note, settimane di dati, 2.5, stima nostra
+  // Quote delle ore note, settimane di dati, 2.5, stima nostra. Con il 70% esatto la fiducia è bassa,
+  // come vuole la prova dei 6 giri da Strava di 9.3. Un giro senza durata vale la mediana degli altri,
+  // e un'ora senza nessun giro con la durata, solo per la quota.
+  fiducia: { alta: 0.9, media: 0.7, settimaneMinime: 6, borseDaOre: 3, oreSenzaDurata: 1 },
   giorniConsigliati: {
     tettoH: 10,                   // ore al giorno di buon senso, stima nostra
     tettoHDaUndici: 12,           // per 11 giorni e più, stima nostra
@@ -188,6 +211,9 @@ export const PRONTEZZA = congela({
     domenicheDiFila: 2,           // due domeniche di fila e il piano si rifà, 3.12
     settimaneConfronto: 4,        // prima della −10 le ultime 4 settimane, 2.7
     giorniLunga: 30,              // la lunga vera degli ultimi 30 giorni, 2.7
+    // I giorni delle sedute chiave che il piano dà senza data, 0 = lunedì. Lunga e prove di un giorno
+    // sul giorno con la stella, weekend e prova generale sabato e domenica, il blocco da venerdì, 3.7.
+    giorniChiave: { unGiorno: [5], dueGiorni: [5, 6], blocco: [4, 5, 6] },
   },
 });
 

@@ -10,6 +10,7 @@ import {
 } from "../js/stima.js";
 import { CATALOGO, trovaPercorso } from "../js/catalogo.js";
 import { STIMA, PASSO } from "../js/parametri.js";
+import { preparaAttivita } from "../js/dati.js";
 import {
   righeStima, fraseGiornata, fraseFonte, fraseBorse, fraseGiornoInPiu, fraseGiornataNormale,
   migliaia, oreInParole, durataInParole, scelteOreEbike, EBIKE, DA_DOVE_VENGONO, IN_CALENDARIO, PASSO_GIRI,
@@ -296,6 +297,20 @@ test("dopo il primo test di viaggio valgono le borse dette nel test, se il profi
   assert.equal(conTest.avvisi.find((a) => a.tipo === "borse").kg, 12);
   const scritte = stimaH({ percorso, giorni: 4, prove: [test1], profilo: { borseKg: 5 }, oggi: OGGI });
   assert.equal(scritte.avvisi.find((a) => a.tipo === "borse").kg, 5);
+});
+
+test("i chili detti nel test arrivano anche dalle attività di js/dati.js, nel campo kg", () => {
+  // Il test di viaggio di Paolo, letto da intervals.icu con le etichette di Come sto.
+  const grezza = {
+    id: "p1", start_date_local: `${giornoFa(40)}T08:00:00`, type: "GravelRide", source: "WAHOO",
+    moving_time: 6.5 * 3600, elapsed_time: 7 * 3600, distance: 70000, total_elevation_gain: 1000,
+    tags: ["comesto-borse-evento", "comesto-kg-12"],
+  };
+  const [test1] = preparaAttivita([grezza], [], { oggi: OGGI });
+  assert.deepEqual([test1.borse, test1.kg], ["evento", 12]);
+  const s = stimaH({ percorso: trovaPercorso("tt-originale"), giorni: 4, uscite: [test1], profilo: {}, oggi: OGGI });
+  assert.ok(s.fattore > 1, "il test è più lento del modello senza borse");
+  assert.equal(s.avvisi.find((a) => a.tipo === "borse").kg, 12, "i chili del test, non gli 8 del catalogo");
 });
 
 test("con la e-bike nessuna H, e la domanda delle ore", () => {
