@@ -171,7 +171,8 @@ export const NOTE = {
   ascolta: "Le notti sono buone, ma tu non ti senti al meglio. Ascolta anche te stesso.",
   // Le due note stanno sulla carta, sopra ogni altra riga, e la sigla si spiega qui la prima volta (7.1).
   caloAtteso: "L'HRV, la variabilità del battito, è scesa dopo l'uscita lunga di ieri. È normale e non conta.",
-  hrvAlta: "L'HRV, la variabilità del battito, è sopra il tuo solito. Non è un premio, a volte arriva con la stanchezza o prima di un raffreddore.",
+  // Vale per la media delle ultime 7 notti, che può essere alta anche dopo una notte bassa.
+  hrvAlta: "Negli ultimi sette giorni l'HRV, la variabilità del battito, è sopra il tuo solito. Non è un premio, a volte arriva con la stanchezza o prima di un raffreddore.",
   senzaNotte: "La notte non arriva da nessun dispositivo. Oggi decidono le tue risposte e il carico.",
 };
 
@@ -318,7 +319,7 @@ export const GUARDIA = {
 export const MESSAGGI = {
   sonno: "Se hai sonno, oggi evita il traffico e i percorsi tecnici.",
   ultimiGiorni: "Negli ultimi giorni lo sforzo non porta niente. Dormi tanto, anche un pisolino.",
-  sopraSolito: "L'HRV è sopra il tuo solito.",
+  sopraSolito: "Negli ultimi sette giorni l'HRV è sopra il tuo solito.",
   insolita: "Stanotte la lettura della variabilità del battito è insolita. Controlla i dati del tuo dispositivo.",
   notteNonArrivata: "Stanotte non è ancora arrivata. Se hai un orologio, apri la sua app per sincronizzarlo, poi premi Aggiorna.",
   dispositivo: "Hai cambiato orologio o anello? Se sì, per due settimane imparo di nuovo le tue notti.",

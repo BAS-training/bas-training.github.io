@@ -1,40 +1,66 @@
-// La pagina principale (7.4). Una carta sola con il semaforo di oggi, poi le domande del mattino,
-// il tasto «Sto male», la riga «Ieri sera…», al massimo una carta in più, il «Perché» e, chiusi in
-// fondo, i numeri del giorno. In viaggio la carta e le domande sono quelle di 4.5 e 7.10.
-// L'esito arriva già calcolato da js/app.js (ctx.esito), con lo stato del giorno (ctx.giorno).
+// La pagina principale (7.4). In alto la carta di oggi, cioè cosa fare, quanto e perché, con il semaforo
+// che la aggiusta. Sotto, in quest'ordine, le domande del mattino, il tasto «Sto male», la riga «Ieri
+// sera…», al massimo una carta in più (due quando una è sulle borse, 6.4), il controllo della domenica
+// (7.9), i messaggi di una volta sola, il «Perché» e il collegamento alla Guida. Le sei tessere dei
+// numeri stanno nella pagina Numeri (7.2). In viaggio la carta e le domande sono quelle di 4.5 e 7.10.
+// Tutto arriva già calcolato da js/app.js e js/motore.js, il contratto è in cima a js/motore.js.
 
 import { h, icona } from "../dom.js?v=202610312043";
-import { numero, segno, dataLunga, formatoDurata } from "../formato.js?v=202610312043";
-import { zonaFreschezza, ESITO_VOCE } from "../semaforo.js?v=202610312043";
-import { nomeTipo } from "../modello.js?v=202610312043";
-import { SEMAFORO } from "../parametri.js?v=202610312043";
+import { dataLunga, formatoDurata, formatoOra, numero } from "../formato.js?v=202610312043";
+import { inBici } from "../dati.js?v=202610312043";
+import { DOMANDE } from "../parametri.js?v=202610312043";
 import {
-  DOMANDE_MATTINO, OGGI, MATTINO, STO_MALE, CAUSE, CONTROLLO, VIAGGIO, MESSAGGI, FIDUCIA, TETTI, CAMBIO_DISPOSITIVO,
+  LIVELLI, ESITO_VOCE, DOMANDE_MATTINO, OGGI, MATTINO, STO_MALE, CAUSE, CONTROLLO, VIAGGIO, MESSAGGI, FIDUCIA, TETTI,
+  CAMBIO_DISPOSITIVO,
 } from "../testi.js?v=202610312043";
-import { SPIEGAZIONI, NUMERI_OGGI } from "../testi-numeri.js?v=202610312043";
-import { sparkline } from "../grafici.js?v=202610312043";
-import { pillola, spiegazione, bannerDemo, luceSemaforo } from "./comuni.js?v=202610312043";
+import {
+  saluto, AL_EVENTO, contoPartenza, CARTA, CARTE, titoloUscita, titoloPalestra, titoloStub, arrivaDa, sedutaDiIeri,
+  lHaiFatto, DOMENICA_OGGI, UNA_VOLTA,
+} from "../testi-oggi.js?v=202610312043";
+import { TASTI, STOMACO, testoSposta, testoSalta, testoPalestraSposta } from "../testi-piano.js?v=202610312043";
+import { TESTI_DATI } from "../testi-dati.js?v=202610312043";
+import { PROMEMORIA } from "../testi-app.js?v=202610312043";
+import { bannerDemo, luceSemaforo } from "./comuni.js?v=202610312043";
 
-// Da due settimane in su il conto alla partenza si dice in settimane (7.4), stima nostra.
-const GIORNI_IN_SETTIMANE = 14;
 // La sera, per «Ce l'hai fatta» dell'ultimo giorno di viaggio, dalla stessa ora del saluto.
 const ORA_SERA = 18;
+// Le ultime 6 settimane, per sapere se i giri arrivano da soli e quindi se serve «Fatto» (7.4).
+const GIORNI_DISPOSITIVO = 42;
+// Con i soli sintomi sopra il collo al massimo un'ora facile (4.4).
+const COLLO_MINUTI = 60;
+// Le scelte dei chili delle borse (6.4), a cui si aggiunge il peso dell'obiettivo.
+const KG_SCELTE = [5, 8, 12, 16];
+// Le prove generali del piano, per la riga della posizione dopo la prova (7.5).
+const PROVA_GENERALE = /^(T3|prova)$/;
+const ORA = 3600;
+const GIORNO_MS = 86400000;
 
-function saluto(nome) {
-  const ora = new Date().getHours();
-  const parola = ora < 12 ? "Buongiorno" : ora < ORA_SERA ? "Buon pomeriggio" : "Buonasera";
-  return nome ? `${parola}, ${nome}` : parola;
+const lista = (v) => (Array.isArray(v) ? v : []);
+const oggetto = (v) => (v && typeof v === "object" && !Array.isArray(v) ? v : null);
+const num = (v) => typeof v === "number" && Number.isFinite(v);
+const unici = (testi) => testi.filter((t, k) => typeof t === "string" && t && testi.indexOf(t) === k);
+
+function utc(iso) {
+  const [a, m, g] = iso.slice(0, 10).split("-").map(Number);
+  return Date.UTC(a, m - 1, g);
 }
+const piuGiorni = (iso, n) => new Date(utc(iso) + n * GIORNO_MS).toISOString().slice(0, 10);
+const lunediDi = (iso) => piuGiorni(iso, -((new Date(utc(iso)).getUTCDay() + 6) % 7));
+
+// I minuti di un'ora locale come «2026-11-01T08:30», solo per fare differenze. null senza l'ora.
+function minutiDi(locale) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})\D(\d{2})/.exec(typeof locale === "string" ? locale : "");
+  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) / 60000 : null;
+}
+
+const ultimoGiorno = (m) => m.giorni[m.giorni.length - 1];
+const diarioDiOggi = (m) => (m.diario && m.diario[m.oggi]) || {};
 
 const SINTOMI_MALATTIA = new Set(STO_MALE.gruppi.filter((x) => x.id === "malattia").flatMap((x) => x.caselle.map((c) => c.id)));
 
 // Il semaforo a punti dà a ogni voce un pallino verde, giallo o grigio. Il grigio usa lo stile neutro.
 const COLORE_PALLINO = { verde: "verde", giallo: "giallo", grigio: "neutro" };
 const colorePallino = (v) => COLORE_PALLINO[v.pallino] || "neutro";
-
-const oggi = (m) => m.giorni[m.giorni.length - 1];
-const diarioDiOggi = (m) => (m.diario && m.diario[m.oggi]) || {};
-const lista = (v) => (Array.isArray(v) ? v : []);
 
 // Il gruppo di «Sto male» di ogni casella, per mostrare l'esito sotto la casella giusta.
 const GRUPPO_DI = new Map(STO_MALE.gruppi.flatMap((x) => x.caselle.map((c) => [c.id, x.id])));
@@ -52,48 +78,97 @@ function tastoMedico(ctx, id) {
 }
 
 function rispostePronte(m, g) {
-  const o = oggi(m);
+  const o = ultimoGiorno(m);
   if (g.evento) return Boolean(o.fatica && diarioDiOggi(m).viaggio);
   return Boolean(o.fatica && o.dolori && o.infortunio);
 }
 
-function occhiello(g) {
-  if (g.evento) return VIAGGIO.giorno(g.evento.giorno, g.evento.giorni);
-  const n = g.giorniPartenza;
-  if (n === null || n === undefined) return OGGI.occhiello;
-  if (n === 0) return OGGI.siParte;
-  if (n >= GIORNI_IN_SETTIMANE) return OGGI.settimane(Math.floor(n / 7));
-  return OGGI.giorni(n);
-}
-
-// Una scelta a un tocco, come bottone.
-function bottoni(scelte, scegli, classe = "bottone bottone-secondario") {
+// Una scelta a un tocco, come bottone. Con prefisso ogni bottone ha un id, così il fuoco non si perde.
+function bottoni(scelte, scegli, classe = "bottone bottone-secondario", prefisso = null) {
   return h("div", { class: "riga-bottoni" }, scelte.map((s) => h("button", {
-    class: classe, type: "button", on: { click: () => scegli(s.id) },
+    class: classe, type: "button", id: prefisso ? `${prefisso}-${s.id}` : null, on: { click: () => scegli(s.id) },
   }, s.testo)));
 }
 
-// --- la carta di oggi ---
+// --- la carta di oggi (7.4) ---
 
-// La domanda di controllo e quella sulla pedalata compaiono prima del livello (4.4). «Rispondo dopo»
-// mostra il livello per questa apertura, e la domanda torna alla prossima.
-function cartaControllo(ctx, domanda) {
-  const g = ctx.giorno;
-  const scegli = (id) => {
-    if (domanda.chiave === "pedalata") { ctx.azioni.diario({ pedalata: id }); return; }
-    if (id === "motivo") { ctx.ui.cause = true; ctx.ui.versoCause = true; }
-    ctx.azioni.diario({ controllo: id });
-  };
-  return h("section", { class: ["semaforo", "semaforo-neutro", "semaforo-controllo"], "aria-labelledby": "semaforo-titolo" },
-    h("div", { class: "semaforo-testa" },
-      luceSemaforo("neutro"),
-      h("div", { class: "semaforo-testo" },
-        h("p", { class: "occhiello" }, occhiello(g)),
-        h("h2", { id: "semaforo-titolo" }, CONTROLLO.titolo),
-        h("p", { class: "semaforo-consiglio" }, CONTROLLO[domanda.chiave].testo),
-        domanda.chiave === "pedalata" ? h("p", { class: "piccolo" }, CONTROLLO.pedalataDove) : null)),
-    bottoni(domanda.scelte, scegli, "bottone"),
-    h("p", {}, h("button", { class: "collegamento", type: "button", on: { click: () => ctx.azioni.ui("rispondoDopo", true) } }, CONTROLLO.dopo)));
+// Il conto alla partenza dell'occhiello, con il nome dell'evento quando si sa.
+export function contoDellaCarta(ctx) {
+  const n = ctx.giorno ? ctx.giorno.giorniPartenza : null;
+  if (!Number.isInteger(n)) return null;
+  const ob = oggetto(ctx.obiettivo);
+  const al = ob && ob.tipo === "evento" && ob.percorso ? AL_EVENTO[ob.percorso.eventoId] || null : null;
+  return contoPartenza(n, al);
+}
+
+// L'occhiello della carta. Con la seduta, la parola del colore e il conto alla partenza, «Via libera ·
+// Mancano 9 settimane al Tuscany Trail». La parola non si ripete quando il titolo comincia già con lei,
+// come «Giornata tranquilla, giro facile di 1 ora». Senza seduta il titolo è già il colore. In viaggio
+// il giorno del viaggio (7.10).
+export function occhielloCarta(ctx, titolo = null, conSeduta = false) {
+  const g = ctx.giorno || {};
+  if (g.evento) return VIAGGIO.giorno(g.evento.giorno, g.evento.giorni);
+  const conto = contoDellaCarta(ctx);
+  if (!conSeduta) return conto || OGGI.occhiello;
+  const parola = (LIVELLI[ctx.esito && ctx.esito.livello] || LIVELLI.nessuno).titolo;
+  const ripete = typeof titolo === "string" && titolo.toLowerCase().startsWith(parola.toLowerCase());
+  return [ripete ? null : parola, conto].filter(Boolean).join(" · ") || OGGI.occhiello;
+}
+
+// La seduta del piano da mostrare nella carta, oppure null. Con uno stop, in un viaggio o in un evento
+// vale il semaforo (4.4 e 4.5). Finché si aspetta il medico la carta non propone mai un giro (4.9), e con
+// i soli sintomi sopra il collo non più di un'ora facile (4.4), quindi anche lì vale il semaforo.
+export function sedutaDaMostrare(ctx) {
+  const s = oggetto(ctx.seduta);
+  const e = ctx.esito || {};
+  const g = ctx.giorno || {};
+  if (!s || e.stop || s.tipo === "stop") return null;
+  if (g.evento && (g.evento.tipo === "evento" || g.evento.tipo === "viaggio")) return null;
+  if (ctx.modello && aspettaIlMedico(ctx.modello, g)) return null;
+  const collo = lista(e.tetti).some((t) => t && t.chiave === "sopraIlCollo");
+  const x = oggetto(s.seduta);
+  if (collo && x && num(x.minuti) && x.minuti > COLLO_MINUTI && lista(s.tasti).includes("fatto")) return null;
+  return s;
+}
+
+// Il giro di oggi è già arrivato, da un dispositivo, da Strava o da «Fatto».
+export function giroDiOggi(ctx) {
+  return lista(ctx.attivita).some((a) => a && a.giorno === ctx.oggi && inBici(a));
+}
+
+// «Fatto» solo se all'app non arriverà il dato da un dispositivo (7.4). I giri arrivano da soli quando
+// nelle ultime 6 settimane almeno un giro in bici è arrivato da un dispositivo o da Strava, cioè non a mano.
+export function serveFatto(ctx) {
+  if (!ctx.oggi || giroDiOggi(ctx)) return false;
+  const dal = piuGiorni(ctx.oggi, -GIORNI_DISPOSITIVO);
+  return !lista(ctx.attivita).some((a) => a && inBici(a) && !a.manuale && a.giorno >= dal);
+}
+
+function palestraDiOggi(ctx) {
+  return lista(ctx.palestra && ctx.palestra.registro).some((r) => r && r.data === ctx.oggi);
+}
+
+// Le sedute che oggi «Oggi non posso» ha spostato, con le frasi di 3.10. Restano nel piano salvato.
+export function righeSpostate(ctx) {
+  const p = oggetto(ctx.piano);
+  if (!p || !ctx.oggi) return [];
+  const lunedi = lunediDi(ctx.oggi);
+  return lista(p.spostamenti).filter((x) => x && x.data === ctx.oggi && x.da === ctx.oggi && x.motivo === "nonPosso").map((x) => {
+    if (x.tipo === "palestra") return x.a ? testoPalestraSposta(x.da, x.a) : testoSalta(x.tipo);
+    return x.a ? testoSposta(x.tipo, x.a, lunediDi(x.a) === lunedi) : testoSalta(x.tipo);
+  });
+}
+
+// Le righe sotto il come. Quelle della seduta, quelle del semaforo, la palestra della sera, gli
+// spostamenti di oggi e la carta della sera del primo giorno, senza ripetere niente.
+export function righeDellaCarta(ctx, s) {
+  const e = ctx.esito || {};
+  const righe = [...lista(s.righe), ...lista(e.aggiunte)];
+  const x = oggetto(s.seduta);
+  if (s.palestra && x && x.tipo !== "palestra" && lista(s.tasti).includes("scheda")) righe.push(CARTA.anchePalestra);
+  righe.push(...righeSpostate(ctx));
+  if (s.sera) righe.push(s.sera);
+  return unici(righe).filter((t) => t !== s.come);
 }
 
 function finitoIlViaggio(g) {
@@ -108,18 +183,23 @@ function cartaSemaforo(ctx) {
   const e = ctx.esito;
   const g = ctx.giorno;
   const inViaggio = Boolean(g.evento);
+  const delDiario = inViaggio && (g.evento.tipo === "evento" || g.evento.tipo === "viaggio");
   const dia = diarioDiOggi(m);
+  const s = sedutaDaMostrare(ctx);
+  const titolo = s ? s.titolo : e.titolo;
   // In viaggio i consigli di una riga valgono se la bici va avanti, non con il Rosso.
-  const consigliViaggio = e.viaggio && e.livello !== "rosso" ? e.viaggio.consigli : [];
-  const consiglio = [e.consiglio, ...e.aggiunte, ...consigliViaggio]
-    .filter((t, k, tutte) => t && tutte.indexOf(t) === k).join(" ");
+  const consigliViaggio = e.viaggio && e.livello !== "rosso" ? lista(e.viaggio.consigli) : [];
+  const come = s ? s.come : unici([e.consiglio, ...lista(e.aggiunte), ...consigliViaggio]).join(" ");
+  const righe = s ? righeDellaCarta(ctx, s) : [];
   // Le frasi che restano, una sola nota e gli inviti dal medico, senza ripetere il consiglio.
-  const note = [inViaggio ? null : e.nota, ...e.medico.map((x) => x.testo)]
-    .filter((t, k, tutte) => t && t !== e.consiglio && tutte.indexOf(t) === k);
+  const note = unici([inViaggio ? null : e.nota, ...lista(e.medico).map((x) => x.testo)]).filter((t) => t !== e.consiglio);
   const fermo = e.stop === "cuore" || e.stop === "malattia";
   // Dal giorno dopo lo stop per malattia, se oggi non c'è un sintomo nuovo, si chiede se è passata (4.4).
   const malato = g.malattia && g.malattia.inCorso && g.malattia.dal < m.oggi
     && !lista(dia.stoMale).some((id) => SINTOMI_MALATTIA.has(id)) && dia.controllo !== "si";
+  const tastiSeduta = s ? lista(s.tasti) : [];
+  const fatto = tastiSeduta.includes("fatto") && giroDiOggi(ctx);
+  const palestraSegnata = Boolean(s && s.palestra) && palestraDiOggi(ctx);
 
   const tasti = [];
   if (malato) {
@@ -127,27 +207,61 @@ function cartaSemaforo(ctx) {
       on: { click: () => ctx.azioni.diario({ senzaFebbre: true }) } }, STO_MALE.senzaFebbre));
   }
   if (aspettaIlMedico(m, g)) tasti.push(tastoMedico(ctx, "medico-sentito"));
-  if (inViaggio && !g.arrivatoOggi) {
+  if (tastiSeduta.includes("scheda") && ctx.palestra && ctx.palestra.oggi) {
+    const sola = oggetto(s.seduta) && s.seduta.tipo === "palestra";
+    tasti.push(h("a", { class: sola ? "bottone" : "bottone bottone-secondario", href: "#palestra", id: "apri-scheda" }, TASTI.scheda));
+  }
+  if (tastiSeduta.includes("fatto") && !fatto && serveFatto(ctx)) {
+    tasti.push(h("button", { class: "bottone", type: "button", id: "fatto", on: { click: () => ctx.azioni.fatto() } }, TASTI.fatto));
+  }
+  if (tastiSeduta.includes("nonPosso") && !fatto) {
+    tasti.push(h("button", { class: "bottone bottone-secondario", type: "button", id: "oggi-non-posso",
+      on: { click: () => ctx.azioni.oggiNonPosso() } }, TASTI.nonPosso));
+  }
+  if (delDiario && !g.arrivatoOggi) {
     const appenaPartito = g.viaggio && g.viaggio.inizio === m.oggi;
     tasti.push(h("button", { class: "bottone bottone-secondario", type: "button", id: "arrivato",
       on: { click: () => ctx.azioni.arrivato() } }, appenaPartito ? VIAGGIO.nonInViaggio : VIAGGIO.arrivato));
   }
 
-  return h("section", { class: ["semaforo", `semaforo-${e.colore}`], "aria-labelledby": "semaforo-titolo" },
+  return h("section", { class: ["semaforo", `semaforo-${e.colore}`], id: "carta-oggi", "aria-labelledby": "semaforo-titolo" },
     ctx.appenaSalvato ? h("p", { class: "salvato", role: "status" }, OGGI.salvato) : null,
     h("div", { class: "semaforo-testa" },
       luceSemaforo(e.colore),
       h("div", { class: "semaforo-testo" },
-        h("p", { class: "occhiello" }, occhiello(g)),
-        h("h2", { id: "semaforo-titolo" }, e.titolo),
+        h("p", { class: "occhiello" }, occhielloCarta(ctx, titolo, Boolean(s))),
+        h("h2", { id: "semaforo-titolo" }, titolo),
         !rispostePronte(m, g) && !fermo ? h("p", { class: "semaforo-rispondi" }, MESSAGGI.rispondi) : null,
-        h("p", { class: "semaforo-consiglio" }, consiglio),
-        e.perche ? h("p", { class: "semaforo-perche" }, e.perche) : null,
-        e.fiducia && e.fiducia.accanto && e.fiducia.testo ? h("p", { class: "piccolo" }, e.fiducia.testo) : null)),
+        come ? h("p", { class: "semaforo-consiglio" }, come) : null)),
+    righe.length ? h("ul", { class: "carta-righe" }, righe.map((t) => h("li", {}, t))) : null,
+    e.perche ? h("p", { class: "semaforo-perche" }, e.perche) : null,
+    e.fiducia && e.fiducia.accanto && e.fiducia.testo ? h("p", { class: "piccolo" }, e.fiducia.testo) : null,
+    fatto ? h("p", { class: "carta-fatto" }, CARTA.giroFatto) : null,
+    palestraSegnata ? h("p", { class: "carta-fatto" }, CARTA.palestraFatta) : null,
     note.map((t) => h("p", { class: "semaforo-nota" }, t)),
-    inViaggio && finitoIlViaggio(g) ? h("p", { class: "semaforo-nota semaforo-fine" }, VIAGGIO.fine) : null,
+    delDiario && finitoIlViaggio(g) ? h("p", { class: "semaforo-nota semaforo-fine" }, VIAGGIO.fine) : null,
     inViaggio ? h("ul", { class: "promemoria" }, (e.viaggio ? e.viaggio.promemoria : VIAGGIO.promemoria).map((t) => h("li", {}, t))) : null,
     tasti.length ? h("div", { class: "riga-bottoni" }, tasti) : null);
+}
+
+// La domanda di controllo e quella sulla pedalata compaiono prima del livello (4.4). «Rispondo dopo»
+// mostra il livello per questa apertura, e la domanda torna alla prossima.
+function cartaControllo(ctx, domanda) {
+  const scegli = (id) => {
+    if (domanda.chiave === "pedalata") { ctx.azioni.diario({ pedalata: id }); return; }
+    if (id === "motivo") { ctx.ui.cause = true; ctx.ui.versoCause = true; }
+    ctx.azioni.diario({ controllo: id });
+  };
+  return h("section", { class: ["semaforo", "semaforo-neutro", "semaforo-controllo"], id: "carta-oggi", "aria-labelledby": "semaforo-titolo" },
+    h("div", { class: "semaforo-testa" },
+      luceSemaforo("neutro"),
+      h("div", { class: "semaforo-testo" },
+        h("p", { class: "occhiello" }, occhielloCarta(ctx)),
+        h("h2", { id: "semaforo-titolo" }, CONTROLLO.titolo),
+        h("p", { class: "semaforo-consiglio" }, CONTROLLO[domanda.chiave].testo),
+        domanda.chiave === "pedalata" ? h("p", { class: "piccolo" }, CONTROLLO.pedalataDove) : null)),
+    bottoni(domanda.scelte, scegli, "bottone", "controllo"),
+    h("p", {}, h("button", { class: "collegamento", type: "button", id: "rispondo-dopo", on: { click: () => ctx.azioni.ui("rispondoDopo", true) } }, CONTROLLO.dopo)));
 }
 
 // --- le domande del mattino ---
@@ -214,7 +328,7 @@ function riepilogo(titolo, righe, cambia) {
 // esempio dopo una casella di «Sto male», non le perde.
 function domandeMattino(ctx) {
   const m = ctx.modello;
-  const g = oggi(m);
+  const g = ultimoGiorno(m);
   const risposte = { fatica: g.fatica, dolori: g.dolori, infortunio: g.infortunio };
   const pedalata = diarioDiOggi(m).pedalata || null;
   const bozza = ctx.ui.bozzaMattino;
@@ -278,7 +392,7 @@ function domandeMattino(ctx) {
 // ctx.ui.bozzaViaggio, come per le domande di casa.
 function domandeViaggio(ctx) {
   const m = ctx.modello;
-  const g = oggi(m);
+  const g = ultimoGiorno(m);
   const D = VIAGGIO.domande;
   const prima = diarioDiOggi(m).viaggio || {};
   const problemi = prima.problemi || {};
@@ -476,28 +590,514 @@ function causeIeriSera(ctx) {
   return riga;
 }
 
-// --- la carta in più, una sola per apertura (6.4) ---
+// --- le carte in più dopo il giro (6.4 e 7.5) ---
 
-function cartaInPiu(ctx) {
-  const carta = ctx.giorno.carta;
-  if (!carta) return null;
-  const rispondi = (id) => ctx.azioni.carta(carta, id);
-  if (carta === "parti") {
-    return h("section", { class: "carta carta-in-piu" },
-      h("h2", {}, VIAGGIO.parti.domanda),
-      bottoni(VIAGGIO.parti.scelte, rispondi));
+// Lo sforzo si chiede da 30 minuti dopo la fine dell'uscita fino a mezzogiorno del giorno dopo (6.4).
+// Dopo resta nella scheda dell'uscita, in Numeri. Senza l'ora di adesso vale sempre.
+export function sforzoInTempo(carta, adesso) {
+  const ora = minutiDi(adesso);
+  if (ora === null || !carta || typeof carta.giorno !== "string") return true;
+  const fine = minutiDi(carta.fine);
+  if (fine !== null && ora < fine + DOMANDE.sforzoDaMinuti) return false;
+  return ora < utc(piuGiorni(carta.giorno, 1)) / 60000 + DOMANDE.sforzoFinoAlleOre * 60;
+}
+
+const SFORZI = new Set(Object.values(DOMANDE.sforzo).map(String));
+
+function numeroDetto(x) {
+  if (x === null || x === undefined || x === "") return null;
+  const n = Number(String(x).replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
+// Le risposte di una carta, dai valori del suo modulo (per nome del campo), nella forma di
+// ctx.azioni.rispondiCarta. null senza nessuna risposta, { errore, campo } con una risposta da finire.
+// Per «Sì, ma diverso» la risposta vale anche senza durata e sforzo.
+export function campiCarta(tipo, v = {}, { grammi = null, giorno = null } = {}) {
+  if (tipo === "prova") {
+    const aree = lista(v.aree).filter((x) => CARTE.prova.aree.some((a) => a.id === x));
+    if (!aree.length) return { errore: CARTE.prova.nessuna, campo: "aree" };
+    return { prova: { esito: "sistemare", aree, giorno } };
   }
-  if (carta === "proposta") {
-    return h("section", { class: "carta carta-in-piu" },
-      h("h2", {}, VIAGGIO.proposta),
-      bottoni([{ id: "si", testo: VIAGGIO.propostaSi }, { id: "no", testo: VIAGGIO.propostaNo }], rispondi));
+  const c = tipo === "seduta" ? { risposta: "diverso" } : {};
+  if (SFORZI.has(String(v.sforzo))) c.sforzo = Number(v.sforzo);
+  if (tipo === "palestra" && Object.hasOwn(CARTE.palestra.scelte, String(v.allenato))) c.allenato = v.allenato;
+  if (tipo === "stub" && Object.hasOwn(CARTE.stub.tipo.scelte, String(v.tipo))) c.tipo = v.tipo;
+  if (tipo === "stub" || tipo === "seduta") {
+    let minuti = null;
+    if (v.durata === "altro") {
+      minuti = (numeroDetto(v.ore) || 0) * 60 + (numeroDetto(v.minuti) || 0);
+      if (!(minuti > 0)) return { errore: CARTE.stub.durata.manca, campo: "ore" };
+    } else if (numeroDetto(v.durata) > 0) {
+      minuti = numeroDetto(v.durata);
+    }
+    if (minuti > 0 && tipo === "stub") c.secondi = Math.round(minuti * 60);
+    if (minuti > 0 && tipo === "seduta") c.minuti = Math.round(minuti);
   }
-  if (carta === "dispositivo") {
-    return h("section", { class: "carta carta-in-piu" },
-      h("h2", {}, MESSAGGI.dispositivo),
-      bottoni(CAMBIO_DISPOSITIVO.scelte, rispondi));
+  if ((tipo === "lunga" || tipo === "stub") && DOMANDE.borse.includes(v.borse)) {
+    c.borse = v.borse;
+    if (v.borse !== "no") {
+      const kg = numeroDetto(v.kgAltro) > 0 ? numeroDetto(v.kgAltro) : numeroDetto(v.kg);
+      if (kg > 0) c.kg = kg;
+      if (v.notte === "si" || v.notte === "no") c.notteFuori = v.notte === "si";
+      if (tipo === "stub" && numeroDetto(v.km) > 0) c.metri = Math.round(numeroDetto(v.km) * 1000);
+      if (tipo === "stub" && numeroDetto(v.dislivello) !== null && numeroDetto(v.dislivello) >= 0) c.dislivello = Math.round(numeroDetto(v.dislivello));
+    }
   }
-  return null;
+  if (tipo === "lunga" && STOMACO.scelte.some((s) => s.valore === v.stomaco)) {
+    c.stomaco = v.stomaco;
+    if (num(grammi)) c.grammi = grammi;
+  }
+  if (tipo === "seduta") return c;
+  return Object.keys(c).length ? c : null;
+}
+
+const idCarta = (carta) => `carta-${String(carta.chiave).replace(/[^A-Za-z0-9_-]/g, "-")}`;
+
+function bozzaDi(ctx, carta) {
+  const b = oggetto(ctx.ui.bozzeCarte);
+  return b && oggetto(b[carta.chiave]) ? b[carta.chiave] : null;
+}
+
+// I valori di un modulo, per nome. Le caselle sono sempre una lista. Per le risposte si lasciano fuori
+// le domande nascoste, per la bozza no.
+function valoriDi(form, ancheNascosti = false) {
+  const v = {};
+  for (const el of form.elements) {
+    if (!el.name || (!ancheNascosti && el.closest("[hidden]"))) continue;
+    if (el.type === "radio") {
+      if (el.checked) v[el.name] = el.value;
+    } else if (el.type === "checkbox") {
+      if (!Array.isArray(v[el.name])) v[el.name] = [];
+      if (el.checked) v[el.name].push(el.value);
+    } else if (typeof el.value === "string" && el.value.trim()) {
+      v[el.name] = el.value.trim();
+    }
+  }
+  return v;
+}
+
+const valoreDi = (form, nome) => {
+  const x = form.querySelector(`input[name="${nome}"]:checked`);
+  return x ? x.value : null;
+};
+
+// Una risposta data. Il fuoco va prima sul contenitore delle carte, che resta dopo il ridisegno, e poi
+// sul grazie, così la tastiera e il lettore di schermo non ripartono dall'inizio della pagina.
+function rispondi(ctx, carta, campi, consigli = []) {
+  const contenitore = document.getElementById("carte-in-piu");
+  if (contenitore) contenitore.focus({ preventScroll: true });
+  ctx.ui.carteRisposte = (ctx.ui.carteRisposte || 0) + 1;
+  ctx.ui.consigliCarte = consigli;
+  ctx.ui.fuocoDopo = "carte-grazie";
+  ctx.azioni.rispondiCarta(carta, campi);
+}
+
+function nonLoSo(ctx, carta) {
+  const contenitore = document.getElementById("carte-in-piu");
+  if (contenitore) contenitore.focus({ preventScroll: true });
+  ctx.ui.carteRisposte = (ctx.ui.carteRisposte || 0) + 1;
+  ctx.ui.consigliCarte = [];
+  ctx.ui.fuocoDopo = "carte-grazie";
+  ctx.azioni.nonLoSo(carta);
+}
+
+function sezioneCarta(carta, titolo, ...figli) {
+  const id = idCarta(carta);
+  return h("section", { class: "carta carta-in-piu", id, "aria-labelledby": `${id}-titolo` },
+    h("h2", { id: `${id}-titolo` }, titolo), ...figli);
+}
+
+function tastoNonLoSo(ctx, carta) {
+  return h("p", {}, h("button", { class: "collegamento", type: "button", id: `${idCarta(carta)}-nonso`,
+    on: { click: () => nonLoSo(ctx, carta) } }, CARTE.nonLoSo));
+}
+
+function domandaRadio(prefisso, nome, legenda, opzioni, scelta, classe = null) {
+  return h("fieldset", { class: ["domanda", classe] },
+    h("legend", {}, legenda),
+    h("div", { class: "scelte" }, opzioni.map((o) => {
+      const id = `${prefisso}-${nome}-${o.id}`;
+      return h("span", { class: "scelta" },
+        h("input", { type: "radio", id, name: nome, value: o.id, checked: scelta !== null && scelta !== undefined && String(scelta) === String(o.id) }),
+        h("label", { for: id }, o.testo));
+    })));
+}
+
+function campoNumero(id, nome, etichetta, valore, { min = "0", max = null, step = "1" } = {}) {
+  return h("span", { class: "campo-numero" },
+    h("label", { for: id }, etichetta),
+    h("input", { type: "number", id, name: nome, inputmode: step === "1" ? "numeric" : "decimal", min, max, step, value: valore ?? null }));
+}
+
+const scelteSforzo = () => Object.entries(DOMANDE.sforzo).map(([chiave, valore]) => ({ id: String(valore), testo: CARTE.sforzo.parole[chiave] }));
+const scelteBorse = () => DOMANDE.borse.map((b) => ({ id: b, testo: CARTE.borse.scelte[b] }));
+const scelteDa = (testi) => Object.entries(testi).map(([id, testo]) => ({ id, testo }));
+const scelteDurata = () => [...DOMANDE.durateMinuti.map((m) => ({ id: String(m), testo: formatoDurata(m) })), { id: "altro", testo: CARTE.stub.durata.altro }];
+
+// La durata fra le scelte più vicina a quella stimata, per averla già scelta (6.4).
+function sceltaVicina(minuti) {
+  if (!(minuti > 0)) return null;
+  return String(DOMANDE.durateMinuti.reduce((meglio, x) => (Math.abs(x - minuti) < Math.abs(meglio - minuti) ? x : meglio)));
+}
+
+function domandaKg(prefisso, scelta, altro, peso) {
+  const valori = [...new Set([...KG_SCELTE, ...(num(peso) && peso > 0 ? [peso] : [])])].sort((a, b) => a - b);
+  const scritto = (kg) => (Number.isInteger(kg) ? String(kg) : numero(kg, 1));
+  return h("fieldset", { class: "domanda domanda-sotto" },
+    h("legend", {}, CARTE.kg.domanda),
+    h("div", { class: "scelte" }, valori.map((kg) => {
+      const id = `${prefisso}-kg-${String(kg).replace(".", "-")}`;
+      return h("span", { class: "scelta" },
+        h("input", { type: "radio", id, name: "kg", value: String(kg), checked: scelta !== null && Number(scelta) === kg }),
+        h("label", { for: id }, CARTE.kg.unita(scritto(kg))));
+    })),
+    campoNumero(`${prefisso}-kg-altro`, "kgAltro", CARTE.kg.altro, altro, { min: "1", max: "60", step: "0.5" }));
+}
+
+// Le ore e i minuti scritti a mano con «Altro».
+function tempoAltro(prefisso, ore, minuti) {
+  return h("div", { class: "tempo-altro" },
+    campoNumero(`${prefisso}-ore`, "ore", CARTE.stub.durata.ore, ore, { max: "24" }),
+    campoNumero(`${prefisso}-minuti`, "minuti", CARTE.stub.durata.minuti, minuti, { max: "59" }));
+}
+
+function minutiAltri(form) {
+  const ore = numeroDetto(form.querySelector("input[name=ore]") && form.querySelector("input[name=ore]").value) || 0;
+  const minuti = numeroDetto(form.querySelector("input[name=minuti]") && form.querySelector("input[name=minuti]").value) || 0;
+  return ore * 60 + minuti;
+}
+
+// Le sedute del piano di un giorno, da quelle della settimana in corso e da quelle delle settimane.
+function sedutePianoDel(piano, giorno) {
+  const p = oggetto(piano);
+  if (!p) return [];
+  const giorni = [...lista(p.giorni), ...lista(p.settimane).flatMap((w) => lista(w && w.giorni))];
+  return giorni.filter((x) => x && x.giorno === giorno).flatMap((x) => lista(x.sedute)).filter(Boolean);
+}
+
+const sedutaInBici = (x) => x && !["riposo", "palestra", "tronco", "dopoEvento"].includes(x.tipo);
+
+function ciboDelPiano(ctx, giorno) {
+  const x = sedutePianoDel(ctx.piano, giorno).find((y) => y.cibo && num(y.cibo.grammi));
+  return x ? x.cibo : null;
+}
+
+// Con le borse due giorni di fila si chiede anche la notte fuori (6.3).
+function piuGiorniDiFila(ctx, a) {
+  const vicini = [piuGiorni(a.giorno, -1), piuGiorni(a.giorno, 1)];
+  return lista(ctx.attivita).some((x) => x && x.id !== a.id && inBici(x) && vicini.includes(x.giorno) && x.secondi >= DOMANDE.borseDaOre * ORA);
+}
+
+const pesoObiettivo = (ctx) => (ctx.profilo && num(ctx.profilo.borseKg) && ctx.profilo.borseKg > 0 ? ctx.profilo.borseKg : null);
+const minutiDiAttivita = (a) => (a && a.secondi > 0 ? a.secondi / 60 : null);
+
+// Una carta con più domande. Le scelte non salvate restano in ctx.ui.bozzeCarte, così un ridisegno della
+// pagina non le perde. visibili(form) mostra e nasconde le domande che dipendono da un'altra.
+function moduloCarta(ctx, carta, { titolo, sopra = null, campi, raccogli, visibili = null, consigli = null }) {
+  const id = idCarta(carta);
+  const stato = h("p", { class: "stato-salvataggio", role: "status", "aria-live": "polite" });
+  const form = h("form", { class: "carta-modulo", novalidate: true },
+    campi,
+    h("div", { class: "riga-bottoni" },
+      h("button", { class: "bottone", type: "submit", id: `${id}-salva` }, CARTE.salva),
+      h("button", { class: "bottone bottone-secondario", type: "button", id: `${id}-nonso`,
+        on: { click: () => nonLoSo(ctx, carta) } }, CARTE.nonLoSo)),
+    stato);
+  if (visibili) visibili(form);
+  form.addEventListener("change", () => {
+    if (visibili) visibili(form);
+    ctx.ui.bozzeCarte = { ...(oggetto(ctx.ui.bozzeCarte) || {}), [carta.chiave]: valoriDi(form, true) };
+  });
+  form.addEventListener("submit", (evento) => {
+    evento.preventDefault();
+    const r = raccogli(valoriDi(form));
+    if (!r) { stato.textContent = CARTE.almenoUna; return; }
+    if (r.errore) {
+      stato.textContent = r.errore;
+      const dove = r.campo ? form.querySelector(`[name="${r.campo}"]`) : null;
+      if (dove) dove.focus();
+      return;
+    }
+    rispondi(ctx, carta, r, consigli ? consigli(r) : []);
+  });
+  return sezioneCarta(carta, titolo, sopra, form);
+}
+
+// Le carte del semaforo, «Oggi parti?», «Sei in viaggio?» e il cambio di dispositivo (4.5 e 4.3).
+function cartaDelSemaforo(ctx, carta, domanda, scelte) {
+  const id = idCarta(carta);
+  const scegli = (risposta) => {
+    if (carta.tipo === "dispositivo") rispondi(ctx, carta, { risposta });
+    else ctx.azioni.rispondiCarta(carta, { risposta });
+  };
+  return sezioneCarta(carta, domanda, bottoni(scelte, scegli, "bottone bottone-secondario", id));
+}
+
+// Borse e sforzo della lunga di ieri o di oggi, nella stessa carta (6.4 e 7.5). Con un sì alle borse i
+// chili e, per due giorni di fila carichi, la notte fuori. Nella lunga con l'obiettivo di cibo «Lo
+// stomaco?», facoltativa (3.9).
+function cartaLunga(ctx, carta) {
+  const a = carta.attivita;
+  const id = idCarta(carta);
+  const b = bozzaDi(ctx, carta);
+  const scelto = (nome, predefinito = null) => (b ? b[nome] ?? null : predefinito);
+  const peso = pesoObiettivo(ctx);
+  const cibo = ciboDelPiano(ctx, a.giorno);
+  const sforzo = sforzoInTempo(carta, ctx.adesso) ? domandaRadio(id, "sforzo", CARTE.sforzo.domanda, scelteSforzo(), scelto("sforzo")) : null;
+  const borse = domandaRadio(id, "borse", CARTE.borse.domanda, scelteBorse(), scelto("borse"));
+  const kg = domandaKg(id, scelto("kg", peso !== null ? String(peso) : null), scelto("kgAltro"), peso);
+  const notte = piuGiorniDiFila(ctx, a)
+    ? domandaRadio(id, "notte", CARTE.notte.domanda, [{ id: "si", testo: CARTE.notte.si }, { id: "no", testo: CARTE.notte.no }], scelto("notte"), "domanda-sotto")
+    : null;
+  const stomaco = cibo
+    ? domandaRadio(id, "stomaco", STOMACO.domanda, STOMACO.scelte.map((s) => ({ id: s.valore, testo: s.testo })), scelto("stomaco"))
+    : null;
+  return moduloCarta(ctx, carta, {
+    titolo: titoloUscita(a.giorno, ctx.oggi, minutiDiAttivita(a), a.metri),
+    campi: [sforzo, borse, kg, notte, stomaco],
+    raccogli: (v) => campiCarta("lunga", v, { grammi: cibo ? cibo.grammi : null }),
+    visibili: (form) => {
+      const carica = Boolean(valoreDi(form, "borse")) && valoreDi(form, "borse") !== "no";
+      kg.hidden = !carica;
+      if (notte) notte.hidden = !carica;
+    },
+  });
+}
+
+// Lo sforzo di un giro senza sensori, a un tocco (6.3).
+function cartaSforzo(ctx, carta) {
+  const a = carta.attivita;
+  const id = idCarta(carta);
+  return sezioneCarta(carta, titoloUscita(a.giorno, ctx.oggi, minutiDiAttivita(a), a.metri),
+    h("p", { class: "carta-domanda", id: `${id}-domanda` }, CARTE.sforzo.domanda),
+    h("div", { class: "riga-bottoni", role: "group", "aria-labelledby": `${id}-domanda` },
+      scelteSforzo().map((s) => h("button", { class: "bottone bottone-secondario", type: "button", id: `${id}-sforzo-${s.id}`,
+        on: { click: () => rispondi(ctx, carta, { sforzo: Number(s.id) }) } }, s.testo))),
+    tastoNonLoSo(ctx, carta));
+}
+
+// «Cosa hai allenato?» e lo sforzo, per una palestra arrivata dal dispositivo (6.3).
+function cartaPalestra(ctx, carta) {
+  const a = carta.attivita;
+  const id = idCarta(carta);
+  const b = bozzaDi(ctx, carta);
+  const scelto = (nome) => (b ? b[nome] ?? null : null);
+  return moduloCarta(ctx, carta, {
+    titolo: titoloPalestra(a.giorno, ctx.oggi, minutiDiAttivita(a)),
+    campi: [
+      domandaRadio(id, "allenato", CARTE.palestra.domanda, scelteDa(CARTE.palestra.scelte), scelto("allenato")),
+      domandaRadio(id, "sforzo", CARTE.sforzo.domanda, scelteSforzo(), scelto("sforzo")),
+    ],
+    raccogli: (v) => campiCarta("palestra", v),
+  });
+}
+
+// Un'uscita arrivata da Strava senza dettagli (6.4). Cos'era, quanto è durata con la stima già scelta, com'è
+// stata e, per la bici di almeno 2 ore, le borse, con km e dislivello facoltativi.
+function cartaStub(ctx, carta) {
+  const a = carta.attivita;
+  const id = idCarta(carta);
+  const b = bozzaDi(ctx, carta);
+  const scelto = (nome, predefinito = null) => (b ? b[nome] ?? null : predefinito);
+  const previste = sedutePianoDel(ctx.piano, a.giorno).filter((x) => x.tipo !== "riposo");
+  const bici = previste.find(sedutaInBici);
+  const tipoPrevisto = !bici && previste.some((x) => x.tipo === "palestra") ? "palestra" : "bici";
+  const peso = pesoObiettivo(ctx);
+  const tipo = domandaRadio(id, "tipo", CARTE.stub.tipo.domanda, scelteDa(CARTE.stub.tipo.scelte), scelto("tipo", tipoPrevisto));
+  const altro = tempoAltro(id, scelto("ore"), scelto("minuti"));
+  const durata = domandaRadio(id, "durata", CARTE.stub.durata.domanda, scelteDurata(), scelto("durata", sceltaVicina(minutiDiAttivita(a) || (bici && bici.minuti))));
+  durata.append(altro);
+  const sforzo = domandaRadio(id, "sforzo", CARTE.sforzo.domanda, scelteSforzo(), scelto("sforzo"));
+  const borse = domandaRadio(id, "borse", CARTE.borse.domanda, scelteBorse(), scelto("borse"));
+  const kg = domandaKg(id, scelto("kg", peso !== null ? String(peso) : null), scelto("kgAltro"), peso);
+  const strada = h("fieldset", { class: "domanda domanda-sotto domanda-facoltativa" },
+    h("legend", {}, CARTE.stub.strada),
+    h("div", { class: "tempo-altro" },
+      campoNumero(`${id}-km`, "km", CARTE.stub.km, scelto("km"), { step: "0.1" }),
+      campoNumero(`${id}-dislivello`, "dislivello", CARTE.stub.dislivello, scelto("dislivello"))));
+  return moduloCarta(ctx, carta, {
+    titolo: titoloStub(a.giorno, ctx.oggi, a.inizio ? formatoOra(a.inizio) : null),
+    sopra: h("p", { class: "carta-contesto" }, arrivaDa(a.sorgente)),
+    campi: [tipo, durata, sforzo, borse, kg, strada],
+    raccogli: (v) => campiCarta("stub", v),
+    visibili: (form) => {
+      const d = valoreDi(form, "durata");
+      altro.hidden = d !== "altro";
+      const minuti = d === "altro" ? minutiAltri(form) : numeroDetto(d) || 0;
+      const inSella = valoreDi(form, "tipo") === "bici" && minuti >= DOMANDE.borseDaOre * 60;
+      borse.hidden = !inSella;
+      const carica = inSella && Boolean(valoreDi(form, "borse")) && valoreDi(form, "borse") !== "no";
+      kg.hidden = !carica;
+      strada.hidden = !carica;
+    },
+  });
+}
+
+// La seduta del piano di ieri senza niente registrato (6.3), con «Sì, così», «Sì, ma diverso» e «No». Con
+// «diverso» la durata e lo sforzo.
+function cartaSeduta(ctx, carta) {
+  const id = idCarta(carta);
+  const x = oggetto(carta.seduta) || {};
+  const titolo = sedutaDiIeri(x);
+  if (ctx.ui.sedutaDiversa !== carta.chiave) {
+    return sezioneCarta(carta, titolo,
+      h("p", { class: "carta-domanda", id: `${id}-domanda` }, lHaiFatto(x)),
+      h("div", { class: "riga-bottoni", role: "group", "aria-labelledby": `${id}-domanda` },
+        h("button", { class: "bottone bottone-secondario", type: "button", id: `${id}-si`,
+          on: { click: () => rispondi(ctx, carta, { risposta: "si" }) } }, CARTE.seduta.si),
+        h("button", { class: "bottone bottone-secondario", type: "button", id: `${id}-diverso`,
+          on: { click: () => { ctx.ui.fuocoDopo = `${id}-titolo`; ctx.azioni.ui("sedutaDiversa", carta.chiave); } } }, CARTE.seduta.diverso),
+        h("button", { class: "bottone bottone-secondario", type: "button", id: `${id}-no`,
+          on: { click: () => rispondi(ctx, carta, { risposta: "no" }) } }, CARTE.seduta.no)),
+      tastoNonLoSo(ctx, carta));
+  }
+  const b = bozzaDi(ctx, carta);
+  const scelto = (nome, predefinito = null) => (b ? b[nome] ?? null : predefinito);
+  const altro = tempoAltro(id, scelto("ore"), scelto("minuti"));
+  const durata = domandaRadio(id, "durata", CARTE.stub.durata.domanda, scelteDurata(), scelto("durata", sceltaVicina(x.minuti)));
+  durata.append(altro);
+  return moduloCarta(ctx, carta, {
+    titolo,
+    sopra: h("p", { class: "carta-domanda" }, CARTE.seduta.diverso),
+    campi: [durata, domandaRadio(id, "sforzo", CARTE.sforzo.domanda, scelteSforzo(), scelto("sforzo"))],
+    raccogli: (v) => campiCarta("seduta", v),
+    visibili: (form) => { altro.hidden = valoreDi(form, "durata") !== "altro"; },
+  });
+}
+
+// Dopo una prova con le borse, la sera o il mattino dopo (7.5). «Qualcosa da sistemare» apre le caselle,
+// ognuna con il suo consiglio di una riga, che compare quando la si spunta.
+function cartaProva(ctx, carta) {
+  const a = carta.attivita;
+  const id = idCarta(carta);
+  const contesto = h("p", { class: "carta-contesto" }, titoloUscita(a.giorno, ctx.oggi, minutiDiAttivita(a), a.metri));
+  const generale = sedutePianoDel(ctx.piano, a.giorno).some((x) => PROVA_GENERALE.test(x.tipo));
+  const dopo = generale ? [CARTE.prova.posizione] : [];
+  if (ctx.ui.provaAperta !== carta.chiave) {
+    return sezioneCarta(carta, CARTE.prova.domanda, contesto,
+      h("div", { class: "riga-bottoni" },
+        h("button", { class: "bottone bottone-secondario", type: "button", id: `${id}-bene`,
+          on: { click: () => rispondi(ctx, carta, { prova: { esito: "bene", aree: [], giorno: carta.giorno } }, dopo) } }, CARTE.prova.bene),
+        h("button", { class: "bottone bottone-secondario", type: "button", id: `${id}-sistemare`,
+          on: { click: () => { ctx.ui.fuocoDopo = `${id}-titolo`; ctx.azioni.ui("provaAperta", carta.chiave); } } }, CARTE.prova.sistemare)),
+      tastoNonLoSo(ctx, carta));
+  }
+  const b = bozzaDi(ctx, carta);
+  const segnate = b && Array.isArray(b.aree) ? b.aree : [];
+  const caselleProva = CARTE.prova.aree.map((x) => {
+    const idx = `${id}-area-${x.id}`;
+    const consiglio = h("p", { class: "consiglio-casella", id: `${idx}-consiglio`, hidden: !segnate.includes(x.id) }, x.consiglio);
+    const casella = h("input", { type: "checkbox", id: idx, name: "aree", value: x.id, checked: segnate.includes(x.id), "aria-describedby": `${idx}-consiglio` });
+    casella.addEventListener("change", () => { consiglio.hidden = !casella.checked; });
+    return h("div", { class: "casella-con-scelta" },
+      h("span", { class: "scelta casella" }, casella, h("label", { for: idx }, x.testo)),
+      consiglio);
+  });
+  return moduloCarta(ctx, carta, {
+    titolo: CARTE.prova.domanda,
+    sopra: contesto,
+    campi: [h("fieldset", { class: "domanda" }, h("legend", {}, CARTE.prova.quali), h("div", { class: "caselle-viaggio" }, caselleProva))],
+    raccogli: (v) => campiCarta("prova", v, { giorno: carta.giorno }),
+    consigli: (r) => [...CARTE.prova.aree.filter((x) => r.prova.aree.includes(x.id)).map((x) => x.consiglio), ...dopo],
+  });
+}
+
+function cartaInPiu(ctx, carta) {
+  if (!carta || typeof carta.chiave !== "string") return null;
+  switch (carta.tipo) {
+    case "parti": return cartaDelSemaforo(ctx, carta, VIAGGIO.parti.domanda, VIAGGIO.parti.scelte);
+    case "proposta": return cartaDelSemaforo(ctx, carta, VIAGGIO.proposta, [{ id: "si", testo: VIAGGIO.propostaSi }, { id: "no", testo: VIAGGIO.propostaNo }]);
+    case "dispositivo": return cartaDelSemaforo(ctx, carta, MESSAGGI.dispositivo, CAMBIO_DISPOSITIVO.scelte);
+    case "seduta": return carta.seduta ? cartaSeduta(ctx, carta) : null;
+    default:
+      if (!carta.attivita) return null;
+      if (carta.tipo === "lunga") return cartaLunga(ctx, carta);
+      if (carta.tipo === "sforzo") return cartaSforzo(ctx, carta);
+      if (carta.tipo === "palestra") return cartaPalestra(ctx, carta);
+      if (carta.tipo === "stub") return cartaStub(ctx, carta);
+      if (carta.tipo === "prova") return cartaProva(ctx, carta);
+      return null;
+  }
+}
+
+// Al massimo una carta per apertura, due quando una è sulle borse, già contate da js/motore.js (6.4).
+// Dopo una risposta resta il grazie, con i consigli della prova, per tutta l'apertura.
+function carteInPiu(ctx) {
+  const carte = lista(ctx.carteInPiu).map((c) => cartaInPiu(ctx, c)).filter(Boolean);
+  const risposte = ctx.ui.carteRisposte || 0;
+  if (!carte.length && !risposte) return null;
+  const consigli = lista(ctx.ui.consigliCarte);
+  return h("div", { class: "carte-in-piu", id: "carte-in-piu", tabindex: "-1" },
+    risposte ? h("div", { class: "carte-grazie", id: "carte-grazie", tabindex: "-1" },
+      h("p", { role: "status" }, h("strong", {}, CARTE.grazie), " ", ctx.coda && ctx.coda.attiva ? CARTE.ancheIntervals : CARTE.soloTelefono),
+      consigli.length ? h("ul", { class: "carta-righe" }, consigli.map((t) => h("li", {}, t))) : null) : null,
+    carte);
+}
+
+// --- la domenica (3.11 e 7.9) ---
+
+// Il controllo della domenica, la domenica e il lunedì, o prima dopo tre gialli di fila. Al massimo una
+// domanda, quella di S6, solo con un altro segnale. In viaggio il controllo è spento.
+function cartaDomenica(ctx) {
+  const d = ctx.domenica && ctx.domenica.controllo;
+  if (!d || d.spento) return null;
+  const testi = [...lista(d.testi)];
+  if (d.crescita && d.crescita.avviso && d.crescita.testo) testi.push(d.crescita.testo);
+  return h("section", { class: "carta carta-domenica", id: "domenica", "aria-labelledby": "domenica-titolo" },
+    h("h2", { id: "domenica-titolo" }, DOMENICA_OGGI.titolo),
+    unici(testi).map((t) => h("p", {}, t)),
+    d.chiedi === "S6" && d.domandaS6 ? h("div", { class: "domanda-domenica" },
+      h("p", { class: "carta-domanda", id: "domenica-s6" }, d.domandaS6),
+      h("div", { class: "riga-bottoni", role: "group", "aria-labelledby": "domenica-s6" },
+        h("button", { class: "bottone bottone-secondario", type: "button", id: "domenica-si",
+          on: { click: () => { ctx.ui.fuocoDopo = "domenica-titolo"; ctx.azioni.rispostaDomenica("si"); } } }, DOMENICA_OGGI.si),
+        h("button", { class: "bottone bottone-secondario", type: "button", id: "domenica-no",
+          on: { click: () => { ctx.ui.fuocoDopo = "domenica-titolo"; ctx.azioni.rispostaDomenica("no"); } } }, DOMENICA_OGGI.no))) : null);
+}
+
+// --- i messaggi di una volta sola (6.4, 6.3 e 6.6) ---
+
+// Un messaggio compare una volta e resta per tutta l'apertura. Si segna subito come visto.
+function messaggiUnaVolta(ctx) {
+  const mostrati = oggetto(ctx.ui.unaVolta) || {};
+  ctx.ui.unaVolta = mostrati;
+  const apri = (nome) => {
+    if (ctx.messaggi && ctx.messaggi[nome] && !mostrati[nome]) {
+      mostrati[nome] = "aperto";
+      ctx.azioni.visto(nome);
+    }
+    return mostrati[nome];
+  };
+  const chiudi = (nome) => h("button", { class: "bottone bottone-secondario", type: "button", id: `una-volta-${nome}`,
+    on: { click: () => { mostrati[nome] = "chiuso"; ctx.azioni.ui("unaVolta", mostrati); } } }, PROMEMORIA.chiudi);
+  const fuori = [];
+  if (apri("soloStrava") === "aperto") {
+    fuori.push(h("aside", { class: "banner una-volta" }, h("p", {}, ctx.modello.notteMaiArrivata ? TESTI_DATI.soloStravaTelefono : TESTI_DATI.soloStrava)));
+  }
+  if (apri("notteNonArriva") === "aperto") fuori.push(h("aside", { class: "banner una-volta" }, h("p", {}, TESTI_DATI.notteGarmin)));
+  // Con l'esempio la copia non serve, le risposte stanno solo nella pagina.
+  if (!ctx.demo) {
+    const copia = apri("copia");
+    if (copia === "aperto") {
+      const salva = async () => {
+        const esito = await ctx.azioni.salvaCopia();
+        mostrati.copia = esito && esito.ok ? "fatta" : "nonFatta";
+        ctx.azioni.ui("unaVolta", mostrati);
+      };
+      fuori.push(h("aside", { class: "banner una-volta" },
+        h("p", {}, PROMEMORIA.copia),
+        h("div", { class: "riga-bottoni" },
+          h("button", { class: "bottone", type: "button", id: "una-volta-copia-salva", on: { click: salva } }, PROMEMORIA.copiaTasto),
+          chiudi("copia"))));
+    } else if (copia === "fatta" || copia === "nonFatta") {
+      fuori.push(h("p", { class: copia === "fatta" ? "salvato" : "avviso-piccolo", role: "status" }, copia === "fatta" ? UNA_VOLTA.copiaFatta : UNA_VOLTA.copiaNo));
+    }
+  }
+  if (apri("iphone") === "aperto") {
+    fuori.push(h("aside", { class: "banner una-volta" }, h("p", {}, PROMEMORIA.iphone), h("div", { class: "riga-bottoni" }, chiudi("iphone"))));
+  }
+  return fuori;
 }
 
 // --- il «Perché», chiuso (4.8), con «Quanto fidarti oggi» quando la fiducia non è alta (4.7) ---
@@ -523,10 +1123,12 @@ function perche(ctx) {
   const inViaggio = Boolean(ctx.giorno.evento);
   const righe = e.voci.map((v) => riga(v.nome, v.testo, colorePallino(v), v.esito));
   for (const t of e.tetti) righe.push(riga(TETTI[t.chiave] || t.chiave, t.perche, "giallo"));
-  const note = [
+  // In viaggio battito e HRV ci sono, ma non contano (7.10).
+  const note = unici([
+    inViaggio ? VIAGGIO.notte : null,
     inViaggio ? e.nota : null,
     ...e.messaggi.filter((x) => x.chiave === "insolita" || x.chiave === "sopraSolito").map((x) => x.testo),
-  ].filter((t, k, tutte) => t && tutte.indexOf(t) === k);
+  ]);
   const f = e.fiducia;
   const fiducia = f && f.indice && f.indice !== "alta"
     ? h("div", { class: "fiducia" },
@@ -540,113 +1142,27 @@ function perche(ctx) {
     fiducia);
 }
 
-// --- i numeri del giorno, chiusi in fondo ---
-
-function tessera({ chiave, nome, valore, unita, sotto, colore, serie, classeSerie }) {
-  const testo = SPIEGAZIONI[chiave];
-  return h("article", { class: "tessera" },
-    h("header", { class: "tessera-testa" },
-      h("div", {},
-        h("h3", {}, nome),
-        testo ? h("p", { class: "tessera-cosa" }, testo.sottotitolo) : null),
-      colore ? pillola(colore) : null),
-    h("p", { class: "tessera-valore" }, valore, unita ? h("span", { class: "unita" }, unita) : null),
-    sotto ? h("p", { class: "tessera-sotto" }, sotto) : null,
-    serie ? sparkline(serie, classeSerie) : null,
-    spiegazione(testo));
-}
-
-function numeriDelGiorno(ctx, m, esito) {
-  const T = NUMERI_OGGI;
-  const g = m.giorni;
-  const o = oggi(m);
-  const ultimi = (n, campo, fn = (v) => v) => g.slice(-n).map((x) => (x[campo] ? fn(x[campo]) : null));
-  const coloreVoce = (chiave) => {
-    const v = esito.voci.find((x) => x.chiave === chiave);
-    return v ? colorePallino(v) : null;
-  };
-  const bh = esito.basi ? esito.basi.hrv : m.base.hrv;
-  const bf = esito.basi ? esito.basi.fc : m.base.fc;
-  const zona = zonaFreschezza(m.mattino.formaPct);
-  const differenzaFitness = m.mattino.ctl !== null && m.fitness28 !== null ? m.mattino.ctl - m.fitness28 : null;
-  const notteMai = m.notteMaiArrivata;
-  const minuti = (secondi) => formatoDurata(secondi / 60);
-
-  const tessere = [];
-  if (!notteMai) {
-    tessere.push(
-      tessera({
-        chiave: "hrv", nome: T.hrv, valore: numero(o.hrv), unita: o.hrv ? "ms" : null,
-        sotto: bh.ok ? T.normaleHrv(numero(bh.basso), numero(bh.alto))
-          : m.hrvMisurato ? T.impara(bh.n, SEMAFORO.hrv.nottiPunti) : T.hrvMai,
-        colore: coloreVoce("hrv"), serie: ultimi(21, "hrv"),
-      }),
-      tessera({
-        chiave: "fc", nome: T.fc, valore: numero(o.fc), unita: o.fc ? T.battiti : null,
-        sotto: bf.ok ? T.normaleFc(numero(bf.solito)) : T.impara(bf.n, SEMAFORO.battito.nottiProvvisorie),
-        colore: coloreVoce("fc"), serie: ultimi(21, "fc"),
-      }),
-      tessera({
-        chiave: "sonno", nome: T.sonno, valore: o.sonno ? minuti(o.sonno) : "—",
-        sotto: [o.punteggioSonno ? T.punteggio(numero(o.punteggioSonno)) : null,
-          m.sonnoSettimana ? T.mediaSettimana(minuti(m.sonnoSettimana)) : null].filter(Boolean).join(", "),
-        colore: coloreVoce("sonno"), serie: ultimi(21, "sonno", (v) => v / 3600),
-      }));
-  }
-  tessere.push(
-    tessera({
-      chiave: "freschezza", nome: T.freschezza,
-      valore: m.mattino.formaPct !== null ? `${segno(m.mattino.formaPct * 100)}%` : "—",
-      sotto: zona ? T.zona(zona.nome, numero(m.mattino.ctl), numero(m.mattino.atl)) : T.pochiGiri,
-      serie: g.slice(-29, -1).map((x) => (x.formaPct !== null && x.ctl >= 10 ? x.formaPct * 100 : null)),
-    }),
-    tessera({
-      chiave: "fitness", nome: T.fitness, valore: numero(m.mattino.ctl),
-      sotto: differenzaFitness !== null ? T.differenza(segno(differenzaFitness)) : null,
-      serie: g.slice(-91, -1).map((x) => x.ctl),
-    }),
-    tessera({
-      chiave: "carico", nome: T.carico,
-      valore: m.mattino.rapporto !== null ? numero(m.mattino.rapporto, 1) : "—",
-      unita: m.mattino.rapporto !== null ? T.volte : null,
-      sotto: m.mattino.rapporto === null ? T.pochiGiri : T.finoA(numero(SEMAFORO.carico.alto.rapporto, 1)),
-      colore: coloreVoce("carico"),
-      serie: g.slice(-29, -1).map((x) => (x.ctl > 0 && x.atl !== null ? x.atl / x.ctl : null)), classeSerie: "s2",
-    }));
-
-  return apribile(ctx, "numeri", { class: "numeri-oggi", id: "numeri-oggi" },
-    h("summary", {}, T.titolo),
-    h("div", { class: "numeri-dentro" },
-      h("p", { class: "sezione-testo" }, notteMai ? T.attaccoSenzaNotte : T.attacco),
-      h("div", { class: "griglia-tessere" }, tessere),
-      ultimaUscita(m)));
-}
-
-function ultimaUscita(m) {
-  const T = NUMERI_OGGI;
-  const u = m.uscite.find((x) => x.nome || x.secondi || x.carico !== null);
-  if (!u) return null;
-  const tipo = nomeTipo(u.tipo, u.sorgente);
-  const pezzi = [
-    u.secondi ? formatoDurata(u.secondi / 60) : null,
-    u.metri ? T.km(numero(u.metri / 1000, u.metri < 10000 ? 1 : 0)) : null,
-    u.dislivello ? T.salita(numero(u.dislivello)) : null,
-    u.carico !== null ? T.punti(numero(u.carico)) : null,
-  ].filter(Boolean);
-  return h("section", { class: "carta ultima" },
-    h("p", { class: "occhiello" }, T.ultima),
-    h("h3", {}, u.nome || tipo),
-    h("p", { class: "ultima-quando" }, u.nome && u.nome.toLowerCase() !== tipo.toLowerCase() ? `${tipo}, ${dataLunga(u.d)}` : dataLunga(u.d)),
-    pezzi.length ? h("p", { class: "ultima-numeri" }, pezzi.join(" · ")) : null,
-    h("a", { href: "#uscite" }, T.tutte));
-}
-
 function avvisoNotte(ctx) {
   return h("aside", { class: "banner" },
     h("p", {}, MESSAGGI.notteNonArrivata),
     h("div", { class: "riga-bottoni" },
-      h("button", { class: "bottone bottone-secondario", type: "button", on: { click: () => ctx.azioni.ricarica() } },
-        icona("aggiorna"), "Aggiorna")));
+      h("button", { class: "bottone bottone-secondario", type: "button", id: "aggiorna-notte", on: { click: () => ctx.azioni.ricarica() } },
+        icona("aggiorna"), CARTA.aggiorna)));
+}
+
+// Dopo una risposta il fuoco va dove la persona stava guardando, quando la pagina si è ridisegnata.
+function fuocoDopo(ctx) {
+  const id = ctx.ui.fuocoDopo;
+  if (!id) return;
+  ctx.ui.fuocoDopo = null;
+  setTimeout(() => {
+    const el = document.getElementById(id);
+    if (!el || !el.isConnected) return;
+    if (el.tabIndex < 0 && !el.hasAttribute("tabindex")) el.setAttribute("tabindex", "-1");
+    el.focus({ preventScroll: true });
+    const r = el.getBoundingClientRect();
+    if (r.top < 0 || r.bottom > window.innerHeight) el.scrollIntoView({ block: "center" });
+  }, 0);
 }
 
 export function vistaOggi(ctx) {
@@ -655,11 +1171,11 @@ export function vistaOggi(ctx) {
   const g = ctx.giorno;
   const inViaggio = Boolean(g.evento);
   const domanda = !ctx.ui.rispondoDopo && e.controllo.length ? e.controllo[0] : null;
-  return h("div", { class: "vista vista-oggi" },
+  const vista = h("div", { class: "vista vista-oggi" },
     h("header", { class: "intestazione intestazione-oggi" },
       h("div", { class: "intestazione-testo" },
         h("p", { class: "occhiello" }, dataLunga(m.oggi)),
-        h("h1", {}, saluto(m.atleta.nome))),
+        h("h1", {}, saluto(new Date().getHours(), m.atleta.nome))),
       inViaggio ? null : h("button", { class: "bottone bottone-secondario bottone-viaggio", type: "button", id: "sono-in-viaggio",
         on: { click: () => ctx.azioni.inViaggio() } }, VIAGGIO.tasto)),
     ctx.demo ? bannerDemo(ctx) : null,
@@ -669,8 +1185,11 @@ export function vistaOggi(ctx) {
     pannelloStoMale(ctx),
     // In viaggio le notti non contano, e la riga serve solo dopo «C'è un motivo».
     !inViaggio || diarioDiOggi(m).controllo === "motivo" ? causeIeriSera(ctx) : null,
-    cartaInPiu(ctx),
+    carteInPiu(ctx),
+    cartaDomenica(ctx),
+    messaggiUnaVolta(ctx),
     perche(ctx),
-    h("p", { class: "semaforo-piede" }, h("a", { href: "#guida" }, OGGI.comeNasce)),
-    numeriDelGiorno(ctx, m, e));
+    h("p", { class: "semaforo-piede" }, h("a", { href: "#guida" }, OGGI.comeNasce)));
+  fuocoDopo(ctx);
+  return vista;
 }

@@ -1,2 +1,69 @@
 /* La pagina Oggi (7.4, 7.5, 7.9 e 7.10), le regole nuove di js/viste/oggi.js. Quelle del rilascio 1
-   restano in css/app.css. */
+   restano in css/app.css. Solo colori del tema, così il chiaro e lo scuro vengono da soli. */
+
+/* le righe in più della carta di oggi, sotto il come */
+.carta-righe {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 6px; color: var(--inchiostro-2); font-size: 15.5px; max-width: 62ch;
+}
+.carta-righe li { position: relative; padding-left: 18px; }
+.carta-righe li::before {
+  content: ""; position: absolute; left: 3px; top: 0.62em; width: 6px; height: 6px; border-radius: 50%; background: var(--linea-forte);
+}
+.semaforo .semaforo-perche { color: var(--inchiostro-2); }
+
+/* il giro o la palestra di oggi già registrati */
+.carta-fatto {
+  align-self: flex-start; display: inline-flex; align-items: baseline; gap: 8px;
+  background: var(--verde-fondo); color: var(--verde-testo); font-weight: 650; border-radius: 10px; padding: 8px 12px;
+}
+.carta-fatto::before { content: "\2713"; font-weight: 800; }
+
+/* le carte in più dopo il giro, al massimo una o due */
+.carte-in-piu { display: flex; flex-direction: column; gap: 14px; outline: none; }
+.carte-grazie {
+  background: var(--verde-fondo); border-radius: var(--raggio); padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 8px; outline: none;
+}
+.carte-grazie:focus-visible { outline: 2px solid var(--accento); outline-offset: 2px; }
+.carte-grazie strong { color: var(--verde-testo); }
+.carte-grazie .carta-righe { color: var(--inchiostro); }
+.carta-modulo { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+/* lo stato del salvataggio non prende spazio finché è vuoto, e c'è già per il lettore di schermo */
+.carta-modulo .stato-salvataggio:empty { min-height: 0; margin-top: -16px; }
+/* km e dislivello facoltativi, con la loro spiegazione al posto del titolo */
+.domanda-facoltativa legend { font-weight: 500; font-size: 15px; color: var(--inchiostro-2); }
+.carta-domanda { font-weight: 650; }
+.carta-contesto { color: var(--inchiostro-2); }
+.carta-in-piu .riga-bottoni .bottone { min-height: 44px; }
+
+/* i numeri scritti a mano, cioè chili, ore, minuti, km e metri di salita */
+.campo-numero { display: inline-flex; flex-direction: column; gap: 4px; min-width: 0; }
+.campo-numero label { font-size: 14px; font-weight: 600; color: var(--inchiostro-2); }
+.vista-oggi input[type="number"] {
+  font: inherit; font-size: 16px; color: var(--inchiostro); background: var(--carta);
+  border: 1px solid var(--linea-forte); border-radius: 12px; padding: 0 12px; min-height: 44px; width: 100%; max-width: 160px;
+}
+.domanda > .campo-numero { margin-top: 6px; }
+.tempo-altro { display: grid; grid-template-columns: repeat(2, minmax(0, 160px)); gap: 10px; margin-top: 6px; }
+
+/* il consiglio di una riga sotto le caselle della prova con le borse */
+.consiglio-casella {
+  margin: 0 0 4px 12px; padding: 2px 0 2px 12px; border-left: 2px solid var(--accento);
+  color: var(--inchiostro-2); font-size: 14.5px;
+}
+
+/* il controllo della domenica */
+.carta-domenica { border-left: 4px solid var(--linea-forte); }
+.carta-domenica h2 { font-size: 18px; }
+.carta-domenica p { color: var(--inchiostro-2); max-width: 62ch; }
+.carta-domenica .carta-domanda { color: var(--inchiostro); }
+.domanda-domenica { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--linea); padding-top: 12px; }
+
+/* i messaggi di una volta sola */
+.una-volta p { color: var(--inchiostro); max-width: 68ch; }
+
+@media (max-width: 359px) {
+  .tempo-altro { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .carta-in-piu .riga-bottoni .bottone { padding-left: 14px; padding-right: 14px; }
+}
