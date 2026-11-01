@@ -450,6 +450,7 @@ function contesto() {
     palestra: r ? r.palestra : { registro: [], conto: null, oggi: null, fase: null },
     domenica: r ? r.domenica : { controllo: null, voce: null },
     carteInPiu: r ? r.carteInPiu.filter((c) => !rispostaInPagina(c)) : [],
+    carteAperte: r ? r.carteAperte.filter((c) => !rispostaInPagina(c)) : [],
     messaggi: r ? r.messaggi : { soloStrava: false, notteNonArriva: false, copia: false, iphone: false },
     invito: r ? r.invito : null,
     primoAvvio: r ? r.primoAvvio : false,

@@ -35,7 +35,7 @@ function dallEsempio(oggi = OGGI, cambia = {}) {
 // I campi che il contratto promette alle pagine, sempre presenti.
 const CAMPI = [
   "oggi", "adesso", "modello", "esito", "giorno", "attivita", "giorniPuliti", "serie", "fitness", "k", "obiettivo", "stima",
-  "prontezza", "piano", "settimana", "seduta", "palestra", "domenica", "carteInPiu", "messaggi", "invito", "primoAvvio",
+  "prontezza", "piano", "settimana", "seduta", "palestra", "domenica", "carteInPiu", "carteAperte", "messaggi", "invito", "primoAvvio",
   "disponibilita", "daSalvare",
 ];
 
@@ -235,6 +235,9 @@ test("le carte in più seguono l'ordine e il tetto di 6.4, e una risposta le chi
   assert.ok(r.carteInPiu[0].attivita && r.carteInPiu[0].attivita.id);
   const conBorse = r.carteInPiu.some((c) => c.borse);
   assert.ok(r.carteInPiu.length <= (conBorse ? DOMANDE.carteInPiuConBorse : DOMANDE.carteInPiu));
+  // Tutte le domande aperte, per Numeri, cominciano con quelle di questa apertura.
+  assert.ok(r.carteAperte.length >= r.carteInPiu.length);
+  assert.deepEqual(r.carteAperte.slice(0, r.carteInPiu.length).map((c) => c.chiave), r.carteInPiu.map((c) => c.chiave));
   // Le carte di questa apertura restano quelle, anche se intanto ne arriva un'altra.
   const fisse = calcola({ ...stato, ui: { carteMostrate: [r.carteInPiu[0].chiave] } });
   assert.deepEqual(fisse.carteInPiu.map((c) => c.chiave), [r.carteInPiu[0].chiave]);

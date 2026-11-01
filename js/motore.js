@@ -62,6 +62,8 @@
 //                  «palestra», «seduta», «dispositivo». attivita è l'attività pulita (per lunga, prova, stub,
 //                  sforzo e palestra), seduta quella del piano (per seduta), inizio il primo giorno della
 //                  proposta di viaggio. Le risposte vanno con ctx.azioni.rispondiCarta e ctx.azioni.nonLoSo.
+//   carteAperte    tutte le carte ancora senza risposta, nello stesso ordine e senza tetto, per «le domande
+//                  ancora aperte» della pagina Numeri (7.11).
 //   messaggi       { soloStrava, notteNonArriva, copia, iphone }, vero quando la pagina deve mostrare quel
 //                  messaggio, una volta sola. L'app segna da sé che è stato mostrato.
 //   invito         { percorso, giorni, partenza } arrivato dal link degli iscritti, oppure null.
@@ -818,6 +820,7 @@ export function calcola(stato = {}) {
     palestra,
     domenica: { controllo: domenica ? domenica.controllo : null, voce: voceDomenica },
     carteInPiu,
+    carteAperte: tutte,
     messaggi,
     invito,
     primoAvvio: ob === null,
