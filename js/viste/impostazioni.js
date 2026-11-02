@@ -4,15 +4,15 @@
 // sicurezza, Esci ed «Esci e cancella tutto da questo dispositivo». Ogni voce dice dove sta il dato,
 // e ogni scelta si salva subito, con un tocco. Giorni e tempo hanno un tasto, perché vanno insieme.
 
-import { h } from "../dom.js?v=202611021803";
-import { dataLunga, formatoH, numero } from "../formato.js?v=202611021803";
-import { aggiungiGiorni, oggiLocale } from "../modello.js?v=202611021803";
-import { leggiDisponibilita } from "../piano.js?v=202611021803";
-import { DOMANDE_PALESTRA, TESTI_PALESTRA } from "../palestra.js?v=202611021803";
-import { SEMAFORO, MEMORIA, PIANO, STIMA } from "../parametri.js?v=202611021803";
-import { IMPOSTAZIONI } from "../testi-impostazioni.js?v=202611021803";
-import { TESTI_DATI } from "../testi-dati.js?v=202611021803";
-import { intestazione } from "./comuni.js?v=202611021803";
+import { h } from "../dom.js?v=202611022140";
+import { dataLunga, formatoH, numero } from "../formato.js?v=202611022140";
+import { aggiungiGiorni, oggiLocale } from "../modello.js?v=202611022140";
+import { leggiDisponibilita } from "../piano.js?v=202611022140";
+import { DOMANDE_PALESTRA, TESTI_PALESTRA } from "../palestra.js?v=202611022140";
+import { SEMAFORO, MEMORIA, PIANO, STIMA } from "../parametri.js?v=202611022140";
+import { IMPOSTAZIONI } from "../testi-impostazioni.js?v=202611022140";
+import { TESTI_DATI } from "../testi-dati.js?v=202611022140";
+import { intestazione } from "./comuni.js?v=202611022140";
 
 const I = IMPOSTAZIONI;
 const DATA = /^\d{4}-\d{2}-\d{2}$/;

@@ -5,20 +5,20 @@
 // quello che è stato fatto davvero da ctx.attivita, e gli spostamenti da ctx.piano.spostamenti.
 // righeSettimana è pura, così le prove la guardano con node (test/settimana.test.mjs).
 
-import { h, icona } from "../dom.js?v=202611021803";
-import { nomeTipo } from "../modello.js?v=202611021803";
-import { inBici, inPalestra } from "../dati.js?v=202611021803";
-import { leggiDisponibilita, TIPI_SEDUTA } from "../piano.js?v=202611021803";
-import { sedutaPalestra } from "../palestra.js?v=202611021803";
+import { h, icona } from "../dom.js?v=202611022140";
+import { nomeTipo } from "../modello.js?v=202611022140";
+import { inBici, inPalestra } from "../dati.js?v=202611022140";
+import { leggiDisponibilita, TIPI_SEDUTA } from "../piano.js?v=202611022140";
+import { sedutaPalestra } from "../palestra.js?v=202611022140";
 import {
   inBreve, titoloSeduta, comeSeduta, contoAllaPartenza, fraseSettimana, testoSposta, testoSpostiamo, testoSalta,
   NOTE, TASTI, AVVISI,
-} from "../testi-piano.js?v=202611021803";
+} from "../testi-piano.js?v=202611022140";
 import {
-  SETTIMANA, SEGNI, PERCHE, GIRO, SFORZO_PAROLE, giornoRiga, intervallo, nelPiano, fattoDescritto, sedutaAnche,
+  SETTIMANA, SEGNI, PERCHE, GIRO, SFORZO_PAROLE, giornoRiga, intervallo, nelPiano, percheSeduta, fattoDescritto, sedutaAnche,
   arrivaDa, fraseCrescita, liberaAiuto, giroAggiunto,
-} from "../testi-settimana.js?v=202611021803";
-import { intestazione, bannerDemo } from "./comuni.js?v=202611021803";
+} from "../testi-settimana.js?v=202611022140";
+import { intestazione, bannerDemo } from "./comuni.js?v=202611022140";
 
 const GIORNO_MS = 86400000;
 const lista = (v) => (Array.isArray(v) ? v : []);
@@ -179,7 +179,7 @@ function corpo(ctx, r) {
     dentro.push(h("p", {}, comeSeduta(s)));
     for (const riga of righeSeduta(s)) dentro.push(h("p", { class: "settimana-riga-piccola" }, riga));
     if (r.arrivata) dentro.push(h("p", { class: "settimana-nota" }, arrivaDa(r.arrivata.da)));
-    const perche = [PERCHE[s.tipo], r.crescita ? fraseCrescita(r.crescita.tipo, r.crescita.minuti) : null].filter(Boolean).join(" ");
+    const perche = [percheSeduta(s), r.crescita ? fraseCrescita(r.crescita.tipo, r.crescita.minuti) : null].filter(Boolean).join(" ");
     if (perche) dentro.push(h("p", { class: "settimana-perche" }, perche));
   } else if (s && r.passato) {
     dentro.push(h("p", {}, nelPiano(s)));

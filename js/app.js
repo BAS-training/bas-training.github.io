@@ -2,36 +2,36 @@
 // conti a js/motore.js, salva quello che il motore dice di salvare e decide quale pagina mostrare.
 // Le pagine stanno in js/viste/ e ricevono sempre lo stesso ctx, descritto in cima a js/motore.js.
 
-import { creaClient, ErroreApi, leggiNuovi } from "./api.js?v=202611021803";
-import { OAUTH_ATTIVO, SCRITTURE } from "./config.js?v=202611021803";
-import { preparaAccesso, completaAccesso, leggiRitorno } from "./oauth.js?v=202611021803";
+import { creaClient, ErroreApi, leggiNuovi } from "./api.js?v=202611022140";
+import { OAUTH_ATTIVO, SCRITTURE } from "./config.js?v=202611022140";
+import { preparaAccesso, completaAccesso, leggiRitorno } from "./oauth.js?v=202611022140";
 import {
   CHIAVE, ACCESSO, leggi, scrivi, togli, leggiCredenziale, stessaCredenziale, salvaCredenziale,
   cancellaCredenziali, togliCredenziale, dopoUnCambio,
-} from "./credenziali.js?v=202611021803";
-import { normalizzaGiorno, oggiLocale, oggiNelFuso, aggiungiGiorni, p2 } from "./modello.js?v=202611021803";
-import { creaMemoria, CHIAVI, nomeCopia } from "./memoria.js?v=202611021803";
+} from "./credenziali.js?v=202611022140";
+import { normalizzaGiorno, oggiLocale, oggiNelFuso, aggiungiGiorni, p2 } from "./modello.js?v=202611022140";
+import { creaMemoria, CHIAVI, nomeCopia } from "./memoria.js?v=202611022140";
 import {
   calcola, giorniDelViaggioDi, giroDelTelefono, spostaGiorno, spostaWeekend, confrontaAtleta, codaPuoPartire, senzaSfida,
-} from "./motore.js?v=202611021803";
-import { leggiInvito, palestraAbbinata } from "./dati.js?v=202611021803";
+} from "./motore.js?v=202611022140";
+import { leggiInvito, palestraAbbinata } from "./dati.js?v=202611022140";
 import {
   inCoda, inviaCoda, leggiCoda, scriviSforzo, scriviBorse, aggiungiEtichette, etichettaPalestra, codiceCasuale,
-} from "./scritture.js?v=202611021803";
-import { sedutaFatta } from "./palestra.js?v=202611021803";
-import { CONSENSO, ESCI, AVVISI } from "./testi-app.js?v=202611021803";
-import { generaDemo } from "./demo.js?v=202611021803";
-import { vistaOggi } from "./viste/oggi.js?v=202611021803";
-import { vistaSettimana } from "./viste/settimana.js?v=202611021803";
-import { vistaPronto } from "./viste/pronto.js?v=202611021803";
-import { vistaPalestra } from "./viste/palestra.js?v=202611021803";
-import { vistaNumeri } from "./viste/numeri.js?v=202611021803";
-import { vistaInizio } from "./viste/inizio.js?v=202611021803";
-import { vistaImpostazioni } from "./viste/impostazioni.js?v=202611021803";
-import { vistaAtletaDiverso } from "./viste/accesso.js?v=202611021803";
+} from "./scritture.js?v=202611022140";
+import { sedutaFatta } from "./palestra.js?v=202611022140";
+import { CONSENSO, ESCI, AVVISI } from "./testi-app.js?v=202611022140";
+import { generaDemo } from "./demo.js?v=202611022140";
+import { vistaOggi } from "./viste/oggi.js?v=202611022140";
+import { vistaSettimana } from "./viste/settimana.js?v=202611022140";
+import { vistaPronto } from "./viste/pronto.js?v=202611022140";
+import { vistaPalestra } from "./viste/palestra.js?v=202611022140";
+import { vistaNumeri } from "./viste/numeri.js?v=202611022140";
+import { vistaInizio } from "./viste/inizio.js?v=202611022140";
+import { vistaImpostazioni } from "./viste/impostazioni.js?v=202611022140";
+import { vistaAtletaDiverso } from "./viste/accesso.js?v=202611022140";
 import {
   vistaBenvenuto, vistaCollega, vistaGuida, vistaPrivacy, vistaCaricamento, vistaErrore, vistaConsenso, dialogo,
-} from "./viste/pagine.js?v=202611021803";
+} from "./viste/pagine.js?v=202611022140";
 
 // Dentro un riquadro di un altro sito la pagina non si apre: nessuno deve poterla "travestire".
 if (window.top !== window.self) {

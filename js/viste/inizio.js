@@ -10,18 +10,18 @@
 // Le scelte non ancora salvate stanno in ctx.ui.inizio, così un ridisegno della pagina non le perde.
 // La parte pura (bozza, schermate, controlli e risposte) è esportata e provata con node.
 
-import { h } from "../dom.js?v=202611021803";
-import { CATALOGO, trovaPercorso } from "../catalogo.js?v=202611021803";
-import { DATI, PIANO, SEMAFORO, STIMA } from "../parametri.js?v=202611021803";
-import * as TESTI_PALESTRA from "../palestra.js?v=202611021803";
-import * as TESTI_STIMA from "../testi-stima.js?v=202611021803";
-import * as TESTI_PRONTO from "../testi-prontezza.js?v=202611021803";
+import { h } from "../dom.js?v=202611022140";
+import { CATALOGO, trovaPercorso } from "../catalogo.js?v=202611022140";
+import { DATI, PIANO, SEMAFORO, STIMA } from "../parametri.js?v=202611022140";
+import * as TESTI_PALESTRA from "../palestra.js?v=202611022140";
+import * as TESTI_STIMA from "../testi-stima.js?v=202611022140";
+import * as TESTI_PRONTO from "../testi-prontezza.js?v=202611022140";
 import {
   INIZIO, SCELTA, GIORNI, AVVENTURA, SETTIMANA_INIZIO, TEMPO, GIRI, PALESTRA_INIZIO, ETA, PRIMA_DI_COMINCIARE, RIEPILOGO, COPIA,
   passaggio, rigaPercorso, quale, diSolito, scrittaGiorni, unaPartenza, iscritto, iscrittoTitolo, dettaglioIscritto, scrittaOre, scrittaTempo,
   cosaPrepari, giroDiOre, giroDiKm, giorniDiFila, giorniDiFilaKm, anteprimaCopia, dataDelVia,
-} from "../testi-inizio.js?v=202611021803";
-import { bannerDemo } from "./comuni.js?v=202611021803";
+} from "../testi-inizio.js?v=202611022140";
+import { bannerDemo } from "./comuni.js?v=202611022140";
 
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 const BICI = new Set(DATI.tipiBici);

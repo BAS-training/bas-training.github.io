@@ -367,10 +367,12 @@ export const PIANO = congela({
   // Lo sforzo massimo di ogni seduta da 0 a 10 (3.13), recupero, facile e media da 3.8, i giorni carichi
   // fino a 4 dal giorno 2 come in viaggio (regola 9.2), il resto stima nostra.
   sforzoMassimo: { riposo: 0, recupero: 2, facile: 3, media: 7, richiamo: 7, lunga: 4, scarico: 3, controllo: 4, piuGiorni: 4, prova: 4, palestra: 8, tronco: 5, gialloLeggero: 5, giroGiallo: 3, rossoBici: 2 },
+  lungaDaMinuti: 120,             // sotto le 2 ore la lunga della settimana si chiama giro facile, lettura nostra
   facileBreve: 30,                // nello scarico e nello scarico finale un giro facile dura da 30 minuti, così restano l'80% delle uscite, stima nostra
   disponibilita: { giorni: [1, 3, 5, 6], stella: 5, ore: [4, 6, 8, 10, 12], orePredefinite: 6 },   // martedì, giovedì, sabato e domenica, stella sul sabato, 3.1
   storicoDichiarato: { centri: [1.5, 3, 5, 7, 9], predefinito: 3 },   // h4 senza giri, da «meno di 2» a «più di 8», 3.1, stima nostra
   storicoSettimane: 4,            // h4 è la media delle ultime 4 settimane, e le 4 settimane vere prima del piano, 3.1
+  meglio: { settimane: 26, quota: 1.5 },   // chi ha già viaggiato più giorni cresce dalle sue 4 settimane migliori degli ultimi 6 mesi, al massimo 1,5 × h4, lettura nostra, prudente
   lungaDichiarata: { quota: 0.45, minimo: 1, massimo: 3 },   // L30 = 0,45 × h4 fra 1 e 3 ore, 3.1, stima nostra, prudente
   doloriCheTornano: { mattine: 3, giorni: 14, acciacchiDa: 2 },   // un fastidio o un dolore (injury da 2, con l'infortunio) in 3 mattine delle ultime 2 settimane, 3.1
   base: { crescita: 0.075, oreMinime: 1.5 },   // settimane di base, regola 2.6 che dice 5-10%, stima nostra

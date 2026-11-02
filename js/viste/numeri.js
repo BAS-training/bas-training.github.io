@@ -4,20 +4,20 @@
 // stanno in js/viste/andamento.js e js/viste/uscite.js. #andamento e #uscite portano alla loro parte.
 // I testi stanno in js/testi-numeri.js.
 
-import { h } from "../dom.js?v=202611021803";
-import { numero, segno, formatoDurata, dataLunga } from "../formato.js?v=202611021803";
-import { zonaFreschezza } from "../semaforo.js?v=202611021803";
-import { aggiungiGiorni, giorniTra } from "../modello.js?v=202611021803";
-import { SEMAFORO, PRONTEZZA } from "../parametri.js?v=202611021803";
-import { NUMERI_PAGINA, NUMERI_OGGI, NUMERI_DOMANDE, NUMERI_AVVENTURA, NUMERI_USCITE, SPIEGAZIONI } from "../testi-numeri.js?v=202611021803";
-import { testoFitness, testoDurabilita, testoPalestra, testoStomaco } from "../testi-prontezza.js?v=202611021803";
-import { sparkline } from "../grafici.js?v=202611021803";
-import { intestazione, pillola, spiegazione, bannerDemo } from "./comuni.js?v=202611021803";
-import { sezioneAndamento } from "./andamento.js?v=202611021803";
+import { h } from "../dom.js?v=202611022140";
+import { numero, segno, formatoDurata, dataLunga } from "../formato.js?v=202611022140";
+import { zonaFreschezza } from "../semaforo.js?v=202611022140";
+import { aggiungiGiorni, giorniTra } from "../modello.js?v=202611022140";
+import { SEMAFORO, PRONTEZZA } from "../parametri.js?v=202611022140";
+import { NUMERI_PAGINA, NUMERI_OGGI, NUMERI_DOMANDE, NUMERI_AVVENTURA, NUMERI_USCITE, SPIEGAZIONI } from "../testi-numeri.js?v=202611022140";
+import { testoFitness, testoDurabilita, testoPalestra, testoStomaco } from "../testi-prontezza.js?v=202611022140";
+import { sparkline } from "../grafici.js?v=202611022140";
+import { intestazione, pillola, spiegazione, bannerDemo } from "./comuni.js?v=202611022140";
+import { sezioneAndamento } from "./andamento.js?v=202611022140";
 import {
   sezioneUscite, gruppo, letto, domandeBorse, rispostaBorse, conNotteFuori, aMemoria, piedeModulo, sceltaSforzo,
   sceltaDurata, DURATE, quandoDi, nomeDi, durataDi, pulisci,
-} from "./uscite.js?v=202611021803";
+} from "./uscite.js?v=202611022140";
 
 const T = NUMERI_OGGI;
 const D = NUMERI_DOMANDE;

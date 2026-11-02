@@ -3,7 +3,7 @@
 // "0" al posto del numero dell'atleta vuol dire "il proprietario della chiave",
 // e con l'accesso di «Entra con intervals.icu» vuol dire "chi ha dato il permesso".
 
-import { CHIAMATE, MEMORIA } from "./parametri.js?v=202611021803";
+import { CHIAMATE, MEMORIA } from "./parametri.js?v=202611022140";
 
 const BASE = "https://intervals.icu";
 const ATTESA_MASSIMA = 20000; // millisecondi, poi si rinuncia e si avvisa

@@ -1,7 +1,7 @@
 // I testi di Impostazioni e dati (7.12), per js/viste/impostazioni.js. Stesse regole di scrittura di
 // js/testi.js (7.1), e la prova 9.8 li legge tutti.
 
-import { MEMORIA, CHIAMATE } from "./parametri.js?v=202611021803";
+import { MEMORIA, CHIAMATE } from "./parametri.js?v=202611022140";
 
 export const IMPOSTAZIONI = {
   titolo: "Impostazioni",

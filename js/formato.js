@@ -1,7 +1,7 @@
 // Come si scrivono numeri, durate e date nella pagina, all'italiana.
 // Nessun riferimento al DOM: lo usano anche i test con node.
 
-import { STIMA } from "./parametri.js?v=202611021803";
+import { STIMA } from "./parametri.js?v=202611022140";
 
 const intero = new Intl.NumberFormat("it-IT", { maximumFractionDigits: 0 });
 const decimali = new Map();

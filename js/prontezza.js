@@ -9,15 +9,15 @@
 // I numeri stanno in js/parametri.js, nel gruppo PRONTEZZA. Passo della lunga e scarico finale sono
 // quelli del piano, nel gruppo PIANO.
 
-import { CARICO, PIANO, PRONTEZZA } from "./parametri.js?v=202611021803";
-import { QUALITA, contoOre, giriUniti, inBici, inPalestra, mediana, puntiOra } from "./dati.js?v=202611021803";
-import { stimaH } from "./stima.js?v=202611021803";
-import { CATALOGO } from "./catalogo.js?v=202611021803";
+import { CARICO, PIANO, PRONTEZZA } from "./parametri.js?v=202611022140";
+import { QUALITA, contoOre, giriUniti, inBici, inPalestra, mediana, puntiOra } from "./dati.js?v=202611022140";
+import { stimaH } from "./stima.js?v=202611022140";
+import { CATALOGO } from "./catalogo.js?v=202611022140";
 import {
   testiVerdetto, testoVolume, testoLunga, testoProva, testoBorse, testoDaSistemare, testoContinuita,
   testoPalestra, rigaFiducia, fraseProiezione, testoManca, testoSottoPiano, cosaAllaVigilia,
   FIDUCIA, COSA_POCO, AVVISO_DOPPIO_USO, AVVISI_FITNESS, PROIEZIONE,
-} from "./testi-prontezza.js?v=202611021803";
+} from "./testi-prontezza.js?v=202611022140";
 
 const ORA = 3600;
 const GIORNO_MS = 86400000;
@@ -118,8 +118,8 @@ export function haEsperienza(e) {
 }
 
 // Ore a settimana minime e comode, uscita lunga obiettivo e prove minime della classe (2.1).
-// opzioni.borseKg sono le borse dell'obiettivo, che per un giorno decidono se serve la prova.
-// Restituisce { h, classe, vMin, vComodo, lt, prove }, null senza H.
+// opzioni.borseKg sono le borse dell'obiettivo, che per un giorno decidono se serve la prova e per
+// più giorni, a zero, tolgono le prove. Restituisce { h, classe, vMin, vComodo, lt, prove }, null senza H.
 export function obiettivi(h, classe, esperienza = false, { borseKg = null } = {}) {
   const o = PRONTEZZA.obiettivi[classe];
   if (!o || !num(h) || h <= 0) return null;
@@ -136,7 +136,9 @@ export function obiettivi(h, classe, esperienza = false, { borseKg = null } = {}
   // L'esperienza toglie l'uscita lunga con le borse solo con H fino a 6 ore (2.4, regola 6.7).
   if (classe === DUE_CINQUE && (h > PRONTEZZA.t2OltreH + EPS || !haEsperienza(esperienza))) prove.splice(1, 0, "T2");
   if (classe === UN_GIORNO && num(borseKg) && borseKg > PRONTEZZA.unGiornoBorseOltreKg) prove.push("unGiorno");
-  return { h, classe, vMin, vComodo, lt, prove };
+  // Per più giorni senza borse niente prove con le borse, come per un giorno (2.1, lettura nostra).
+  const senzaBorse = classe !== UN_GIORNO && num(borseKg) && borseKg <= 0;
+  return { h, classe, vMin, vComodo, lt, prove: senzaBorse ? [] : prove };
 }
 
 // I blocchi di 7 giorni contati dalla partenza, dalla −16 alla −1 (2.2), ognuno { indice, da, a }.
@@ -1107,7 +1109,8 @@ function eventoFatto(uscite, oggi) {
 
 // Le borse dell'obiettivo in kg. Per un obiettivo libero quelle del percorso libero (il giro «anche
 // con le borse» o i giorni di fila), altrimenti quelle della stima, poi del profilo, poi del catalogo.
-// Le usa anche js/piano.js, così piano e verdetto chiedono le stesse prove.
+// Le usa anche js/piano.js, così piano e verdetto chiedono le stesse prove. null se non si sanno, che
+// per più giorni non è come senza borse.
 export function borseDellObiettivo(stima, profilo = {}, percorso = null) {
   if (percorso && percorso.libero) {
     const kg = percorso.modello ? percorso.modello.borseKg : percorso.borseKg;
@@ -1116,7 +1119,7 @@ export function borseDellObiettivo(stima, profilo = {}, percorso = null) {
   const avviso = stima && Array.isArray(stima.avvisi) ? stima.avvisi.find((a) => a.tipo === "borse") : null;
   if (avviso && num(avviso.kg)) return avviso.kg;
   if (num(profilo.borseKg)) return profilo.borseKg;
-  return percorso && percorso.modello && num(percorso.modello.borseKg) ? percorso.modello.borseKg : 0;
+  return percorso && percorso.modello && num(percorso.modello.borseKg) ? percorso.modello.borseKg : null;
 }
 
 // Le settimane dalla −10 alla −3 che cominciano dal primo giorno con dati in poi.

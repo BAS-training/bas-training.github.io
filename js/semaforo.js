@@ -4,15 +4,15 @@
 // vincono sempre. Funzioni pure, senza DOM e senza window. Le soglie stanno in js/parametri.js e i testi
 // in js/testi.js, dove c'è anche la tabella della Guida (GUIDA_SEMAFORO) da cambiare con le regole.
 
-import { SEMAFORO, DATI, PRONTEZZA, PIANO, MEMORIA } from "./parametri.js?v=202611021803";
+import { SEMAFORO, DATI, PRONTEZZA, PIANO, MEMORIA } from "./parametri.js?v=202611022140";
 import {
   aggiungiGiorni, giorniTra, media, mediana, deviazioneMediana, notteValida, baseHrv, baseFc, dsMinimaHrv,
   oreBiciDelGiorno, mattinoDelGiorno, GIORNI_USCITE,
-} from "./modello.js?v=202611021803";
+} from "./modello.js?v=202611022140";
 import {
   LIVELLI, ESITO_VOCE, VOCI, PERCHE, NOTE, STOP, CARICO_TRE_MATTINE, STO_MALE, CONTROLLO, GUARDIA,
   MESSAGGI, MEDICO, FIDUCIA, VIAGGIO, ZONE_FRESCHEZZA,
-} from "./testi.js?v=202611021803";
+} from "./testi.js?v=202611022140";
 
 export { LIVELLI, ESITO_VOCE };
 

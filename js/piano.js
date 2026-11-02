@@ -7,12 +7,12 @@
 // Funzioni pure, senza DOM e senza window, provate con node (test/piano.test.mjs).
 // I numeri stanno in js/parametri.js, nei gruppi PIANO e DOMENICA, i testi in js/testi-piano.js.
 
-import { CARICO, DOMANDE, DOMENICA, PIANO, PRONTEZZA, SEMAFORO, STIMA } from "./parametri.js?v=202611021803";
-import { QUALITA, contoOre, doloriCheTornano, giriUniti, inBici, mediana } from "./dati.js?v=202611021803";
-import { borseDellObiettivo, classeEvento, giorniDiBici, obiettivi, pilastroBorse, pilastroLunga, pilastroVolume } from "./prontezza.js?v=202611021803";
-import { SCHEDE, contoSedute, fasePalestra, sedutaPalestra } from "./palestra.js?v=202611021803";
-import { trovaPercorso } from "./catalogo.js?v=202611021803";
-import * as T from "./testi-piano.js?v=202611021803";
+import { CARICO, DOMANDE, DOMENICA, PIANO, PRONTEZZA, SEMAFORO, STIMA } from "./parametri.js?v=202611022140";
+import { QUALITA, contoOre, doloriCheTornano, giriUniti, inBici, mediana } from "./dati.js?v=202611022140";
+import { borseDellObiettivo, classeEvento, giorniDiBici, haEsperienza, obiettivi, pilastroBorse, pilastroLunga, pilastroVolume } from "./prontezza.js?v=202611022140";
+import { SCHEDE, contoSedute, fasePalestra, sedutaPalestra } from "./palestra.js?v=202611022140";
+import { trovaPercorso } from "./catalogo.js?v=202611022140";
+import * as T from "./testi-piano.js?v=202611022140";
 
 const GIORNO_MS = 86400000;
 const EPS = 1e-9;
@@ -56,6 +56,10 @@ const PIU_GIORNI = new Set(["weekend", "weekendCarico", "T3", "prova", "blocco"]
 export const PIU_GIORNI_DEL_PIANO = Object.freeze([...PIU_GIORNI]);
 const PROVE = new Set(["T1", "T2", "T3", "prova", "blocco", "weekendCarico", "carica", "unGiorno"]);
 const CARICHE = PROVE;   // le prove sono le sedute con le borse come all'evento
+// Per un viaggio di più giorni senza borse le prove diventano lunghe e weekend senza borse, con le
+// stesse ore, e l'uscita carica non serve. Le note che parlano di borse cambiano (2.1, lettura nostra).
+const SENZA_BORSE = Object.freeze({ T1: "lunga", T2: "lunga", T3: "weekend", prova: "weekend", weekendCarico: "weekend", blocco: "weekend", carica: null });
+const NOTE_SENZA_BORSE = Object.freeze({ setup: "setupSenzaBorse", correzioni: "correzioniSenzaBorse" });
 const BICI = new Set([
   "recupero", "facile", "media", "richiamo", "lunga", "scarico", "controllo", "weekend", "weekendCarico",
   "T1", "T2", "T3", "prova", "blocco", "carica", "unGiorno", "tappa",
@@ -146,7 +150,7 @@ function perData(attivita) {
 }
 
 // Lo storico (3.1). h4 è la media delle ore in bici delle ultime 4 settimane, L30 la più lunga degli
-// ultimi 30 giorni. Senza giri leggibili h4 viene dalla risposta del primo avvio (oreDichiarate in ore,
+// ultimi 30 giorni, meglio la media più alta di 4 settimane di fila negli ultimi sei mesi. Senza giri leggibili h4 viene dalla risposta del primo avvio (oreDichiarate in ore,
 // oppure fasciaOre da 0 a 4) e L30 vale 0,45 × h4 fra 1 e 3 ore. s ha uscite (le attività pulite),
 // e se si sanno settimane, fitness, k, giorni (i giorni puliti del benessere, per i dolori che
 // tornano) o doloriCheTornano, interruzione { giorni, orePrima }, crescitaRapida, domenica (la
@@ -224,6 +228,18 @@ export function leggiStorico(s = {}, oggi = oggiIso(), lunediInizio = null) {
     return ore;
   };
 
+  // Il meglio degli ultimi sei mesi, la media più alta di 4 settimane di fila fra le ultime 26 finite,
+  // da lunedì a domenica. Solo con i giri, altrimenti null.
+  let meglio = num(dati.meglio) ? dati.meglio : null;
+  if (meglio === null && conGiri) {
+    const ore = [];
+    for (let j = PIANO.meglio.settimane; j >= 1; j--) ore.push(oreVere(piuGiorni(lunediOggi, -7 * j)));
+    for (let i = settimaneStoria; i <= ore.length; i++) {
+      const fila = ore.slice(i - settimaneStoria, i);
+      if (fila.every((o) => o !== null)) meglio = Math.max(meglio ?? 0, somma(fila) / settimaneStoria);
+    }
+  }
+
   // Le settimane vere prima del piano, per le regole di crescita. Senza giri valgono h4 e L30. vera
   // dice se le ore sono fatte davvero, e il tipo è quello del piano salvato, così uno scarico fatto
   // conta come la settimana prima (regola 2.6).
@@ -277,6 +293,7 @@ export function leggiStorico(s = {}, oggi = oggiIso(), lunediInizio = null) {
     conGiri,
     eBikeEvento,
     h4,
+    meglio,
     l30,
     l42,
     lunghe,
@@ -301,6 +318,14 @@ export function leggiStorico(s = {}, oggi = oggiIso(), lunediInizio = null) {
     rossi: num(dati.rossi) ? dati.rossi : 0,
     formaMinima: num(dati.formaMinima) ? dati.formaMinima : null,
   };
+}
+
+// La base da cui cresce il piano. Chi ha già fatto un viaggio di più giorni parte dal suo meglio degli
+// ultimi sei mesi, mai oltre una volta e mezza h4, così una pausa breve non lo riporta all'inizio. Gli
+// altri partono da h4 (3.1, lettura nostra). st è quello di leggiStorico.
+export function h4DiRiferimento(st, profilo = {}) {
+  if (!haEsperienza(profilo.esperienza) || !num(st.meglio)) return st.h4;
+  return Math.max(st.h4, Math.min(st.meglio, PIANO.meglio.quota * st.h4));
 }
 
 // --- Le settimane del piano (3.2) ---
@@ -707,6 +732,7 @@ export function applicaCrescita(settimane, storico = {}, profilo = {}, k = null,
   const dolori = st.dolori || Boolean(interrotto);
   const r7 = Math.exp(-7 / CARICO.serie.fitness);
   let F = num(st.fitness) ? st.fitness : (kk * st.h4) / 7;
+  const rif = h4DiRiferimento(st, prof);
   const salite = [];
   const avvisi = [];
 
@@ -722,7 +748,7 @@ export function applicaCrescita(settimane, storico = {}, profilo = {}, k = null,
     if (s.tipo === "base") {
       let carico = null;
       for (let i = storia.length - 1; i >= 0 && !carico; i--) if (DI_CARICO.has(storia[i].tipo)) carico = storia[i];
-      const da = Math.max(idx === 0 || !carico ? st.h4 : carico.ore, P.base.oreMinime);
+      const da = Math.max(idx === 0 || !carico ? rif : carico.ore, P.base.oreMinime);
       ore = Math.min(da * (1 + P.base.crescita), num(s.oreTarget) ? s.oreTarget : Infinity, tettoSettimana(storia), A);
     } else if (s.tipo === "N") {
       ore = Math.min(num(s.oreTarget) ? s.oreTarget : prev.ore, tettoSettimana(storia), A);
@@ -747,11 +773,14 @@ export function applicaCrescita(settimane, storico = {}, profilo = {}, k = null,
 
     // Dopo un blocco, o dopo una settimana oltre il 150% del solito, al massimo il 70% (regola 2.7).
     // Il 70% del solito, non della settimana grande, lettura prudente, e mai sotto la settimana minima.
+    // Dopo una settimana grande vera, prima del piano, mai sotto h4, la media delle ultime 4 settimane,
+    // perché un solito basso per una pausa non diventi una settimana quasi vuota, lettura nostra.
     if (ore !== null && storia.length) {
       const solito = mediaTre(storia, storia.length - 1);
       const grande = solito !== null && prev.ore > P.dopoBlocco.settimanaOltre * solito + EPS;
       if (prev.blocco || grande) {
-        ore = Math.min(ore, Math.max(P.dopoBlocco.massimo * (solito ?? prev.ore), settimanaMinima()));
+        const fondo = idx === 0 && grande && !prev.blocco && prev.vera === true ? st.h4 : 0;
+        ore = Math.min(ore, Math.max(P.dopoBlocco.massimo * (solito ?? prev.ore), settimanaMinima(), fondo));
         s.dopoBlocco = true;
       }
     }
@@ -1844,10 +1873,12 @@ export function pianoLungo({ obiettivo = {}, stima = null, classe = null, profil
   if (cl === DUE_CINQUE && N0 >= P3.dueCinqueB && N0 < P3.dueCinque && (st.schema === "A" || st.schema === "B") && st.schema !== sch.schema) {
     sch = st.schema === "B" ? { ...sch, schema: "B", base: N0 - P3.dueCinqueB, ultime: null } : { ...sch, schema: "A", base: 0, ultime: N0 };
   }
-  // Le ore dei piani corti sono quote di h4, quello di adesso o, se è meno, quello della nascita del
-  // piano, così rifacendolo il tetto di h4 + 30% o + 20% non sale con le settimane del piano stesso.
-  const h4Nascita = st.pianoSalvato && st.pianoSalvato.schema && num(st.pianoSalvato.schema.h4) ? st.pianoSalvato.schema.h4 : Infinity;
-  const h4Righe = Math.max(Math.min(st.h4, h4Nascita), PIANO.base.oreMinime);
+  // Le ore dei piani corti sono quote della base di h4DiRiferimento, quella di adesso o, se è meno,
+  // quella della nascita del piano, così rifacendolo il tetto di + 30% o + 20% non sale con le
+  // settimane del piano stesso. Un piano salvato senza rif è nato con h4 da solo e non fa da tetto.
+  const nato = st.pianoSalvato && st.pianoSalvato.schema;
+  const h4Nascita = nato && nato.rif === true && num(nato.h4) ? nato.h4 : Infinity;
+  const h4Righe = Math.max(Math.min(h4DiRiferimento(st, prof), h4Nascita), PIANO.base.oreMinime);
   const ctxRighe = { H, vOb, h4: h4Righe, classe: cl, prof, borse: cl === UN_GIORNO && num(borseKg) && borseKg > PRONTEZZA.unGiornoBorseOltreKg };
   const { righe } = righePiano(sch, N, ctxRighe);
   const perW = new Map(righe.map((r) => [r.w, r]));
@@ -1861,6 +1892,16 @@ export function pianoLungo({ obiettivo = {}, stima = null, classe = null, profil
     const c = PIANO.corti.tre.carica;
     const adatta = [...prime].reverse().find((s) => disp.stella !== null && giorniFra(piuGiorni(s.lunedi, disp.stella), partenza) >= c.giorniPrima && piuGiorni(s.lunedi, disp.stella) >= s.dal);
     if (adatta) adatta.chiave = { tipo: "carica", ore: [fra(c.h * H, c.minimo, c.massimo)], nota: null };
+  }
+  // Senza borse, per più giorni, niente prove con le borse (2.1, lettura nostra). La settimana di una
+  // prova di un giorno, diventata una lunga, cresce come una settimana normale.
+  if (cl !== UN_GIORNO && num(borseKg) && borseKg <= 0) {
+    for (const s of prime) {
+      if (!s.chiave) continue;
+      const tipo = Object.hasOwn(SENZA_BORSE, s.chiave.tipo) ? SENZA_BORSE[s.chiave.tipo] : s.chiave.tipo;
+      if (tipo === "lunga" && s.chiave.tipo !== "lunga" && s.tipo === "E") s.tipo = "N";
+      s.chiave = tipo ? { ...s.chiave, tipo, nota: NOTE_SENZA_BORSE[s.chiave.nota] || s.chiave.nota } : null;
+    }
   }
   for (const s of prime) assegnaDate(s, disp, partenza, cl);
 
@@ -1903,7 +1944,7 @@ export function pianoLungo({ obiettivo = {}, stima = null, classe = null, profil
   return {
     ...testa,
     fase: "piano",
-    schema: { nome: sch.schema, base: sch.base, ultime: sch.ultime, adattare: sch.adattare, blocco: sch.blocco || null, h4: h4Righe },
+    schema: { nome: sch.schema, base: sch.base, ultime: sch.ultime, adattare: sch.adattare, blocco: sch.blocco || null, h4: h4Righe, rif: true },
     vObiettivo: vOb,
     obiettivi: { vMin: ob.vMin, vComodo: ob.vComodo, lt: ob.lt, prove: ob.prove },
     inizio: st.inizioPiano || lunediOggi,

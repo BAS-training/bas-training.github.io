@@ -5,8 +5,8 @@
 // I grammi dei carboidrati non compaiono, il cibo si dice con il cibo (3.9).
 // Niente DOM, così le prove li compongono con node.
 
-import { dataLunga, formatoDurata } from "./formato.js?v=202611021803";
-import { DOMENICA, PIANO, STIMA } from "./parametri.js?v=202611021803";
+import { dataLunga, formatoDurata } from "./formato.js?v=202611022140";
+import { DOMENICA, PIANO, STIMA } from "./parametri.js?v=202611022140";
 
 function congela(oggetto) {
   for (const valore of Object.values(oggetto)) {
@@ -104,6 +104,8 @@ export const NOTE = congela({
   correzioni: "Sistema quello che hai notato nel test con le borse.",
   sella: "Se vuoi cambiare sella o scarpe, è l'ultima settimana per farlo.",
   setup: "Usa la bici come la porterai al viaggio, borse comprese.",
+  setupSenzaBorse: "Usa la bici come la porterai al viaggio.",
+  correzioniSenzaBorse: "Sistema quello che hai notato nell'ultima uscita lunga.",
   ultimo: "È l'ultimo test pieno prima della partenza.",
   ritmo: "Fai qualche tratto al passo che terrai il giorno dell'evento.",
   notteFuori: "Stasera dormi fuori.",
@@ -111,10 +113,14 @@ export const NOTE = congela({
   daLiberare: "Per farlo ti serve un giorno in più. Te lo chiedo qui sotto.",
 });
 
+// Sotto le 2 ore la lunga della settimana si chiama giro facile.
+const lungaCorta = (s) => Boolean(s) && s.tipo === "lunga" && s.minuti > 0 && s.minuti < PIANO.lungaDaMinuti;
+
 // Il titolo della seduta come è scritta nel piano, «Uscita lunga, 4 ore».
 export function titoloSeduta(s) {
   const d = durata(s.minuti);
   const parte = Number.isInteger(s.parte) && s.parte >= 1 ? s.parte : 1;
+  if (lungaCorta(s)) return `Giro facile, ${d}`;
   switch (s.tipo) {
     case "riposo": return "Oggi riposo";
     case "recupero": return `Giro di recupero, ${d}`;
@@ -158,6 +164,7 @@ export function inBreve(s) {
   if (!s) return "Riposo";
   const d = durata(s.minuti);
   const conDurata = (testo) => (d ? `${testo}, ${d}` : testo);
+  if (lungaCorta(s)) return conDurata("Facile");
   switch (s.tipo) {
     case "riposo": return "Riposo";
     case "recupero": return conDurata("Recupero");

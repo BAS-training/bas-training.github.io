@@ -5,8 +5,8 @@
 // Niente DOM e niente window, così si prova con node (test/carico.test.mjs).
 // I numeri stanno in js/parametri.js, nel gruppo CARICO.
 
-import { CARICO, DATI, PRONTEZZA } from "./parametri.js?v=202611021803";
-import { TESTI_DATI } from "./testi-dati.js?v=202611021803";
+import { CARICO, DATI, PRONTEZZA } from "./parametri.js?v=202611022140";
+import { TESTI_DATI } from "./testi-dati.js?v=202611022140";
 
 const ORA = 3600;
 const GIORNO_MS = 86400000;

@@ -2,13 +2,13 @@
 // Freschezza, carico, la Fitness di Come sto accanto a quella di intervals.icu) e notti (HRV, battito,
 // sonno). I testi stanno in js/testi-numeri.js.
 
-import { h } from "../dom.js?v=202611021803";
-import { numero, segno, durata } from "../formato.js?v=202611021803";
-import { baseHrv, baseFc } from "../modello.js?v=202611021803";
-import { fasciaBattito } from "../semaforo.js?v=202611021803";
-import { grafico } from "../grafici.js?v=202611021803";
-import { ZONE_FRESCHEZZA } from "../testi.js?v=202611021803";
-import { NUMERI_ANDAMENTO } from "../testi-numeri.js?v=202611021803";
+import { h } from "../dom.js?v=202611022140";
+import { numero, segno, durata } from "../formato.js?v=202611022140";
+import { baseHrv, baseFc } from "../modello.js?v=202611022140";
+import { fasciaBattito } from "../semaforo.js?v=202611022140";
+import { grafico } from "../grafici.js?v=202611022140";
+import { ZONE_FRESCHEZZA } from "../testi.js?v=202611022140";
+import { NUMERI_ANDAMENTO } from "../testi-numeri.js?v=202611022140";
 
 const A = NUMERI_ANDAMENTO;
 const CLASSI_ZONE = ["zona-riposo", "zona-fresco", "zona-neutra", "zona-allenamento", "zona-attenzione", "zona-rischio"];

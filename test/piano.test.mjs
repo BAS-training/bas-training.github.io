@@ -10,7 +10,7 @@ import {
   settimanePiano, scegliSchema, pianoLungo, applicaCrescita, giorniTapering, durataTapering, settimanaConcreta,
   oggiCosaFaccio, adattaSeduta, sposta, controlloDomenica, limiteFacile, obiettivoCarboidrati, passoLunga,
   tettoSettimana, oreSettimanaChiave, giroDelGiallo, crescitaRapida, carboidratiPer, leggiDisponibilita,
-  leggiStorico, fatichePiano, modoEventoPiano, giorniPersi, TIPI_SEDUTA,
+  leggiStorico, fatichePiano, modoEventoPiano, giorniPersi, h4DiRiferimento, TIPI_SEDUTA,
 } from "../js/piano.js";
 import * as T from "../js/testi-piano.js";
 import { componiModulo } from "./modelli-testi.mjs";
@@ -1474,4 +1474,53 @@ test("la disponibilità, i tetti e lo storico", () => {
   const a = applicaCrescita([{ lunedi: "2027-03-08", dal: "2027-03-08", al: "2027-03-14", quota: 1, indice: -11, tipo: "N", oreTarget: 9, sedute: [{ giorno: "2027-03-13", tipo: "lunga", ore: 5, possibile: true }] }], { h4: 6, l30: 3 }, {}, 40, { oggi: "2027-03-08" });
   vicino(a.settimane[0].orePiene, 6.9, 1e-6, "il tetto della settimana normale");
   vicino(a.settimane[0].sedute[0].ore, 3.6, 1e-6, "il passo della lunga");
+});
+
+// --- La base dal meglio, il freno dopo una settimana grande e i viaggi senza borse ---
+
+test("chi ha già viaggiato più giorni cresce dal suo meglio di sei mesi, mai oltre una volta e mezza h4", () => {
+  // Dieci ore a settimana fino a otto settimane fa, poi quattro.
+  const oggi = "2027-03-01";
+  const st = leggiStorico({ uscite: [...storia(piu(oggi, -56), 10, 4, 18), ...storia(oggi, 4, 2, 8)] }, oggi);
+  vicino(st.h4, 4, 1e-6);
+  vicino(st.meglio, 10, 1e-6);
+  vicino(h4DiRiferimento(st, { esperienza: 3 }), 6, 1e-6);
+  assert.equal(h4DiRiferimento(st, { esperienza: false }), st.h4);
+  vicino(h4DiRiferimento({ h4: 4, meglio: 5 }, { esperienza: 2 }), 5, 1e-9);
+  assert.equal(h4DiRiferimento({ h4: 0, meglio: 9 }, { esperienza: 3 }), 0, "dopo quattro settimane ferme si riparte da capo");
+});
+
+test("dopo una settimana grande vera il freno non scende sotto la media delle ultime quattro", () => {
+  // Una pausa, poi 12 ore. Il solito delle tre settimane prima è basso, h4 resta 5.
+  const oggi = "2027-03-01";
+  const settimane = [0, 6, 2, 12].map((ore, i) => ({ lunedi: piu(oggi, -28 + 7 * i), ore }));
+  const riga = { lunedi: oggi, dal: oggi, al: piu(oggi, 6), quota: 1, indice: -8, tipo: "N", oreTarget: 9, sedute: [] };
+  const a = applicaCrescita([riga], { h4: 5, l30: 3, settimane }, {}, 50, { oggi, A: 10 });
+  vicino(a.settimane[0].orePiene, 5, 1e-6);
+  assert.equal(a.settimane[0].dopoBlocco, true);
+});
+
+test("per più giorni senza borse niente prove con le borse, e una lunga sotto le 2 ore è un giro facile", () => {
+  assert.deepEqual(obiettivi(5.5, "2-5", 3, { borseKg: 0 }).prove, []);
+  assert.deepEqual(obiettivi(5.5, "2-5", 3, { borseKg: null }).prove, ["T1", "T3"], "le borse che non si sanno non tolgono le prove");
+  assert.deepEqual(obiettivi(5.5, "2-5", 3, { borseKg: 8 }).prove, ["T1", "T3"]);
+  // Cinque giorni da 100 km e 2.000 m su strada, senza borse, fra sei settimane.
+  const partenza = "2027-06-12";
+  const oggi = lunediDi(partenza, 6);
+  const libero = percorsoLibero({ tipo: "giorni", giorni: 5, misura: "km", km: 100, metri: 2000, fondo: "strada", conBorse: false });
+  const atleta = { sportSettings: [{ types: ["Ride"], ftp: 220 }] };
+  const stima = stimaH({ percorso: libero, giorni: 5, atleta, oggi });
+  const uscite = storia(oggi, 6, 3);
+  const p = pianoLungo({ obiettivo: { percorso: libero, giorni: 5, partenza, libero: true }, stima, profilo: { eta: 45, esperienza: 3 }, storico: { uscite }, disponibilita: { ore: 10 }, oggi, atleta });
+  assert.deepEqual(p.obiettivi.prove, []);
+  const sedute = p.settimane.flatMap((s) => s.sedute);
+  assert.ok(sedute.some((x) => x.tipo === "lunga"));
+  assert.ok(!sedute.some((x) => PROVE.has(x.tipo) || x.borse === "evento" || x.notteFuori), sedute.map((x) => x.tipo).join(" "));
+  assert.ok(!p.settimane.some((s) => s.tipo === "E" && s.sedute.every((x) => x.tipo === "lunga")), "la settimana della lunga cresce come una normale");
+  const r = valutaProntezza({ percorso: libero, giorni: 5, partenza, oggi, uscite, piano: p, stima, atleta, oreDisponibili: 10 });
+  assert.equal(r.pilastri.borse.stato, "nonServe");
+  // Il nome della lunga corta.
+  assert.equal(T.titoloSeduta({ tipo: "lunga", minuti: 60 }), "Giro facile, 1 ora");
+  assert.equal(T.inBreve({ tipo: "lunga", minuti: 60 }), "Facile, 1 ora");
+  assert.equal(T.titoloSeduta({ tipo: "lunga", minuti: 180 }), "Uscita lunga, 3 ore");
 });

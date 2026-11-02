@@ -3,8 +3,8 @@
 // di scrittura di js/testi.js (7.1), e la prova 9.8 li legge tutti.
 // Niente DOM, così le prove li compongono con node.
 
-import { dataLunga, formatoDurata, formatoOra, numero } from "./formato.js?v=202611021803";
-import { DOMANDE, STIMA } from "./parametri.js?v=202611021803";
+import { dataLunga, formatoDurata, formatoOra, numero } from "./formato.js?v=202611022140";
+import { DOMANDE, PIANO, STIMA } from "./parametri.js?v=202611022140";
 
 function congela(oggetto) {
   for (const valore of Object.values(oggetto)) {
@@ -116,6 +116,15 @@ const UN_NOME = congela({
 
 const PIU_GIORNI = new Set(["weekend", "weekendCarico", "T3", "prova", "blocco"]);
 
+// Sotto le 2 ore la lunga della settimana si chiama giro facile, come in js/testi-piano.js.
+const tipoDetto = (s) => (s.tipo === "lunga" && s.minuti > 0 && s.minuti < PIANO.lungaDaMinuti ? "facile" : s.tipo);
+
+// Il perché di una seduta, con la lunga corta detta come un giro facile.
+export function percheSeduta(seduta) {
+  const s = seduta && typeof seduta === "object" ? seduta : null;
+  return s ? PERCHE[tipoDetto(s)] || null : null;
+}
+
 // «Lunedì 2», il giorno di una riga della settimana.
 export function giornoRiga(iso) {
   if (!dataValida(iso)) return null;
@@ -138,7 +147,7 @@ export function nelPiano(seduta) {
   if (!s || !UN_NOME[s.tipo]) return null;
   const parte = PIU_GIORNI.has(s.tipo) && Number.isInteger(s.parte) && s.di > 1 ? `, giorno ${s.parte}` : "";
   const d = s.tipo === "palestra" ? null : durata(s.minuti);
-  return `Nel piano c'era ${UN_NOME[s.tipo]}${parte}${d ? `, ${d}` : ""}.`;
+  return `Nel piano c'era ${UN_NOME[tipoDetto(s)]}${parte}${d ? `, ${d}` : ""}.`;
 }
 
 // Quello che è stato fatto in un giorno, «Bici, 1 ora e 30, 42 km». tipo è il nome del tipo a parole.
@@ -328,7 +337,8 @@ export function segnataAlle(ora) {
 export const ESEMPI = congela({
   giornoRiga: [["2026-11-02"], ["2026-11-08"]],
   intervallo: [["2026-11-02"], ["2026-11-30"]],
-  nelPiano: [[{ tipo: "facile", minuti: 60 }], [{ tipo: "palestra", minuti: 50 }], [{ tipo: "weekend", minuti: 280, parte: 1, di: 2 }]],
+  nelPiano: [[{ tipo: "facile", minuti: 60 }], [{ tipo: "palestra", minuti: 50 }], [{ tipo: "weekend", minuti: 280, parte: 1, di: 2 }], [{ tipo: "lunga", minuti: 60 }]],
+  percheSeduta: [[{ tipo: "lunga", minuti: 200 }], [{ tipo: "lunga", minuti: 60 }], [{ tipo: "palestra", minuti: 50 }]],
   fattoDescritto: [["Bici", 5400, 42000], ["Palestra", 3000, null]],
   sedutaAnche: [[{ tipo: "tronco", minuti: 10, facoltativa: true }], [{ tipo: "palestra", minuti: 50 }], [{ tipo: "facile", minuti: 45 }]],
   arrivaDa: [["2026-11-03"]],

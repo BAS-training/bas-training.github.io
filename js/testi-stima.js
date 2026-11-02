@@ -3,9 +3,9 @@
 // parole, H sempre alla mezz'ora, mai watt, punti o percentuali, e mai il dislivello di lavoro.
 // Niente DOM, così le prove le compongono con node.
 
-import { daIso, formatoDurata } from "./formato.js?v=202611021803";
-import { PASSO, STIMA } from "./parametri.js?v=202611021803";
-import { arrotondaMezzora } from "./stima.js?v=202611021803";
+import { daIso, formatoDurata } from "./formato.js?v=202611022140";
+import { PASSO, STIMA } from "./parametri.js?v=202611022140";
+import { arrotondaMezzora } from "./stima.js?v=202611022140";
 
 const MINUTI = STIMA.arrotondaMinuti;
 const fmtGiorno = new Intl.DateTimeFormat("it-IT", { day: "numeric", month: "long" });

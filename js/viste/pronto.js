@@ -6,23 +6,23 @@
 // (ctx.prontezza, ctx.stima, ctx.obiettivo): la pagina non decide niente, mostra e passa le scelte a
 // ctx.azioni.
 
-import { h, s } from "../dom.js?v=202611021803";
-import { segno } from "../formato.js?v=202611021803";
-import { leggiDisponibilita } from "../piano.js?v=202611021803";
-import { PRONTEZZA, SEMAFORO, STIMA } from "../parametri.js?v=202611021803";
-import { MEDICO } from "../testi.js?v=202611021803";
+import { h, s } from "../dom.js?v=202611022140";
+import { segno } from "../formato.js?v=202611022140";
+import { leggiDisponibilita } from "../piano.js?v=202611022140";
+import { PRONTEZZA, SEMAFORO, STIMA } from "../parametri.js?v=202611022140";
+import { MEDICO } from "../testi.js?v=202611022140";
 import {
   fraseGiornata, fraseGiornataNormale, fraseGiornoInPiu, fraseBorse, fraseFonte, scelteOreEbike, IN_CALENDARIO, EBIKE,
   DA_DOVE_VENGONO, PASSO_GIRI,
-} from "../testi-stima.js?v=202611021803";
+} from "../testi-stima.js?v=202611022140";
 import {
   PRONTO_PAGINA, STATI_RIGA, PROIEZIONE, NUMERI_PRONTO, BORSE_PRONTO, CAMBIA_PRONTO, FATTO_PRONTO, QUANDO_PARTI,
   fraseProiezione, nomeAvventura, rigaPercorso, rigaGiorni, settimanaTipo, provaDaFare, rigaBorseKg, rigaBorseLeggere,
   righeProposta, tastoGiorni, passaA, anteprimaGiorni, anteprimaCorto, anteprimaEsito, partoIl, giroTolto, testoFitness,
   testoDurabilita, testoStomaco,
-} from "../testi-prontezza.js?v=202611021803";
-import { bannerDemo } from "./comuni.js?v=202611021803";
-import { barraPronto, FORMA_DI } from "./barra-pronto.js?v=202611021803";
+} from "../testi-prontezza.js?v=202611022140";
+import { bannerDemo } from "./comuni.js?v=202611022140";
+import { barraPronto, FORMA_DI } from "./barra-pronto.js?v=202611022140";
 
 const num = (v) => typeof v === "number" && Number.isFinite(v);
 const lista = (v) => (Array.isArray(v) ? v : []);

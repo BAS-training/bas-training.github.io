@@ -7,8 +7,8 @@
 // Niente numeri a schermo. I testi stanno in js/testi-prontezza.js, lo stile in css/barra.css.
 // La parte pura (segmentiPronto) si prova con node.
 
-import { h, s } from "../dom.js?v=202611021803";
-import { BARRA_PRONTO, nomeBarra, fraseBarra } from "../testi-prontezza.js?v=202611021803";
+import { h, s } from "../dom.js?v=202611022140";
+import { BARRA_PRONTO, nomeBarra, fraseBarra } from "../testi-prontezza.js?v=202611022140";
 
 // I pilastri della barra, nell'ordine di 2.3.
 export const PILASTRI_BARRA = ["volume", "lunga", "borse", "continuita"];
