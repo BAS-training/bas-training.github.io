@@ -5,7 +5,7 @@
 // promessa medica. I modelli con un valore dentro sono funzioni, così le prove li compongono
 // (test/testi.test.mjs, 9.8).
 
-import { formatoDurata } from "./formato.js?v=202610312043";
+import { formatoDurata } from "./formato.js?v=202611021705";
 
 // Le durate in parole, «45 minuti», «1 ora e 20», «3 ore e mezza» (7.1). È formatoDurata di
 // js/formato.js, con il nome che usano i testi del semaforo.

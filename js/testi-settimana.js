@@ -3,8 +3,8 @@
 // di scrittura di js/testi.js (7.1), e la prova 9.8 li legge tutti.
 // Niente DOM, così le prove li compongono con node.
 
-import { dataLunga, formatoDurata, formatoOra, numero } from "./formato.js?v=202610312043";
-import { DOMANDE, STIMA } from "./parametri.js?v=202610312043";
+import { dataLunga, formatoDurata, formatoOra, numero } from "./formato.js?v=202611021705";
+import { DOMANDE, STIMA } from "./parametri.js?v=202611021705";
 
 function congela(oggetto) {
   for (const valore of Object.values(oggetto)) {

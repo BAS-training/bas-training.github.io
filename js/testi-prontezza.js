@@ -4,10 +4,10 @@
 // finale al posto della parola inglese, nessuna pagella e nessuna promessa.
 // Niente DOM, così le prove le compongono con node.
 
-import { dataLunga } from "./formato.js?v=202610312043";
-import { PASSO, PRONTEZZA, STIMA } from "./parametri.js?v=202610312043";
-import { arrotondaMezzora } from "./stima.js?v=202610312043";
-import { oreInParole, durataInParole, migliaia, PASSO_GIRI } from "./testi-stima.js?v=202610312043";
+import { dataLunga } from "./formato.js?v=202611021705";
+import { PASSO, PRONTEZZA, STIMA } from "./parametri.js?v=202611021705";
+import { arrotondaMezzora } from "./stima.js?v=202611021705";
+import { oreInParole, durataInParole, migliaia, PASSO_GIRI } from "./testi-stima.js?v=202611021705";
 
 const MINUTI = STIMA.arrotondaMinuti;
 const IN_LETTERE = ["zero", "una", "due", "tre", "quattro", "cinque", "sei", "sette", "otto", "nove", "dieci"];

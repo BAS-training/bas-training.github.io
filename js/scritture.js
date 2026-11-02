@@ -9,10 +9,10 @@
 // di js/memoria.js, client è quello di creaClient in js/api.js. Niente DOM e niente window, così si
 // prova con node (test/scritture.test.mjs).
 
-import { CHIAMATE } from "./parametri.js?v=202610312043";
-import { ETICHETTE, PREFISSI, PREFISSO_COMESTO, RIGA_COMESTO, inBici, tipoDetto } from "./dati.js?v=202610312043";
-import { divisorePer } from "./carico.js?v=202610312043";
-import { TESTI_DATI } from "./testi-dati.js?v=202610312043";
+import { CHIAMATE } from "./parametri.js?v=202611021705";
+import { ETICHETTE, PREFISSI, PREFISSO_COMESTO, RIGA_COMESTO, inBici, tipoDetto } from "./dati.js?v=202611021705";
+import { divisorePer } from "./carico.js?v=202611021705";
+import { TESTI_DATI } from "./testi-dati.js?v=202611021705";
 
 export const CHIAVE_CODA = "comesto.coda.v1";
 export const CHIAVE_USCITE = "comesto.uscite.v1";

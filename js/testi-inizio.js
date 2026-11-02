@@ -3,8 +3,8 @@
 // qui ci sono solo le parole intorno e una copia di riserva, se quel file cambiasse forma.
 // I modelli che sono funzioni controllano i loro ingressi e restituiscono null quando non tornano.
 
-import { dataLunga } from "./formato.js?v=202610312043";
-import { PASSO } from "./parametri.js?v=202610312043";
+import { dataLunga } from "./formato.js?v=202611021705";
+import { PASSO } from "./parametri.js?v=202611021705";
 
 function congela(oggetto) {
   for (const valore of Object.values(oggetto)) {

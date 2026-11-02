@@ -2,9 +2,9 @@
 // un account diverso da quello dei dati che stanno sul telefono (R21). Finché la persona non sceglie,
 // i dati dell'altra non si mostrano, non si usano e le sue scritture non partono.
 
-import { h } from "../dom.js?v=202610312043";
-import { ATLETA_DIVERSO } from "../testi-app.js?v=202610312043";
-import { intestazione } from "./comuni.js?v=202610312043";
+import { h } from "../dom.js?v=202611021705";
+import { ATLETA_DIVERSO } from "../testi-app.js?v=202611021705";
+import { intestazione } from "./comuni.js?v=202611021705";
 
 export function vistaAtletaDiverso(ctx) {
   const A = ATLETA_DIVERSO;

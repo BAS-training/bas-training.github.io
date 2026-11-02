@@ -2,16 +2,16 @@
 // di entrare», guida, privacy. Qui ci sono anche la pagina del consenso per chi è già dentro, le
 // finestre di conferma e le schermate di attesa e di errore. I testi stanno in js/testi-pagine.js.
 
-import { h, icona } from "../dom.js?v=202610312043";
+import { h, icona } from "../dom.js?v=202611021705";
 import {
   GUIDA_SEMAFORO, GUIDA_LIVELLI, GUIDA_COLONNE, GUIDA, DISPOSITIVI, DOMANDE_FREQUENTI, DOMANDA_ESCI_CON_INTERVALS, LIMITI,
   PRIVACY, COLLEGA, BENVENUTO, ATTESA, ERRORE,
-} from "../testi-pagine.js?v=202610312043";
-import { SPIEGAZIONI } from "../testi-numeri.js?v=202610312043";
-import { GUIDA_PRONTO } from "../testi-prontezza.js?v=202610312043";
-import { CONSENSO } from "../testi-app.js?v=202610312043";
-import { intestazione, luceSemaforo } from "./comuni.js?v=202610312043";
-import { OAUTH_ATTIVO } from "../config.js?v=202610312043";
+} from "../testi-pagine.js?v=202611021705";
+import { SPIEGAZIONI } from "../testi-numeri.js?v=202611021705";
+import { GUIDA_PRONTO } from "../testi-prontezza.js?v=202611021705";
+import { CONSENSO } from "../testi-app.js?v=202611021705";
+import { intestazione, luceSemaforo } from "./comuni.js?v=202611021705";
+import { OAUTH_ATTIVO } from "../config.js?v=202611021705";
 
 const IMPOSTAZIONI = "https://intervals.icu/settings";
 

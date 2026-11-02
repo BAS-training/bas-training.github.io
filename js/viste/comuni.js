@@ -1,7 +1,7 @@
 // Pezzi usati da più pagine.
 
-import { h, icona } from "../dom.js?v=202610312043";
-import { ESITO_VOCE } from "../semaforo.js?v=202610312043";
+import { h, icona } from "../dom.js?v=202611021705";
+import { ESITO_VOCE } from "../semaforo.js?v=202611021705";
 
 export function pillola(colore, testo) {
   return h("span", { class: ["pillola", `pillola-${colore}`] },

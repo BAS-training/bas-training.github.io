@@ -3,7 +3,7 @@
 // qui e nella Guida, possono stare «specchio», «scarico finale» con i numeri e i kJ, perché è la
 // pagina di chi ama i numeri (le costanti con NUMERI nel nome).
 
-import { DOMANDE } from "./parametri.js?v=202610312043";
+import { DOMANDE } from "./parametri.js?v=202611021705";
 
 export const SPIEGAZIONI = {
   hrv: {

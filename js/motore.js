@@ -112,25 +112,25 @@
 //
 // ========================================================================================
 
-import { costruisciModello, aggiungiGiorni, giorniTra, giornoSettimana } from "./modello.js?v=202610312043";
+import { costruisciModello, aggiungiGiorni, giorniTra, giornoSettimana } from "./modello.js?v=202611021705";
 import {
   valuta, eventoDiOggi, inizioProposta, giorniDiGuardia, statoMalattia, statoCuore, viaggiDelDiario,
-} from "./semaforo.js?v=202610312043";
+} from "./semaforo.js?v=202611021705";
 import {
   preparaAttivita, normalizzaGiorno, carteDelMattino, soloStrava, notteNonArrivaPiu, doloriCheTornano, leggiInvito,
   inBici, inPalestra, PREFISSI,
-} from "./dati.js?v=202610312043";
-import { serieCarico, puntiOra, differenzaFitness } from "./carico.js?v=202610312043";
-import { stimaH, percorsoLibero } from "./stima.js?v=202610312043";
-import { valutaProntezza } from "./prontezza.js?v=202610312043";
+} from "./dati.js?v=202611021705";
+import { serieCarico, puntiOra, differenzaFitness } from "./carico.js?v=202611021705";
+import { stimaH, percorsoLibero } from "./stima.js?v=202611021705";
+import { valutaProntezza } from "./prontezza.js?v=202611021705";
 import {
   pianoLungo, oggiCosaFaccio, controlloDomenica, fatichePiano, modoEventoPiano, crescitaRapida, giorniPersi, sposta,
   leggiDisponibilita, PIU_GIORNI_DEL_PIANO,
-} from "./piano.js?v=202610312043";
-import { contoSedute, caricoPalestra } from "./palestra.js?v=202610312043";
-import { testoSpostiamo, testoSalta } from "./testi-piano.js?v=202610312043";
-import { trovaPercorso } from "./catalogo.js?v=202610312043";
-import { SEMAFORO, PIANO, MEMORIA, CHIAMATE, DOMANDE, DATI, BORSE } from "./parametri.js?v=202610312043";
+} from "./piano.js?v=202611021705";
+import { contoSedute, caricoPalestra } from "./palestra.js?v=202611021705";
+import { testoSpostiamo, testoSalta } from "./testi-piano.js?v=202611021705";
+import { trovaPercorso } from "./catalogo.js?v=202611021705";
+import { SEMAFORO, PIANO, MEMORIA, CHIAMATE, DOMANDE, DATI, BORSE } from "./parametri.js?v=202611021705";
 
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 const ORA = 3600;

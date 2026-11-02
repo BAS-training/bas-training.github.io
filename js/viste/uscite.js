@@ -3,14 +3,14 @@
 // sono anche le domande a un tocco che la pagina Numeri usa per le domande ancora aperte. I testi
 // stanno in js/testi-numeri.js.
 
-import { h } from "../dom.js?v=202610312043";
-import { numero, durata, formatoDurata, formatoOra, dataBreve, dataLunga, giornoMese } from "../formato.js?v=202610312043";
-import { aggiungiGiorni, giornoSettimana, nomeTipo } from "../modello.js?v=202610312043";
-import { oreDelGiorno } from "../dati.js?v=202610312043";
-import { QUALITA, inBici, inPalestra } from "../carico.js?v=202610312043";
-import { DOMANDE, STIMA } from "../parametri.js?v=202610312043";
-import { grafico } from "../grafici.js?v=202610312043";
-import { NUMERI_USCITE, NUMERI_SCHEDA, NUMERI_DOMANDE } from "../testi-numeri.js?v=202610312043";
+import { h } from "../dom.js?v=202611021705";
+import { numero, durata, formatoDurata, formatoOra, dataBreve, dataLunga, giornoMese } from "../formato.js?v=202611021705";
+import { aggiungiGiorni, giornoSettimana, nomeTipo } from "../modello.js?v=202611021705";
+import { oreDelGiorno } from "../dati.js?v=202611021705";
+import { QUALITA, inBici, inPalestra } from "../carico.js?v=202611021705";
+import { DOMANDE, STIMA } from "../parametri.js?v=202611021705";
+import { grafico } from "../grafici.js?v=202611021705";
+import { NUMERI_USCITE, NUMERI_SCHEDA, NUMERI_DOMANDE } from "../testi-numeri.js?v=202611021705";
 
 const U = NUMERI_USCITE;
 const S = NUMERI_SCHEDA;
