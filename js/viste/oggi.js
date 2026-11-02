@@ -1,26 +1,29 @@
 // La pagina principale (7.4). In alto la carta di oggi, cioè cosa fare, quanto e perché, con il semaforo
-// che la aggiusta. Sotto, in quest'ordine, le domande del mattino, il tasto «Sto male», la riga «Ieri
-// sera…», al massimo una carta in più (due quando una è sulle borse, 6.4), il controllo della domenica
-// (7.9), i messaggi di una volta sola, il «Perché» e il collegamento alla Guida. Le sei tessere dei
-// numeri stanno nella pagina Numeri (7.2). In viaggio la carta e le domande sono quelle di 4.5 e 7.10.
-// Tutto arriva già calcolato da js/app.js e js/motore.js, il contratto è in cima a js/motore.js.
+// che la aggiusta. Subito sotto la barra «Arrivi pronto?» (js/viste/barra-pronto.js), che porta a
+// Pronto?, e il collegamento a «La tua avventura». Poi, in quest'ordine, le domande del mattino, il tasto
+// «Sto male», la riga «Ieri sera…», al massimo una carta in più (due quando una è sulle borse, 6.4), il
+// controllo della domenica (7.9), i messaggi di una volta sola, il «Perché» e il collegamento alla Guida.
+// Le sei tessere dei numeri stanno nella pagina Numeri (7.2). In viaggio la carta e le domande sono
+// quelle di 4.5 e 7.10. Tutto arriva già calcolato da js/app.js e js/motore.js, il contratto è in cima a
+// js/motore.js.
 
-import { h, icona } from "../dom.js?v=202611021705";
-import { dataLunga, formatoDurata, formatoOra, numero } from "../formato.js?v=202611021705";
-import { inBici } from "../dati.js?v=202611021705";
-import { DOMANDE } from "../parametri.js?v=202611021705";
+import { h, icona } from "../dom.js?v=202611021803";
+import { dataLunga, formatoDurata, formatoOra, numero } from "../formato.js?v=202611021803";
+import { inBici } from "../dati.js?v=202611021803";
+import { DOMANDE } from "../parametri.js?v=202611021803";
 import {
   LIVELLI, ESITO_VOCE, DOMANDE_MATTINO, OGGI, MATTINO, STO_MALE, CAUSE, CONTROLLO, VIAGGIO, MESSAGGI, FIDUCIA, TETTI,
   CAMBIO_DISPOSITIVO,
-} from "../testi.js?v=202611021705";
+} from "../testi.js?v=202611021803";
 import {
   saluto, AL_EVENTO, contoPartenza, CARTA, CARTE, titoloUscita, titoloPalestra, titoloStub, arrivaDa, sedutaDiIeri,
-  lHaiFatto, DOMENICA_OGGI, UNA_VOLTA,
-} from "../testi-oggi.js?v=202611021705";
-import { TASTI, STOMACO, testoSposta, testoSalta, testoPalestraSposta } from "../testi-piano.js?v=202611021705";
-import { TESTI_DATI } from "../testi-dati.js?v=202611021705";
-import { PROMEMORIA } from "../testi-app.js?v=202611021705";
-import { bannerDemo, luceSemaforo } from "./comuni.js?v=202611021705";
+  lHaiFatto, DOMENICA_OGGI, UNA_VOLTA, AVVENTURA_OGGI,
+} from "../testi-oggi.js?v=202611021803";
+import { TASTI, STOMACO, testoSposta, testoSalta, testoPalestraSposta } from "../testi-piano.js?v=202611021803";
+import { TESTI_DATI } from "../testi-dati.js?v=202611021803";
+import { PROMEMORIA } from "../testi-app.js?v=202611021803";
+import { bannerDemo, luceSemaforo } from "./comuni.js?v=202611021803";
+import { barraPronto } from "./barra-pronto.js?v=202611021803";
 
 // La sera, per «Ce l'hai fatta» dell'ultimo giorno di viaggio, dalla stessa ora del saluto.
 const ORA_SERA = 18;
@@ -242,6 +245,21 @@ function cartaSemaforo(ctx) {
     delDiario && finitoIlViaggio(g) ? h("p", { class: "semaforo-nota semaforo-fine" }, VIAGGIO.fine) : null,
     inViaggio ? h("ul", { class: "promemoria" }, (e.viaggio ? e.viaggio.promemoria : VIAGGIO.promemoria).map((t) => h("li", {}, t))) : null,
     tasti.length ? h("div", { class: "riga-bottoni" }, tasti) : null);
+}
+
+// --- sotto la carta, la barra «Arrivi pronto?» e la tua avventura (7.3 e 7.7) ---
+
+// La barra c'è con un evento o un'avventura propria che ha già i pilastri, prima della partenza e fuori
+// dai viaggi, e un tocco porta a Pronto?. Il collegamento a #inizio c'è sempre, «Cambia la tua avventura»
+// con un evento o un'avventura, «Scegli la tua avventura» con il solo semaforo.
+export function sottoLaCarta(ctx) {
+  const g = ctx.giorno || {};
+  const ob = oggetto(ctx.obiettivo);
+  const barra = !g.evento && Number.isInteger(g.giorniPartenza) ? barraPronto(ctx, { collegamento: true, id: "oggi-pronto" }) : null;
+  return h("div", { class: "oggi-sotto-carta" },
+    barra,
+    h("p", { class: "oggi-avventura" },
+      h("a", { href: "#inizio", id: "oggi-avventura" }, ob && ob.percorso ? AVVENTURA_OGGI.cambia : AVVENTURA_OGGI.scegli)));
 }
 
 // La domanda di controllo e quella sulla pedalata compaiono prima del livello (4.4). «Rispondo dopo»
@@ -1181,6 +1199,7 @@ export function vistaOggi(ctx) {
     ctx.demo ? bannerDemo(ctx) : null,
     !m.notteArrivata && !m.notteMaiArrivata && !ctx.demo ? avvisoNotte(ctx) : null,
     domanda ? cartaControllo(ctx, domanda) : cartaSemaforo(ctx),
+    sottoLaCarta(ctx),
     inViaggio ? domandeViaggio(ctx) : domandeMattino(ctx),
     pannelloStoMale(ctx),
     // In viaggio le notti non contano, e la riga serve solo dopo «C'è un motivo».

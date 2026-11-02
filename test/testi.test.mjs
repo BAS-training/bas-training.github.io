@@ -289,6 +289,26 @@ test("Guida, domande frequenti, Privacy e Impostazioni dicono quello che l'app f
   assert.ok(readme.includes(`**Giallo, giornata tranquilla.** ${giallo}`), "il README riporta i livelli della Guida");
 });
 
+test("«Le fonti» della Guida, fra 25 e 40 per tema, con autore, anno, rivista, una frase e il DOI senza https", () => {
+  const { GUIDA_FONTI, chiFonte } = moduli["testi-pagine.js"];
+  assert.equal(GUIDA_FONTI.temi.length, 8, "otto temi");
+  const fonti = GUIDA_FONTI.temi.flatMap((t) => t.fonti);
+  assert.ok(fonti.length >= 25 && fonti.length <= 40, `${fonti.length} fonti`);
+  for (const f of fonti) {
+    assert.match(f.autore, /^[\p{Lu}][\p{L}'-]+( [\p{Lu}][\p{L}'-]+)?( e (altri|[\p{Lu}][\p{L}'-]+))?$/u, f.autore);
+    assert.match(f.anno, /^(19|20)\d{2}$/, `${f.autore}, l'anno`);
+    assert.ok(typeof f.rivista === "string" && f.rivista.length >= 4, `${f.autore}, la rivista`);
+    assert.match(f.doi, /^10\.\d{4,9}\/\S+$/, `${f.autore}, il DOI`);
+    assert.ok(!/https?|doi\.org/i.test(f.doi), `${f.autore}, il DOI senza indirizzo`);
+    assert.equal((f.testo.match(/[.!?](\s|$)/g) || []).length, 1, `una frase sola, «${f.testo}»`);
+    assert.equal(chiFonte(f), `${f.autore}, ${f.anno}.`);
+  }
+  assert.equal(new Set(fonti.map((f) => f.doi.toLowerCase())).size, fonti.length, "nessun DOI due volte");
+  // La pagina costruisce il collegamento, e nella Guida c'è la sua voce nell'indice.
+  const pagine = readFileSync(join(VISTE, "pagine.js"), "utf8");
+  assert.ok(pagine.includes("https://doi.org/${f.doi}") && pagine.includes(`{ id: "fonti", titolo: GUIDA_FONTI.titolo }`));
+});
+
 test("niente decimali nelle durate", () => {
   const sbagliati = TUTTI.filter((t) => /\b\d+[.,]\d+\s*(ore|ora|minuti|min|h)\b/i.test(t.testo));
   assert.equal(sbagliati.length, 0, elenco(sbagliati));

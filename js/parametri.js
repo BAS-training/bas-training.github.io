@@ -76,8 +76,8 @@ export const STIMA = congela({
   oreEbike: [4, 5, 6, 7, 8, 9],   // le ore al giorno chieste a chi va in e-bike, 1.8, stima nostra
   obiettivoLibero: {
     oreGiro: [3, 4, 5, 6, 8],     // «Un giro lungo di … ore», 1.9
-    giorniDiFila: [2, 3],         // «Più giorni di fila», 1.9
-    borseKg: 8,                   // con le borse e nei giorni di fila, 1.9
+    giorniDiFila: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],   // «Più giorni di fila», da 2 a 14, a ore o a km, 1.9 allargato
+    borseKg: 8,                   // con le borse, nel giro e nei giorni di fila, 1.9
     acquaCiboKg: 1.5,             // 1.9
     classi: { strada: "asfalto-collinare", gravel: "misto", misto: "misto", mountainBike: "sterrato-ripido" },   // 1.9
     bici: { strada: 9, gravel: 11, misto: 11, mountainBike: 13 },   // kg se il profilo non dice la bici, come 1.3, stima nostra
@@ -728,7 +728,8 @@ export const MEMORIA = congela({
   cacheGiorniInPiu: 3,            // si rileggono i giorni nuovi più 3, stima nostra
   // Le sfide della pagina Obiettivo di prima diventano un obiettivo libero con la stessa data (6.6 e 9.7).
   // Le ore sono quelle della giornata che la pagina usava (oreTappa), per eccesso all'ora intera, i giorni
-  // il lato alto, al massimo i 3 dell'obiettivo libero (1.9), stima nostra, prudente. giorniEvento sono i
+  // il lato alto, al massimo i 3 che l'obiettivo libero aveva allora (1.9), stima nostra, prudente. Le
+  // domande del primo avvio li chiedono di nuovo (primoAvvio di js/motore.js). giorniEvento sono i
   // giorni del viaggio per la modalità evento e per la riga del medico, il lato alto della sfida.
   sfide: {
     giornata: { libero: "ore", giorni: 1, ore: 5, giorniEvento: 1 },        // «4-5 ore in sella», un giro lungo

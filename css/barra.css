@@ -1,0 +1,48 @@
+/* La barra «Arrivi pronto?» (2.3 e 2.9) di js/viste/barra-pronto.js, in Oggi sotto la carta del giorno e
+   in cima a Pronto?. Quattro segmenti, uno per pilastro. Lo stato lo dice quanto è pieno il segmento,
+   pieno, a metà o vuoto, e non il colore. I colori sono quelli dell'inchiostro e della carta del tema,
+   così il chiaro e lo scuro vengono da soli, con il bordo sempre ben visibile. */
+
+.barra-pronto { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.barra-pronto-testa { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.barra-pronto-titolo { font-size: 15px; font-weight: 700; color: var(--inchiostro); }
+.barra-pronto-segmenti { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; min-width: 0; }
+.barra-segmento { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.barra-segmento-forma {
+  display: block; height: 14px; border-radius: 999px;
+  border: 2px solid var(--inchiostro); background: transparent;
+}
+.barra-segmento-pieno .barra-segmento-forma { background: var(--inchiostro); }
+.barra-segmento-meta .barra-segmento-forma { background: linear-gradient(to right, var(--inchiostro) 50%, transparent 50%); }
+.barra-segmento-nome {
+  font-size: 12.5px; font-weight: 600; line-height: 1.25; color: var(--inchiostro-2);
+  text-align: center; overflow-wrap: anywhere;
+}
+.barra-pronto-frase { font-size: 15.5px; color: var(--inchiostro); max-width: 60ch; }
+
+/* In Oggi la barra intera è un tocco che porta a Pronto?, fatto come una carta */
+.barra-pronto-tocco {
+  background: var(--carta); border: 1px solid var(--linea-forte); border-radius: var(--raggio);
+  padding: 16px 18px; color: var(--inchiostro); text-decoration: none;
+}
+.barra-pronto-tocco:hover { background: var(--carta-2); }
+.barra-pronto-freccia {
+  width: 20px; height: 20px; flex: none; fill: none; stroke: var(--accento);
+  stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* In Pronto? sta nell'intestazione, fra l'occhiello e il titolo, che è la sua frase */
+.intestazione .barra-pronto { margin: 6px 0 8px; max-width: 480px; }
+
+@media (max-width: 360px) {
+  .barra-pronto-tocco { padding: 14px; }
+  .barra-pronto-segmenti { gap: 4px; }
+  .barra-segmento-nome { font-size: 12px; }
+}
+
+/* Con i colori forzati del sistema il riempimento resta, con i colori del sistema */
+@media (forced-colors: active) {
+  .barra-segmento-forma { forced-color-adjust: none; border-color: CanvasText; background: Canvas; }
+  .barra-segmento-pieno .barra-segmento-forma { background: CanvasText; }
+  .barra-segmento-meta .barra-segmento-forma { background: linear-gradient(to right, CanvasText 50%, Canvas 50%); }
+}

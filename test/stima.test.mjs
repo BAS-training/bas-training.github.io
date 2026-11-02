@@ -379,6 +379,37 @@ test("l'obiettivo libero", () => {
   assert.equal(percorsoLibero({ tipo: "giro", km: 50, fondo: "mountainBike", conBorse: true }).modello.borseKg, 8);
 });
 
+test("più giorni di fila con km e salita, la formula di 1.5 per ogni giorno moltiplicata per i giorni", () => {
+  // Il caso di prova, una settimana in un'isola. 5 giorni da 100 km e 2.000 m su strada, senza borse.
+  const percorso = percorsoLibero({ tipo: "giorni", giorni: 5, misura: "km", km: 100, metri: 2000, fondo: "strada", conBorse: false });
+  assert.deepEqual([percorso.km, percorso.dislivello, percorso.giorni, percorso.giorniMin, percorso.giorniMax], [500, 10000, 5, 5, 5]);
+  assert.deepEqual([percorso.modello.classe, percorso.modello.biciKg, percorso.modello.borseKg, percorso.modello.acquaCiboKg], ["asfalto-collinare", 9, 0, 1.5]);
+  const s = stimaH({ percorso, giorni: 5, oggi: OGGI });
+  // Senza dati la potenza è quella di 1.4 per 75 kg, e ogni giorno vale un giro da 100 km e 2.000 m.
+  vicino(s.potenza, 0.625 * 2.25 * 75, 1e-9);
+  const unGiorno = oreFormula({ km: 100, metri: 2000, potenza: s.potenza, massa: 75 + 9 + 1.5, classe: "asfalto-collinare" });
+  vicino(s.T, 5 * unGiorno, 1e-9);
+  vicino(s.H, unGiorno, 1e-9);
+  vicino(s.H, 7.24, 0.01, "H del caso di prova");
+  assert.deepEqual([s.mezzore.H, s.mezzore.basso, s.mezzore.alto, s.giorni, s.kmGiorno, s.metriGiorno], [7, 6, 8.5, 5, 100, 2000]);
+  assert.equal(s.avvisi.find((a) => a.tipo === "borse"), undefined, "senza borse niente riga delle borse");
+  assert.equal(s.avvisi.find((a) => a.tipo === "giornoInPiu"), undefined, "i giorni li ha scelti la persona");
+  // Con le borse valgono gli 8 kg di oggi, e la giornata si allunga.
+  const conBorse = stimaH({ percorso: percorsoLibero({ tipo: "giorni", giorni: 5, misura: "km", km: 100, metri: 2000, fondo: "strada" }), giorni: 5, oggi: OGGI });
+  assert.ok(conBorse.H > s.H);
+  assert.equal(conBorse.avvisi.find((a) => a.tipo === "borse").kg, 8);
+  // Le stesse classi del giro, e con la media detta la potenza cambia come per gli altri percorsi.
+  assert.equal(percorsoLibero({ tipo: "giorni", giorni: 3, misura: "km", km: 80, fondo: "mountainBike" }).modello.classe, "sterrato-ripido");
+  const media = stimaH({ percorso, giorni: 5, profilo: { mediaDichiarata: 22.5 }, oggi: OGGI });
+  assert.ok(media.H < s.H);
+  // Da 2 a 14 giorni, a ore senza fisica, con le borse salvo quando si tolgono.
+  const quattordici = percorsoLibero({ tipo: "giorni", giorni: 14, ore: 6 });
+  assert.deepEqual([quattordici.giorniMin, quattordici.borseKg], [14, 8]);
+  assert.equal(percorsoLibero({ tipo: "giorni", giorni: 4, ore: 6, conBorse: false }).borseKg, 0);
+  assert.deepEqual([stimaH({ percorso: quattordici, oggi: OGGI }).H, stimaH({ percorso: quattordici, oggi: OGGI }).T], [6, 84]);
+  assert.equal(percorsoLibero({ tipo: "giorni", giorni: 15, ore: 6 }).giorniMin, 1, "oltre i 14 giorni non vale");
+});
+
 test("il fattore carico vale solo dove si va con le borse", () => {
   const percorso = trovaPercorso("ur-vds-lungo");
   const uscite = [carica("u1", 25, 105, 3.6, 4.5)];

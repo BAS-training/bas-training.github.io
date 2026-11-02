@@ -12,6 +12,11 @@
 }
 .semaforo .semaforo-perche { color: var(--inchiostro-2); }
 
+/* subito sotto la carta, la barra «Arrivi pronto?» (css/barra.css) e il collegamento a «La tua avventura» */
+.oggi-sotto-carta { display: flex; flex-direction: column; gap: 10px; margin-top: -10px; min-width: 0; }
+.oggi-avventura { font-size: 15px; }
+.oggi-avventura a { display: inline-flex; align-items: center; min-height: 32px; }
+
 /* il giro o la palestra di oggi già registrati */
 .carta-fatto {
   align-self: flex-start; display: inline-flex; align-items: baseline; gap: 8px;

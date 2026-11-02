@@ -4,22 +4,24 @@
 // palestra e l'età, più due domande per chi non ha giri registrati e «Prima di cominciare» da 40 anni.
 // Alla fine le risposte vanno tutte insieme con ctx.azioni.fineInizio, e la pagina mostra «La tua
 // avventura». Dal link degli iscritti (6.9) evento, giorni e partenza ci sono già. Con un'avventura
-// già scelta la pagina mostra il riepilogo, con «Cambia la tua avventura».
+// già scelta la pagina mostra il riepilogo, con «Cambia la tua avventura». Chi arriva dalla versione di
+// prima ha l'obiettivo fatto dalla sfida (daSfida), che vale come primo avvio, quindi la pagina parte
+// dalle domande, con la prima schermata da scegliere.
 // Le scelte non ancora salvate stanno in ctx.ui.inizio, così un ridisegno della pagina non le perde.
 // La parte pura (bozza, schermate, controlli e risposte) è esportata e provata con node.
 
-import { h } from "../dom.js?v=202611021705";
-import { CATALOGO, trovaPercorso } from "../catalogo.js?v=202611021705";
-import { DATI, PIANO, SEMAFORO, STIMA } from "../parametri.js?v=202611021705";
-import * as TESTI_PALESTRA from "../palestra.js?v=202611021705";
-import * as TESTI_STIMA from "../testi-stima.js?v=202611021705";
-import * as TESTI_PRONTO from "../testi-prontezza.js?v=202611021705";
+import { h } from "../dom.js?v=202611021803";
+import { CATALOGO, trovaPercorso } from "../catalogo.js?v=202611021803";
+import { DATI, PIANO, SEMAFORO, STIMA } from "../parametri.js?v=202611021803";
+import * as TESTI_PALESTRA from "../palestra.js?v=202611021803";
+import * as TESTI_STIMA from "../testi-stima.js?v=202611021803";
+import * as TESTI_PRONTO from "../testi-prontezza.js?v=202611021803";
 import {
   INIZIO, SCELTA, GIORNI, AVVENTURA, SETTIMANA_INIZIO, TEMPO, GIRI, PALESTRA_INIZIO, ETA, PRIMA_DI_COMINCIARE, RIEPILOGO, COPIA,
   passaggio, rigaPercorso, quale, diSolito, scrittaGiorni, unaPartenza, iscritto, iscrittoTitolo, dettaglioIscritto, scrittaOre, scrittaTempo,
-  cosaPrepari, giroDiOre, giroDiKm, giorniDiFila, anteprimaCopia, dataDelVia,
-} from "../testi-inizio.js?v=202611021705";
-import { bannerDemo } from "./comuni.js?v=202611021705";
+  cosaPrepari, giroDiOre, giroDiKm, giorniDiFila, giorniDiFilaKm, anteprimaCopia, dataDelVia,
+} from "../testi-inizio.js?v=202611021803";
+import { bannerDemo } from "./comuni.js?v=202611021803";
 
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 const BICI = new Set(DATI.tipiBici);
@@ -100,10 +102,13 @@ function partenzaValida(percorso, oggi, partenza) {
   return possibili.includes(partenza) ? partenza : possibili[0] || null;
 }
 
-// L'avventura propria di 1.9, dalle scelte salvate o con i valori già scelti.
+// L'avventura propria di 1.9, dalle scelte salvate o con i valori già scelti. I giorni di fila vanno a
+// ore (misura «ore») oppure con km, metri e fondo di ogni giorno (misura «km»), e sono con le borse
+// salvo quando la persona le toglie. Hanno campi propri, così non si mescolano con quelli del giro.
 function liberoIniziale(ob) {
   const l = ob && ob.tipo === "libero" ? oggetto(ob.libero) || {} : {};
   const tipo = ["ore", "giro", "giorni"].includes(l.tipo) ? l.tipo : "ore";
+  const giorniKm = tipo === "giorni" && l.misura === "km";
   return {
     tipo,
     ore: tipo === "ore" && OL.oreGiro.includes(l.ore) ? l.ore : ORE_LIBERE_PREDEFINITE,
@@ -112,7 +117,12 @@ function liberoIniziale(ob) {
     fondo: tipo === "giro" && Object.hasOwn(OL.classi, l.fondo) ? l.fondo : "strada",
     conBorse: tipo === "giro" && l.conBorse === true,
     giorni: tipo === "giorni" && OL.giorniDiFila.includes(l.giorni) ? l.giorni : OL.giorniDiFila[0],
+    misura: giorniKm ? "km" : "ore",
     oreGiorno: tipo === "giorni" && OL.oreGiro.includes(l.ore) ? l.ore : ORE_AL_GIORNO_PREDEFINITE,
+    kmGiorno: giorniKm && l.km > 0 ? l.km : null,
+    metriGiorno: giorniKm && l.metri >= 0 ? l.metri : null,
+    fondoGiorni: giorniKm && Object.hasOwn(OL.classi, l.fondo) ? l.fondo : "strada",
+    borseGiorni: tipo === "giorni" ? l.conBorse !== false : true,
   };
 }
 
@@ -164,7 +174,9 @@ export function bozzaIniziale(ctx) {
     scelta = ob.percorsoId;
     giorni = ob.giorni;
     partenza = ob.partenza;
-  } else if (ob && SPECIALI.has(ob.tipo)) {
+  } else if (ob && SPECIALI.has(ob.tipo) && !ob.daSfida) {
+    // L'obiettivo fatto dalla sfida di prima non è una scelta, la prima schermata resta da scegliere.
+    // Le sue ore e la sua data restano già scelte, se si sceglie un'avventura propria.
     scelta = ob.tipo;
   }
   const percorso = scelta && !SPECIALI.has(scelta) ? trovaPercorso(scelta) : null;
@@ -247,6 +259,12 @@ export function controlla(b, passo, oggi) {
       if (!(Number.isInteger(l.km) && l.km >= 1 && l.km <= KM_MASSIMI)) return { campo: "inizio-km", testo: AVVENTURA.kmManca };
       if (l.metri !== null && !(Number.isInteger(l.metri) && l.metri >= 0 && l.metri <= METRI_MASSIMI)) return { campo: "inizio-metri", testo: AVVENTURA.metriSbagliati };
     }
+    if (l.tipo === "giorni" && l.misura === "km") {
+      if (!(Number.isInteger(l.kmGiorno) && l.kmGiorno >= 1 && l.kmGiorno <= KM_MASSIMI)) return { campo: "inizio-km-giorno", testo: AVVENTURA.kmGiornoManca };
+      if (l.metriGiorno !== null && !(Number.isInteger(l.metriGiorno) && l.metriGiorno >= 0 && l.metriGiorno <= METRI_MASSIMI)) {
+        return { campo: "inizio-metri-giorno", testo: AVVENTURA.metriSbagliati };
+      }
+    }
     if (b.data && (!DATA.test(b.data) || b.data < oggi)) return { campo: "inizio-data", testo: AVVENTURA.dataSbagliata };
   }
   if (passo === "settimana" && !b.giorniBici.length) return { campo: "inizio-giorno-0", testo: SETTIMANA_INIZIO.nessuno };
@@ -279,9 +297,17 @@ export function risposte(b, ctx) {
   if (b.scelta === "libero") {
     const l = b.libero;
     const partenza = b.data && DATA.test(b.data) ? b.data : null;
-    if (l.tipo === "giro") obiettivo = { tipo: "libero", libero: "giro", km: l.km, metri: l.metri ?? 0, fondo: l.fondo, conBorse: l.conBorse === true, partenza };
-    else if (l.tipo === "giorni") obiettivo = { tipo: "libero", libero: "giorni", giorni: l.giorni, ore: l.oreGiorno, partenza };
-    else obiettivo = { tipo: "libero", libero: "ore", ore: l.ore, partenza };
+    // I giorni di fila sono con le borse, salvo quando la persona toglie la spunta.
+    const conBorse = l.borseGiorni !== false;
+    if (l.tipo === "giro") {
+      obiettivo = { tipo: "libero", libero: "giro", km: l.km, metri: l.metri ?? 0, fondo: l.fondo, conBorse: l.conBorse === true, partenza };
+    } else if (l.tipo === "giorni" && l.misura === "km") {
+      obiettivo = { tipo: "libero", libero: "giorni", giorni: l.giorni, misura: "km", km: l.kmGiorno, metri: l.metriGiorno ?? 0, fondo: l.fondoGiorni, conBorse, partenza };
+    } else if (l.tipo === "giorni") {
+      obiettivo = { tipo: "libero", libero: "giorni", giorni: l.giorni, misura: "ore", ore: l.oreGiorno, conBorse, partenza };
+    } else {
+      obiettivo = { tipo: "libero", libero: "ore", ore: l.ore, partenza };
+    }
   } else {
     // Il link degli iscritti vale per il suo evento anche quando la persona lo sceglie a mano.
     const inv = oggetto(ctx.invito);
@@ -449,9 +475,21 @@ function dettagliAvventura(b) {
     ];
   }
   if (l.tipo === "giorni") {
+    // Ogni giorno a ore oppure con km, salita e fondo. Cambiando misura si ridisegna solo quella parte.
+    const giornata = zona("inizio-giornata", () => (l.misura === "km"
+      ? [
+        campoTesto("inizio-km-giorno", A.kmGiorno, l.kmGiorno, (v) => { l.kmGiorno = v; }),
+        campoTesto("inizio-metri-giorno", A.metriGiorno, l.metriGiorno, (v) => { l.metriGiorno = v; }, { aiuto: A.metriAiuto }),
+        gruppo("inizio-fondo-giorni", A.fondo, A.fondi, l.fondoGiorni, (v) => { l.fondoGiorni = v; }),
+      ]
+      : gruppo("inizio-ore-giorno", A.oreGiorno, ore, l.oreGiorno, (v) => { l.oreGiorno = v; })));
     return [
-      gruppo("inizio-giorni-fila", A.giorniDomanda, OL.giorniDiFila.map((n) => ({ valore: n, testo: scrittaGiorni(n) })), l.giorni, (v) => { l.giorni = v; }),
-      gruppo("inizio-ore-giorno", A.oreGiorno, ore, l.oreGiorno, (v) => { l.oreGiorno = v; }),
+      gruppo("inizio-giorni-fila", A.giorniDomanda, OL.giorniDiFila.map((n) => ({ valore: n, testo: String(n) })), l.giorni, (v) => { l.giorni = v; }),
+      gruppo("inizio-misura", A.misura, A.misure, l.misura, (v) => { l.misura = v; giornata.rifai(); }),
+      giornata.el,
+      h("span", { class: "spunta" },
+        h("input", { type: "checkbox", id: "inizio-borse-giorni", checked: l.borseGiorni, on: { change: (e) => { l.borseGiorni = e.target.checked; } } }),
+        h("label", { for: "inizio-borse-giorni" }, A.borseGiorni)),
     ];
   }
   return [gruppo("inizio-ore-giro", A.oreDomanda, ore, l.ore, (v) => { l.ore = v; })];
@@ -615,7 +653,8 @@ function tasti(ctx, b) {
     indietro
       ? h("p", {}, h("button", { class: "collegamento", type: "button", id: `inizio-prima-${b.passo}`, on: { click: () => cambiaPasso(ctx, b, indietro) } }, INIZIO.tasti.prima))
       : null,
-    b.passo === "scelta" && ctx.obiettivo
+    // Al primo avvio non c'è un'avventura scelta da lasciare com'è, nemmeno con l'obiettivo di prima.
+    b.passo === "scelta" && ctx.obiettivo && !ctx.primoAvvio
       ? h("p", {}, h("button", { class: "collegamento", type: "button", id: "inizio-lascia", on: { click: () => { ctx.ui.inizio = null; ctx.azioni.ui("inizio", null); portaSu(); } } }, INIZIO.tasti.lascia))
       : null);
 }
@@ -635,7 +674,8 @@ function schermata(ctx, b) {
     testa(passaggio(passi.indexOf(b.passo) + 1, passi.length), corpo.titolo, corpo.attacco, "inizio-passaggio"),
     b.passo === "scelta" ? copiaRipresa(ctx) : null,
     b.passo === "scelta" && ctx.primoAvvio ? h("p", { class: "inizio-nota" }, INIZIO.attacco) : null,
-    b.passo === "scelta" && ctx.primoAvvio && !ctx.demo ? boxCopia(ctx) : null,
+    // «Riprendi da una copia» è per un telefono nuovo, non per chi ha già qui l'obiettivo di prima.
+    b.passo === "scelta" && ctx.primoAvvio && !ctx.obiettivo && !ctx.demo ? boxCopia(ctx) : null,
     h("form", { class: "inizio-modulo", id: "inizio-modulo", novalidate: true, on: { submit: (e) => { e.preventDefault(); avanti(ctx, b); } } },
       corpo.contenuto,
       h("p", { class: "inizio-errore", id: "inizio-errore", role: "alert" }),
@@ -731,7 +771,7 @@ function descrizione(ob, oggi) {
   } else if (ob.tipo === "libero" && ob.libero) {
     const l = ob.libero;
     if (l.tipo === "giro") righe.push(giroDiKm(l));
-    else if (l.tipo === "giorni") righe.push(giorniDiFila(l.giorni, l.ore));
+    else if (l.tipo === "giorni") righe.push(l.misura === "km" ? giorniDiFilaKm(l) : giorniDiFila(l.giorni, l.ore, l.conBorse !== false));
     else righe.push(giroDiOre(l.ore));
     if (ob.partenza) righe.push(unaPartenza(dataDelVia(ob.partenza, oggi)));
   }

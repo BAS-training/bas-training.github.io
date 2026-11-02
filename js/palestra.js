@@ -5,8 +5,8 @@
 // Nel codice la riserva è il RIR, le ripetizioni che restano a fine serie. A schermo è una frase.
 // Niente DOM e niente window, così il file si prova con node (test/palestra.test.mjs).
 
-import { PIANO, CARICO, STIMA, SEMAFORO } from "./parametri.js?v=202611021705";
-import { numero, formatoDurata } from "./formato.js?v=202611021705";
+import { PIANO, CARICO, STIMA, SEMAFORO } from "./parametri.js?v=202611021803";
+import { numero, formatoDurata } from "./formato.js?v=202611021803";
 
 const P = PIANO.palestra;
 

@@ -4,7 +4,7 @@
 // Funzioni pure, senza DOM e senza window, provate con node (test/stima.test.mjs).
 // Tutti i numeri stanno in js/parametri.js, nei gruppi STIMA, PASSO e BORSE.
 
-import { STIMA, PASSO, BORSE, DATI } from "./parametri.js?v=202611021705";
+import { STIMA, PASSO, BORSE, DATI } from "./parametri.js?v=202611021803";
 
 const ORA = 3600;                 // secondi in un'ora
 const KMH = 3.6;                  // da m/s a km/h
@@ -370,27 +370,36 @@ export function potenzaGiornata({ profilo = {}, atleta = null, uscite = [], oggi
 // --- L'obiettivo libero, 1.9 ---
 
 // Un'avventura propria come percorso. tipo «ore» (un giro lungo di ore scelte), «giro» (km, metri
-// e fondo fra strada, gravel, misto e mountainBike, con conBorse) o «giorni» (2 o 3 giorni da ore scelte).
+// e fondo fra strada, gravel, misto e mountainBike, con conBorse) o «giorni», da 2 a 14 giorni di
+// fila. I giorni vanno a ore (le ore scelte, senza fisica) oppure, con misura «km», con km, metri e
+// fondo di ogni giorno, e allora H viene dalla formula di 1.5 come per il giro, con le stesse classi, su
+// km e metri moltiplicati per i giorni. I giorni di fila hanno le borse, 8 kg, salvo conBorse falso, e
+// acqua e cibo 1,5 kg come il giro.
 export function percorsoLibero(obiettivo = {}) {
   const ol = STIMA.obiettivoLibero;
-  if (obiettivo.tipo === "giro") {
+  const piuGiorni = obiettivo.tipo === "giorni";
+  const giorni = piuGiorni && ol.giorniDiFila.includes(obiettivo.giorni) ? obiettivo.giorni : 1;
+  if (obiettivo.tipo === "giro" || (piuGiorni && obiettivo.misura === "km")) {
     const fondo = Object.hasOwn(ol.classi, obiettivo.fondo) ? obiettivo.fondo : "strada";
+    const borse = piuGiorni ? obiettivo.conBorse !== false : Boolean(obiettivo.conBorse);
     return {
       id: "libero",
       libero: true,
-      km: obiettivo.km,
-      dislivello: num(obiettivo.metri) ? obiettivo.metri : 0,
-      giorniMin: 1,
-      giorniMax: 1,
+      km: num(obiettivo.km) ? obiettivo.km * giorni : obiettivo.km,
+      dislivello: num(obiettivo.metri) ? obiettivo.metri * giorni : 0,
+      ...(piuGiorni ? { giorni } : {}),
+      giorniMin: giorni,
+      giorniMax: giorni,
       modello: {
         classe: ol.classi[fondo], fattoreDislivello: 1, dislivelloLavoro: null, biciKg: ol.bici[fondo],
-        borseKg: obiettivo.conBorse ? ol.borseKg : 0, acquaCiboKg: ol.acquaCiboKg, giorniDalVia: false, ebikeAmmessa: true,
+        borseKg: borse ? ol.borseKg : 0, acquaCiboKg: ol.acquaCiboKg, giorniDalVia: false, ebikeAmmessa: true,
       },
     };
   }
-  const piuGiorni = obiettivo.tipo === "giorni";
-  const giorni = piuGiorni && ol.giorniDiFila.includes(obiettivo.giorni) ? obiettivo.giorni : 1;
-  return { id: "libero", libero: true, ore: obiettivo.ore, giorni, giorniMin: giorni, giorniMax: giorni, borseKg: piuGiorni ? ol.borseKg : 0 };
+  return {
+    id: "libero", libero: true, ore: obiettivo.ore, giorni, giorniMin: giorni, giorniMax: giorni,
+    borseKg: piuGiorni && obiettivo.conBorse !== false ? ol.borseKg : 0,
+  };
 }
 
 // --- La stima, 1.1 e 1.5 passi 9-11 ---

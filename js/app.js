@@ -2,36 +2,36 @@
 // conti a js/motore.js, salva quello che il motore dice di salvare e decide quale pagina mostrare.
 // Le pagine stanno in js/viste/ e ricevono sempre lo stesso ctx, descritto in cima a js/motore.js.
 
-import { creaClient, ErroreApi, leggiNuovi } from "./api.js?v=202611021705";
-import { OAUTH_ATTIVO, SCRITTURE } from "./config.js?v=202611021705";
-import { preparaAccesso, completaAccesso, leggiRitorno } from "./oauth.js?v=202611021705";
+import { creaClient, ErroreApi, leggiNuovi } from "./api.js?v=202611021803";
+import { OAUTH_ATTIVO, SCRITTURE } from "./config.js?v=202611021803";
+import { preparaAccesso, completaAccesso, leggiRitorno } from "./oauth.js?v=202611021803";
 import {
   CHIAVE, ACCESSO, leggi, scrivi, togli, leggiCredenziale, stessaCredenziale, salvaCredenziale,
   cancellaCredenziali, togliCredenziale, dopoUnCambio,
-} from "./credenziali.js?v=202611021705";
-import { normalizzaGiorno, oggiLocale, oggiNelFuso, aggiungiGiorni, p2 } from "./modello.js?v=202611021705";
-import { creaMemoria, CHIAVI, nomeCopia } from "./memoria.js?v=202611021705";
+} from "./credenziali.js?v=202611021803";
+import { normalizzaGiorno, oggiLocale, oggiNelFuso, aggiungiGiorni, p2 } from "./modello.js?v=202611021803";
+import { creaMemoria, CHIAVI, nomeCopia } from "./memoria.js?v=202611021803";
 import {
-  calcola, giorniDelViaggioDi, giroDelTelefono, spostaGiorno, spostaWeekend, confrontaAtleta, codaPuoPartire,
-} from "./motore.js?v=202611021705";
-import { leggiInvito, palestraAbbinata } from "./dati.js?v=202611021705";
+  calcola, giorniDelViaggioDi, giroDelTelefono, spostaGiorno, spostaWeekend, confrontaAtleta, codaPuoPartire, senzaSfida,
+} from "./motore.js?v=202611021803";
+import { leggiInvito, palestraAbbinata } from "./dati.js?v=202611021803";
 import {
   inCoda, inviaCoda, leggiCoda, scriviSforzo, scriviBorse, aggiungiEtichette, etichettaPalestra, codiceCasuale,
-} from "./scritture.js?v=202611021705";
-import { sedutaFatta } from "./palestra.js?v=202611021705";
-import { CONSENSO, ESCI, AVVISI } from "./testi-app.js?v=202611021705";
-import { generaDemo } from "./demo.js?v=202611021705";
-import { vistaOggi } from "./viste/oggi.js?v=202611021705";
-import { vistaSettimana } from "./viste/settimana.js?v=202611021705";
-import { vistaPronto } from "./viste/pronto.js?v=202611021705";
-import { vistaPalestra } from "./viste/palestra.js?v=202611021705";
-import { vistaNumeri } from "./viste/numeri.js?v=202611021705";
-import { vistaInizio } from "./viste/inizio.js?v=202611021705";
-import { vistaImpostazioni } from "./viste/impostazioni.js?v=202611021705";
-import { vistaAtletaDiverso } from "./viste/accesso.js?v=202611021705";
+} from "./scritture.js?v=202611021803";
+import { sedutaFatta } from "./palestra.js?v=202611021803";
+import { CONSENSO, ESCI, AVVISI } from "./testi-app.js?v=202611021803";
+import { generaDemo } from "./demo.js?v=202611021803";
+import { vistaOggi } from "./viste/oggi.js?v=202611021803";
+import { vistaSettimana } from "./viste/settimana.js?v=202611021803";
+import { vistaPronto } from "./viste/pronto.js?v=202611021803";
+import { vistaPalestra } from "./viste/palestra.js?v=202611021803";
+import { vistaNumeri } from "./viste/numeri.js?v=202611021803";
+import { vistaInizio } from "./viste/inizio.js?v=202611021803";
+import { vistaImpostazioni } from "./viste/impostazioni.js?v=202611021803";
+import { vistaAtletaDiverso } from "./viste/accesso.js?v=202611021803";
 import {
   vistaBenvenuto, vistaCollega, vistaGuida, vistaPrivacy, vistaCaricamento, vistaErrore, vistaConsenso, dialogo,
-} from "./viste/pagine.js?v=202611021705";
+} from "./viste/pagine.js?v=202611021803";
 
 // Dentro un riquadro di un altro sito la pagina non si apre: nessuno deve poterla "travestire".
 if (window.top !== window.self) {
@@ -328,10 +328,12 @@ const VISTE = {
 };
 
 // Le rotte di prima. Obiettivo è diventata Pronto?, Andamento e Uscite stanno dentro Numeri (7.2).
+// #fonti porta alla parte «Le fonti» della Guida, per il collegamento di Pronto?.
 const ALIAS = {
   obiettivo: { rotta: "pronto", sezione: null },
   andamento: { rotta: "numeri", sezione: "numeri-andamento" },
   uscite: { rotta: "numeri", sezione: "numeri-uscite" },
+  fonti: { rotta: "guida", sezione: "guida-fonti" },
 };
 
 const dentro = () => Boolean(stato.client || stato.demo);
@@ -1071,11 +1073,12 @@ const azioni = {
     aggiorna();
   },
 
-  // Le risposte del primo avvio in una volta sola (7.3).
+  // Le risposte del primo avvio in una volta sola (7.3). L'obiettivo nuovo non porta più la sfida di
+  // prima, così il primo avvio di chi arrivava dalla versione di prima finisce qui.
   fineInizio({ obiettivo = null, disponibilita = null, profilo = null } = {}) {
     if (oggetto(profilo)) aggiornaProfilo(profilo);
     if (oggetto(disponibilita)) cambiaTelefono("disponibilita", () => ({ ...disponibilita }));
-    if (oggetto(obiettivo)) cambiaTelefono("obiettivo", () => ({ ...obiettivo }));
+    if (oggetto(obiettivo)) cambiaTelefono("obiettivo", () => senzaSfida(obiettivo));
     stato.ui.inizioVisto = true;
     aggiorna();
   },

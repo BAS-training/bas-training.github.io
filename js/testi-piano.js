@@ -5,8 +5,8 @@
 // I grammi dei carboidrati non compaiono, il cibo si dice con il cibo (3.9).
 // Niente DOM, così le prove li compongono con node.
 
-import { dataLunga, formatoDurata } from "./formato.js?v=202611021705";
-import { DOMENICA, PIANO, STIMA } from "./parametri.js?v=202611021705";
+import { dataLunga, formatoDurata } from "./formato.js?v=202611021803";
+import { DOMENICA, PIANO, STIMA } from "./parametri.js?v=202611021803";
 
 function congela(oggetto) {
   for (const valore of Object.values(oggetto)) {

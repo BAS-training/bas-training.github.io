@@ -6,10 +6,12 @@ import assert from "node:assert/strict";
 
 import {
   eventiAperti, giriLeggibili, invitoInSospeso, bozzaIniziale, scegli, passiDi, serveCuore, ripristina, controlla, risposte, partenzeDi,
+  vistaInizio,
 } from "../js/viste/inizio.js";
 import { CATALOGO, trovaPercorso } from "../js/catalogo.js";
 import { DOMANDE, PIANO, STIMA } from "../js/parametri.js";
-import { leggiObiettivo, calcola } from "../js/motore.js";
+import { leggiObiettivo, calcola, senzaSfida } from "../js/motore.js";
+import { SCELTA, RIEPILOGO, AVVENTURA } from "../js/testi-inizio.js";
 
 const OGGI = "2026-11-01";
 
@@ -25,6 +27,67 @@ const giro = (giorno, campi = {}) => ({
 
 function ctxDi(campi = {}) {
   return { oggi: OGGI, obiettivo: null, profilo: {}, disponibilita: null, invito: null, attivita: [], primoAvvio: true, ...campi };
+}
+
+// Il telefono che il motore legge, con le risposte del primo avvio.
+const telefonoDi = (r) => ({
+  preferenze: {}, profilo: r.profilo, obiettivo: r.obiettivo, disponibilita: r.disponibilita, piano: null, uscite: {}, palestra: {}, mattino: {}, esiti: {},
+  domenica: {}, invito: null,
+});
+const vuote = { atleta: null, benessere: [], attivita: [] };
+
+// Un DOM finto, quanto basta a js/dom.js per disegnare la pagina in node. Le schermate si guardano per id.
+class Nodo {
+  constructor(tipo, nome = null) {
+    this.nodeType = tipo;
+    this.nodeName = nome;
+    this.childNodes = [];
+    this.attributi = new Map();
+    this.dataset = {};
+    this.dato = "";
+  }
+
+  append(...figli) {
+    for (const f of figli) this.childNodes.push(f instanceof Nodo ? f : testoFinto(String(f)));
+  }
+
+  replaceChildren(...figli) {
+    this.childNodes = [];
+    this.append(...figli);
+  }
+
+  setAttribute(k, v) { this.attributi.set(k, String(v)); }
+
+  getAttribute(k) { return this.attributi.has(k) ? this.attributi.get(k) : null; }
+
+  addEventListener() {}
+
+  get textContent() { return this.nodeType === 3 ? this.dato : this.childNodes.map((c) => c.textContent).join(""); }
+}
+
+function testoFinto(t) {
+  const n = new Nodo(3, "#text");
+  n.dato = t;
+  return n;
+}
+
+const elementi = (nodo, lista = []) => {
+  if (nodo.nodeType !== 1) return lista;
+  lista.push(nodo);
+  for (const c of nodo.childNodes) elementi(c, lista);
+  return lista;
+};
+const perId = (radice, id) => elementi(radice).find((e) => e.getAttribute("id") === id) || null;
+
+function disegna(ctx) {
+  globalThis.Node = Nodo;
+  globalThis.document = {
+    createElement: (nome) => new Nodo(1, nome.toLowerCase()),
+    createElementNS: (_, nome) => new Nodo(1, nome),
+    createTextNode: testoFinto,
+    getElementById: () => null,
+  };
+  return vistaInizio({ ui: {}, demo: false, azioni: {}, stima: null, prontezza: null, ...ctx });
 }
 
 test("gli eventi aperti sono quelli con una partenza da oggi in poi, raggruppati come nel catalogo", () => {
@@ -298,4 +361,110 @@ test("dopo il primo avvio il motore ha la giornata e dove arrivi, per il riepilo
   assert.ok(stato.stima && stato.stima.H > 0, "la giornata c'è");
   assert.ok(stato.prontezza, "Pronto? c'è");
   assert.equal(stato.disponibilita.ore, PIANO.disponibilita.orePredefinite);
+});
+
+// --- chi arriva dalla versione di prima, con l'obiettivo fatto dalla sfida ---
+
+const DI_PRIMA = { tipo: "libero", libero: "giorni", giorni: 3, ore: 8, daSfida: "settimana", partenza: "2027-01-10" };
+
+test("chi arriva dalla versione di prima riparte dalle domande, con la prima schermata da scegliere", () => {
+  const prima = calcola({ oggi: OGGI, adesso: `${OGGI}T09:00`, letture: vuote, telefono: telefonoDi({ profilo: {}, obiettivo: DI_PRIMA, disponibilita: null }) });
+  assert.equal(prima.primoAvvio, true, "per il motore è un primo avvio");
+  const ctx = ctxDi({ obiettivo: prima.obiettivo, primoAvvio: prima.primoAvvio });
+  const b = bozzaIniziale(ctx);
+  assert.equal(b.passo, "scelta");
+  assert.equal(b.scelta, null, "l'obiettivo di prima non è una scelta");
+  assert.equal(controlla(b, "scelta", OGGI).campo, "inizio-scelta-0");
+  // Le sue ore e la sua data restano già scelte, se la persona sceglie un'avventura propria.
+  scegli(b, "libero", OGGI);
+  assert.deepEqual([b.libero.tipo, b.libero.giorni, b.libero.oreGiorno, b.libero.borseGiorni, b.data], ["giorni", 3, 8, true, "2027-01-10"]);
+  // Dopo le risposte l'obiettivo non porta la sfida, e il primo avvio finisce.
+  scegli(b, "tt-originale", OGGI);
+  const r = risposte(b, ctx);
+  assert.ok(!("daSfida" in r.obiettivo));
+  const dopo = calcola({ oggi: OGGI, adesso: `${OGGI}T09:00`, letture: vuote, telefono: telefonoDi({ ...r, obiettivo: senzaSfida(r.obiettivo) }) });
+  assert.equal(dopo.primoAvvio, false);
+  assert.equal(dopo.obiettivo.percorsoId, "tt-originale");
+});
+
+test("#inizio con l'obiettivo di prima mostra le domande, senza «Lascia com'è» e senza la copia di un telefono nuovo", () => {
+  const ob = leggiObiettivo(DI_PRIMA);
+  const ctx = ctxDi({ obiettivo: ob, primoAvvio: true, ui: {} });
+  const vista = disegna(ctx);
+  assert.equal(elementi(vista).find((e) => e.nodeName === "h1").textContent, SCELTA.titolo);
+  assert.equal(ctx.ui.inizio.passo, "scelta");
+  assert.equal(perId(vista, "inizio-lascia"), null);
+  assert.equal(perId(vista, "inizio-copia"), null);
+  // Senza nessun obiettivo, su un telefono nuovo, la copia c'è.
+  assert.ok(perId(disegna(ctxDi()), "inizio-copia"));
+  // Con un'avventura scelta con le domande la pagina è il riepilogo, con «Cambia la tua avventura».
+  const scelta = leggiObiettivo(senzaSfida(DI_PRIMA));
+  const riepilogo = disegna(ctxDi({ obiettivo: scelta, primoAvvio: false }));
+  assert.equal(elementi(riepilogo).find((e) => e.nodeName === "h1").textContent, RIEPILOGO.titolo);
+  assert.equal(perId(riepilogo, "inizio-cambia").textContent, RIEPILOGO.cambia);
+});
+
+// --- «Più giorni di fila», da 2 a 14 giorni, a ore o con km e salita ---
+
+test("«Più giorni di fila» chiede da 2 a 14 giorni, ogni giorno a ore o con km e salita, e le borse", () => {
+  const b = bozzaIniziale(ctxDi());
+  scegli(b, "libero", OGGI);
+  b.libero.tipo = "giorni";
+  assert.deepEqual([b.libero.giorni, b.libero.misura, b.libero.borseGiorni], [2, "ore", true], "già scelti, con le borse come prima");
+  b.libero.giorni = 5;
+  b.libero.misura = "km";
+  assert.equal(controlla(b, "giorni", OGGI).campo, "inizio-km-giorno");
+  b.libero.kmGiorno = 100;
+  assert.equal(controlla(b, "giorni", OGGI), null, "i metri si possono lasciare vuoti");
+  b.libero.metriGiorno = Number.NaN;
+  assert.equal(controlla(b, "giorni", OGGI).campo, "inizio-metri-giorno");
+  b.libero.metriGiorno = 2000;
+  b.libero.borseGiorni = false;
+  const r = risposte(b, ctxDi());
+  assert.deepEqual(r.obiettivo, { tipo: "libero", libero: "giorni", giorni: 5, misura: "km", km: 100, metri: 2000, fondo: "strada", conBorse: false, partenza: null });
+  const ob = leggiObiettivo(r.obiettivo);
+  assert.deepEqual(ob.libero, { tipo: "giorni", giorni: 5, misura: "km", km: 100, metri: 2000, fondo: "strada", conBorse: false });
+  // Ripresa come risposta già scelta, la bozza torna uguale.
+  const di = bozzaIniziale(ctxDi({ obiettivo: ob, primoAvvio: false }));
+  assert.deepEqual(
+    [di.scelta, di.libero.tipo, di.libero.giorni, di.libero.misura, di.libero.kmGiorno, di.libero.metriGiorno, di.libero.fondoGiorni, di.libero.borseGiorni],
+    ["libero", "giorni", 5, "km", 100, 2000, "strada", false]);
+  // A ore resta la forma di prima, fino a 14 giorni.
+  Object.assign(b.libero, { misura: "ore", giorni: 14, oreGiorno: 6, borseGiorni: true });
+  assert.deepEqual(leggiObiettivo(risposte(b, ctxDi()).obiettivo).libero, { tipo: "giorni", giorni: 14, ore: 6 });
+  assert.deepEqual(STIMA.obiettivoLibero.giorniDiFila, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+});
+
+test("il caso di prova, cinque giorni da 100 km e 2.000 m su strada senza borse, ha la giornata di 1.5 e la classe dei cinque giorni", () => {
+  const b = bozzaIniziale(ctxDi());
+  scegli(b, "libero", OGGI);
+  Object.assign(b.libero, { tipo: "giorni", giorni: 5, misura: "km", kmGiorno: 100, metriGiorno: 2000, fondoGiorni: "strada", borseGiorni: false });
+  b.data = "2027-03-01";
+  const r = risposte(b, ctxDi());
+  const stato = calcola({ oggi: OGGI, adesso: `${OGGI}T09:00`, letture: vuote, telefono: telefonoDi(r) });
+  assert.deepEqual([stato.stima.giorni, stato.stima.kmGiorno, stato.stima.metriGiorno, stato.stima.mezzore.H], [5, 100, 2000, 7]);
+  assert.ok(Math.abs(stato.stima.H - 7.24) < 0.01, `H ${stato.stima.H}`);
+  assert.equal(stato.stima.avvisi.find((a) => a.tipo === "borse"), undefined, "senza borse");
+  assert.deepEqual([stato.prontezza.classe, stato.piano.obiettivo.classe, stato.piano.obiettivo.giorni], ["2-5", "2-5", 5]);
+});
+
+test("le schermate dei giorni di fila hanno i giorni da 2 a 14, la misura di ogni giorno e la casella delle borse", () => {
+  const ctx = ctxDi();
+  const b = bozzaIniziale(ctx);
+  scegli(b, "libero", OGGI);
+  Object.assign(b, { passo: "giorni" });
+  b.libero.tipo = "giorni";
+  ctx.ui = { inizio: b };
+  const aOre = disegna(ctx);
+  const giorni = elementi(perId(aOre, "inizio-giorni-fila-gruppo")).filter((e) => e.nodeName === "input");
+  assert.deepEqual(giorni.map((e) => e.getAttribute("value")), STIMA.obiettivoLibero.giorniDiFila.map(String));
+  assert.ok(perId(aOre, "inizio-misura-gruppo") && perId(aOre, "inizio-ore-giorno-gruppo"));
+  assert.equal(perId(aOre, "inizio-km-giorno"), null);
+  assert.equal(perId(aOre, "inizio-borse-giorni").getAttribute("checked"), "");
+  assert.equal(perId(aOre, "inizio-borse-giorni").getAttribute("type"), "checkbox");
+  b.libero.misura = "km";
+  const aKm = disegna(ctx);
+  assert.ok(perId(aKm, "inizio-km-giorno") && perId(aKm, "inizio-metri-giorno") && perId(aKm, "inizio-fondo-giorni-gruppo"));
+  assert.equal(perId(aKm, "inizio-ore-giorno-gruppo"), null);
+  assert.match(aKm.textContent, new RegExp(AVVENTURA.kmGiorno.replace("?", "\\?")));
 });

@@ -1,7 +1,7 @@
 // I testi di Impostazioni e dati (7.12), per js/viste/impostazioni.js. Stesse regole di scrittura di
 // js/testi.js (7.1), e la prova 9.8 li legge tutti.
 
-import { MEMORIA, CHIAMATE } from "./parametri.js?v=202611021705";
+import { MEMORIA, CHIAMATE } from "./parametri.js?v=202611021803";
 
 export const IMPOSTAZIONI = {
   titolo: "Impostazioni",
@@ -23,6 +23,7 @@ export const IMPOSTAZIONI = {
     libero: "Un'avventura tua",
     liberoOre: (ore) => `Un giro lungo di ${ore}.`,
     liberoGiorni: (giorni, ore) => `${giorni} giorni di fila, ${ore} al giorno.`,
+    liberoGiorniKm: (giorni, km, metri) => `${giorni} giorni di fila, ${km} km e ${metri} m di salita al giorno.`,
     liberoGiro: (km, metri) => `Un giro di ${km} km e ${metri} m di salita.`,
     liberoData: (data) => `La data è ${data}.`,
     semaforo: "Hai scelto solo il semaforo del mattino. Niente piano e niente verdetto, il semaforo resta.",

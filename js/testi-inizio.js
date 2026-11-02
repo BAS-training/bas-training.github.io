@@ -3,8 +3,8 @@
 // qui ci sono solo le parole intorno e una copia di riserva, se quel file cambiasse forma.
 // I modelli che sono funzioni controllano i loro ingressi e restituiscono null quando non tornano.
 
-import { dataLunga } from "./formato.js?v=202611021705";
-import { PASSO } from "./parametri.js?v=202611021705";
+import { dataLunga } from "./formato.js?v=202611021803";
+import { PASSO, STIMA } from "./parametri.js?v=202611021803";
 
 function congela(oggetto) {
   for (const valore of Object.values(oggetto)) {
@@ -16,6 +16,7 @@ function congela(oggetto) {
 const intero = (n) => Number.isInteger(n) && n >= 0;
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 const IN_LETTERE = ["zero", "un", "due", "tre", "quattro", "cinque", "sei", "sette", "otto", "nove", "dieci"];
+const GIORNI_DI_FILA = Math.max(...STIMA.obiettivoLibero.giorniDiFila);   // i giorni di fila più lunghi, 14
 
 // 5900 diventa «5.900». Intl in italiano mette il punto solo da 10.000, i testi lo vogliono sempre.
 export function migliaia(n) {
@@ -164,10 +165,20 @@ export const AVVENTURA = congela({
   ],
   borse: "Anche con le borse",
   giorniDomanda: "Quanti giorni di fila?",
+  // Ogni giorno a ore, oppure con km e salita come il giro, e la stessa domanda sul fondo.
+  misura: "Come misuri ogni giorno?",
+  misure: [
+    { valore: "ore", testo: "In ore" },
+    { valore: "km", testo: "In km e metri di salita" },
+  ],
   oreGiorno: "Quante ore al giorno?",
+  kmGiorno: "Quanti km al giorno?",
+  metriGiorno: "Quanti metri di salita al giorno?",
+  borseGiorni: "Con le borse",
   data: "Quando",
   dataAiuto: "Facoltativo. Se non hai ancora una data, lascia vuoto. Senza data il piano tiene una settimana tipo, che cresce piano.",
   kmManca: "Scrivi quanti km, con un numero da 1 a 1.000.",
+  kmGiornoManca: "Scrivi quanti km al giorno, con un numero da 1 a 1.000.",
   metriSbagliati: "I metri di salita vanno scritti con un numero da 0 a 20.000, oppure lasciati vuoti.",
   dataSbagliata: "Questa data è già passata. Scegline una da oggi in poi, oppure lascia vuoto.",
 });
@@ -298,11 +309,27 @@ export function giroDiKm({ km, metri, fondo, conBorse } = {}) {
   return `${pezzi.join(", ")}.`;
 }
 
-// «Due giorni di fila, da 5 ore al giorno.»
-export function giorniDiFila(giorni, ore) {
-  if (!intero(giorni) || giorni < 2 || giorni >= IN_LETTERE.length || !intero(ore) || ore < 1) return null;
-  const quanti = IN_LETTERE[giorni];
-  return `${quanti.charAt(0).toUpperCase()}${quanti.slice(1)} giorni di fila, da ${oreInParole(ore)} al giorno.`;
+// «Due giorni di fila», fino a dieci in lettere, poi in cifre, «12 giorni di fila».
+function quantiGiorniDiFila(giorni) {
+  const quanti = giorni < IN_LETTERE.length ? IN_LETTERE[giorni] : String(giorni);
+  return `${quanti.charAt(0).toUpperCase()}${quanti.slice(1)} giorni di fila`;
+}
+
+// «Due giorni di fila, da 5 ore al giorno, con le borse.»
+export function giorniDiFila(giorni, ore, conBorse = false) {
+  if (!intero(giorni) || giorni < 2 || giorni > GIORNI_DI_FILA || !intero(ore) || ore < 1) return null;
+  return `${quantiGiorniDiFila(giorni)}, da ${oreInParole(ore)} al giorno${conBorse === true ? ", con le borse" : ""}.`;
+}
+
+// «Cinque giorni di fila, da 100 km con 2.000 m di salita al giorno, su strada.»
+export function giorniDiFilaKm({ giorni, km, metri, fondo, conBorse } = {}) {
+  const k = migliaia(km);
+  if (!intero(giorni) || giorni < 2 || giorni > GIORNI_DI_FILA || !k || !(km > 0)) return null;
+  const salita = typeof metri === "number" && metri > 0 ? ` con ${migliaia(metri)} m di salita` : "";
+  const pezzi = [quantiGiorniDiFila(giorni), `da ${k} km${salita} al giorno`];
+  if (RIEPILOGO.fondi[fondo]) pezzi.push(RIEPILOGO.fondi[fondo]);
+  if (conBorse !== false) pezzi.push("con le borse");
+  return `${pezzi.join(", ")}.`;
 }
 
 // «Riprendi da una copia», in alto al primo avvio su un telefono nuovo (6.6).
@@ -340,6 +367,10 @@ export const ESEMPI = congela({
   dataDelVia: [["2027-05-20", "2026-11-01"], ["2026-12-05", "2026-11-01"]],
   cosaPrepari: [["Tuscany Trail", "Originale", 4], ["Unpaved Roads Punta Ala", "Lungo", 1]],
   giroDiKm: [[{ km: 120, metri: 1500, fondo: "gravel", conBorse: true }], [{ km: 80, metri: 0, fondo: "strada", conBorse: false }]],
+  giorniDiFila: [[3, 5, true], [12, 6, false]],
+  giorniDiFilaKm: [
+    [{ giorni: 5, km: 100, metri: 2000, fondo: "strada", conBorse: false }], [{ giorni: 14, km: 80, metri: 0, fondo: "gravel", conBorse: true }],
+  ],
   diSolito: [[[4, 5]], [[2]]],
   iscritto: [["tt", "Tuscany Trail", "2027"], ["nc4k", "NorthCape4000", "2027"], ["ur", "Unpaved Roads Punta Ala", null]],
   iscrittoTitolo: [["tt", "Tuscany Trail", "2027"], ["ffp", "Final Frontier Patagonia", "2027"]],

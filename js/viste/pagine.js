@@ -2,16 +2,16 @@
 // di entrare», guida, privacy. Qui ci sono anche la pagina del consenso per chi è già dentro, le
 // finestre di conferma e le schermate di attesa e di errore. I testi stanno in js/testi-pagine.js.
 
-import { h, icona } from "../dom.js?v=202611021705";
+import { h, icona } from "../dom.js?v=202611021803";
 import {
-  GUIDA_SEMAFORO, GUIDA_LIVELLI, GUIDA_COLONNE, GUIDA, DISPOSITIVI, DOMANDE_FREQUENTI, DOMANDA_ESCI_CON_INTERVALS, LIMITI,
-  PRIVACY, COLLEGA, BENVENUTO, ATTESA, ERRORE,
-} from "../testi-pagine.js?v=202611021705";
-import { SPIEGAZIONI } from "../testi-numeri.js?v=202611021705";
-import { GUIDA_PRONTO } from "../testi-prontezza.js?v=202611021705";
-import { CONSENSO } from "../testi-app.js?v=202611021705";
-import { intestazione, luceSemaforo } from "./comuni.js?v=202611021705";
-import { OAUTH_ATTIVO } from "../config.js?v=202611021705";
+  GUIDA_SEMAFORO, GUIDA_LIVELLI, GUIDA_COLONNE, GUIDA, GUIDA_FONTI, DISPOSITIVI, DOMANDE_FREQUENTI, DOMANDA_ESCI_CON_INTERVALS, LIMITI,
+  PRIVACY, COLLEGA, BENVENUTO, ATTESA, ERRORE, chiFonte,
+} from "../testi-pagine.js?v=202611021803";
+import { SPIEGAZIONI } from "../testi-numeri.js?v=202611021803";
+import { GUIDA_PRONTO } from "../testi-prontezza.js?v=202611021803";
+import { CONSENSO } from "../testi-app.js?v=202611021803";
+import { intestazione, luceSemaforo } from "./comuni.js?v=202611021803";
+import { OAUTH_ATTIVO } from "../config.js?v=202611021803";
 
 const IMPOSTAZIONI = "https://intervals.icu/settings";
 
@@ -283,6 +283,22 @@ function sezioneGuida(id, titolo, ...contenuto) {
     contenuto);
 }
 
+// «Le fonti» (7.11), una lista per tema. Ogni fonte ha autore e anno, la rivista, cosa sostiene
+// nell'app e il collegamento allo studio su doi.org, che si apre fuori dalla pagina. Il nome del
+// collegamento, per i lettori di schermo, comincia con autore e anno.
+function fontiGuida() {
+  return sezioneGuida("fonti", GUIDA_FONTI.titolo,
+    paragrafi(GUIDA_FONTI.paragrafi),
+    GUIDA_FONTI.temi.map((t, k) => h("div", { class: "fonti-tema" },
+      h("h3", { id: `guida-fonti-tema-${k}` }, t.titolo),
+      h("ul", { class: "fonti", "aria-labelledby": `guida-fonti-tema-${k}` }, t.fonti.map((f) => h("li", { class: "fonte" },
+        h("p", { class: "fonte-chi" }, h("strong", {}, chiFonte(f)), " ", h("cite", {}, f.rivista)),
+        h("p", { class: "fonte-testo" }, f.testo),
+        f.doi ? h("p", { class: "fonte-doi" },
+          h("a", { href: `https://doi.org/${f.doi}`, target: "_blank", rel: "noopener" },
+            h("span", { class: "nascosto" }, chiFonte(f), " "), f.doi)) : null))))));
+}
+
 function indiceGuida(voci) {
   return h("nav", { class: "indice-guida", "aria-label": GUIDA.indice },
     h("p", { class: "occhiello" }, GUIDA.indice),
@@ -310,6 +326,7 @@ export function vistaGuida() {
     { id: "numeri", titolo: G.numeri },
     { id: "limiti", titolo: G.limiti },
     { id: "domande", titolo: G.domande },
+    { id: "fonti", titolo: GUIDA_FONTI.titolo },
   ];
   return h("div", { class: "vista vista-testo vista-guida" },
     intestazione(G.titolo, G.sottotitolo, G.attacco),
@@ -349,6 +366,8 @@ export function vistaGuida() {
 
     sezioneGuida("domande", G.domande,
       domande.map((f) => h("details", { class: "faq" }, h("summary", {}, f.d), h("p", {}, f.r)))),
+
+    fontiGuida(),
 
     h("p", {}, h("a", { href: "#privacy" }, G.privacy)));
 }

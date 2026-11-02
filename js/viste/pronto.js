@@ -1,25 +1,28 @@
-// «Pronto?» (7.7), al posto della pagina Obiettivo. Dall'alto il verdetto o, prima della vigilia, dove
-// si arriva con il piano, con le righe della preparazione sotto il titolo (2.9). Poi «La tua avventura»
-// (1.11), le prove con le borse, «Cosa cambia se…» quando serve (2.8), «Per chi ama i numeri», chiuso,
-// e da dove vengono i numeri. Tutto arriva già calcolato da js/motore.js (ctx.prontezza, ctx.stima,
-// ctx.obiettivo): la pagina non decide niente, mostra e passa le scelte a ctx.azioni.
+// «Pronto?» (7.7), al posto della pagina Obiettivo. In cima la barra «Arrivi pronto?» con i quattro
+// pilastri (js/viste/barra-pronto.js), poi il verdetto o, prima della vigilia, dove si arriva con il
+// piano, con le righe della preparazione sotto il titolo (2.9). Poi «La tua avventura» (1.11), le prove
+// con le borse, «Cosa cambia se…» quando serve (2.8), «Per chi ama i numeri», chiuso, e da dove vengono
+// i numeri, con il collegamento alle fonti della Guida. Tutto arriva già calcolato da js/motore.js
+// (ctx.prontezza, ctx.stima, ctx.obiettivo): la pagina non decide niente, mostra e passa le scelte a
+// ctx.azioni.
 
-import { h, s } from "../dom.js?v=202611021705";
-import { segno } from "../formato.js?v=202611021705";
-import { leggiDisponibilita } from "../piano.js?v=202611021705";
-import { PRONTEZZA, SEMAFORO, STIMA } from "../parametri.js?v=202611021705";
-import { MEDICO } from "../testi.js?v=202611021705";
+import { h, s } from "../dom.js?v=202611021803";
+import { segno } from "../formato.js?v=202611021803";
+import { leggiDisponibilita } from "../piano.js?v=202611021803";
+import { PRONTEZZA, SEMAFORO, STIMA } from "../parametri.js?v=202611021803";
+import { MEDICO } from "../testi.js?v=202611021803";
 import {
   fraseGiornata, fraseGiornataNormale, fraseGiornoInPiu, fraseBorse, fraseFonte, scelteOreEbike, IN_CALENDARIO, EBIKE,
   DA_DOVE_VENGONO, PASSO_GIRI,
-} from "../testi-stima.js?v=202611021705";
+} from "../testi-stima.js?v=202611021803";
 import {
   PRONTO_PAGINA, STATI_RIGA, PROIEZIONE, NUMERI_PRONTO, BORSE_PRONTO, CAMBIA_PRONTO, FATTO_PRONTO, QUANDO_PARTI,
   fraseProiezione, nomeAvventura, rigaPercorso, rigaGiorni, settimanaTipo, provaDaFare, rigaBorseKg, rigaBorseLeggere,
   righeProposta, tastoGiorni, passaA, anteprimaGiorni, anteprimaCorto, anteprimaEsito, partoIl, giroTolto, testoFitness,
   testoDurabilita, testoStomaco,
-} from "../testi-prontezza.js?v=202611021705";
-import { bannerDemo } from "./comuni.js?v=202611021705";
+} from "../testi-prontezza.js?v=202611021803";
+import { bannerDemo } from "./comuni.js?v=202611021803";
+import { barraPronto, FORMA_DI } from "./barra-pronto.js?v=202611021803";
 
 const num = (v) => typeof v === "number" && Number.isFinite(v);
 const lista = (v) => (Array.isArray(v) ? v : []);
@@ -40,13 +43,13 @@ function fuocoSu(id) {
 }
 
 // --- i segni delle righe (2.9), una spunta, un cerchio o una croce. La forma dice lo stato, il colore no ---
+// Il segno di ogni stato (FORMA_DI) sta in js/viste/barra-pronto.js, così righe e barra dicono lo stesso.
 
 const SEGNI = {
   spunta: ["M5 12.5l4.5 4.5L19 7.5"],
   cerchio: ["M12 5a7 7 0 1 1 0 14a7 7 0 0 1 0-14"],
   croce: ["M7.5 7.5l9 9", "M16.5 7.5l-9 9"],
 };
-const FORMA_DI = { fatto: "spunta", fatta: "spunta", inProgramma: "cerchio", quasi: "cerchio", consiglio: "cerchio", daFare: "cerchio", manca: "croce" };
 
 function riga(stato, testo, forma = FORMA_DI[stato] || "cerchio") {
   return h("li", { class: ["pronto-riga", `pronto-riga-${forma}`] },
@@ -63,9 +66,11 @@ function sezione(id, titolo, ...figli) {
 
 // --- in alto, il verdetto o la proiezione con le tre parti di 2.9 ---
 
-function testa(occhiello, titolo, attacco) {
+// La barra, quando c'è, sta fra l'occhiello e il titolo, che è la sua frase.
+function testa(occhiello, titolo, attacco, barra = null) {
   return h("header", { class: "intestazione" },
     occhiello ? h("p", { class: "occhiello" }, occhiello) : null,
+    barra,
     h("h1", { id: "pronto-titolo", tabindex: "-1" }, titolo),
     attacco ? h("p", { class: "attacco" }, attacco) : null);
 }
@@ -239,7 +244,7 @@ function conPartenza(ob, partenza) {
   const l = ob.libero || {};
   return {
     tipo: "libero", libero: l.tipo, ore: l.ore, giorni: l.giorni, km: l.km, metri: l.metri, fondo: l.fondo, conBorse: l.conBorse,
-    partenza, daSfida: ob.daSfida || null,
+    misura: l.misura, partenza, daSfida: ob.daSfida || null,
   };
 }
 
@@ -464,8 +469,11 @@ function numeri(ctx, p) {
   return d;
 }
 
+// In fondo il collegamento a «Le fonti» della Guida, con la rotta #fonti di js/app.js.
 function daDove() {
-  return sezione("pronto-dove", DA_DOVE_VENGONO.titolo, h("p", { class: "sezione-testo" }, DA_DOVE_VENGONO.testo));
+  return sezione("pronto-dove", DA_DOVE_VENGONO.titolo,
+    h("p", { class: "sezione-testo" }, DA_DOVE_VENGONO.testo),
+    h("p", { class: "pronto-fonti" }, h("a", { href: "#fonti", id: "pronto-fonti" }, PRONTO_PAGINA.fonti)));
 }
 
 // --- senza un'avventura, oppure con il solo semaforo (7.7) ---
@@ -485,7 +493,8 @@ export function vistaPronto(ctx) {
   const p = ctx.prontezza;
   const { titolo, attacco } = parole(p);
   return h("div", { class: "vista vista-pronto" },
-    testa(nomeAvventura({ percorso: ob.tipo === "evento" ? ob.percorso : null, libero: ob.tipo === "libero" ? ob.libero : null, giorni: ob.giorni }), titolo, attacco),
+    testa(nomeAvventura({ percorso: ob.tipo === "evento" ? ob.percorso : null, libero: ob.tipo === "libero" ? ob.libero : null, giorni: ob.giorni }), titolo, attacco,
+      barraPronto(ctx, { id: "pronto-barra" })),
     fatto(ctx),
     ctx.demo ? bannerDemo(ctx) : null,
     preparazione(ctx, p),

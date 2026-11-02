@@ -9,15 +9,15 @@
 // I numeri stanno in js/parametri.js, nel gruppo PRONTEZZA. Passo della lunga e scarico finale sono
 // quelli del piano, nel gruppo PIANO.
 
-import { CARICO, PIANO, PRONTEZZA } from "./parametri.js?v=202611021705";
-import { QUALITA, contoOre, giriUniti, inBici, inPalestra, mediana, puntiOra } from "./dati.js?v=202611021705";
-import { stimaH } from "./stima.js?v=202611021705";
-import { CATALOGO } from "./catalogo.js?v=202611021705";
+import { CARICO, PIANO, PRONTEZZA } from "./parametri.js?v=202611021803";
+import { QUALITA, contoOre, giriUniti, inBici, inPalestra, mediana, puntiOra } from "./dati.js?v=202611021803";
+import { stimaH } from "./stima.js?v=202611021803";
+import { CATALOGO } from "./catalogo.js?v=202611021803";
 import {
   testiVerdetto, testoVolume, testoLunga, testoProva, testoBorse, testoDaSistemare, testoContinuita,
   testoPalestra, rigaFiducia, fraseProiezione, testoManca, testoSottoPiano, cosaAllaVigilia,
   FIDUCIA, COSA_POCO, AVVISO_DOPPIO_USO, AVVISI_FITNESS, PROIEZIONE,
-} from "./testi-prontezza.js?v=202611021705";
+} from "./testi-prontezza.js?v=202611021803";
 
 const ORA = 3600;
 const GIORNO_MS = 86400000;

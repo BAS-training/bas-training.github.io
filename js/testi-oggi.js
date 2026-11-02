@@ -1,7 +1,7 @@
 // I testi nuovi della pagina Oggi (7.4, 7.5, 7.9 e 7.10), per js/viste/oggi.js. Quelli del semaforo e
 // del rilascio 1 restano in js/testi.js. Stesse regole di scrittura (7.1), e la prova 9.8 li legge tutti.
 
-import { dataLunga, formatoDurata, numero } from "./formato.js?v=202611021705";
+import { dataLunga, formatoDurata, numero } from "./formato.js?v=202611021803";
 
 const GIORNO_MS = 86400000;
 const DATA = /^\d{4}-\d{2}-\d{2}/;
@@ -44,6 +44,13 @@ export const CARTA = {
   palestraFatta: "La palestra di oggi è segnata.",
   anchePalestra: "Oggi c'è anche la palestra. Apri la scheda per serie e ripetizioni.",
   aggiorna: "Aggiorna",
+};
+
+// Il collegamento a «La tua avventura» (7.3), sotto la carta di oggi. «Cambia» con un evento o
+// un'avventura propria, «Scegli» con il solo semaforo o senza niente.
+export const AVVENTURA_OGGI = {
+  cambia: "Cambia la tua avventura",
+  scegli: "Scegli la tua avventura",
 };
 
 // --- Le carte dopo il giro (7.5 e 6.4) ---

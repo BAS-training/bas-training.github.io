@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 
 import {
   calcola, leggiObiettivo, giorniEventoDi, giorniDelViaggioDi, applicaSpostamento, spostaGiorno, spostaWeekend,
-  confrontaAtleta, codaPuoPartire, giroDelTelefono, etaDi,
+  confrontaAtleta, codaPuoPartire, giroDelTelefono, etaDi, senzaSfida,
 } from "../js/motore.js";
 import { generaDemo } from "../js/demo.js";
 import { aggiungiGiorni, giornoSettimana } from "../js/modello.js";
@@ -147,6 +147,52 @@ test("con un'avventura propria senza data c'è la settimana tipo e niente verdet
   const migrato = leggiObiettivo({ tipo: "libero", libero: "giorni", giorni: 3, ore: 7, daSfida: "weekend", partenza: "2027-01-10" });
   assert.deepEqual([migrato.giorni, migrato.partenza, giorniEventoDi(migrato), giorniDelViaggioDi(migrato)], [3, "2027-01-10", MEMORIA.sfide.weekend.giorniEvento, 3]);
   assert.equal(giorniDelViaggioDi(leggiObiettivo({ tipo: "libero", libero: "giorni", giorni: 3, ore: 10, daSfida: "grande" })), null);
+});
+
+test("chi arriva dalla versione di prima, con l'obiettivo fatto dalla sfida, è al primo avvio finché non risponde", () => {
+  const migrato = { tipo: "libero", libero: "giorni", giorni: 3, ore: 8, daSfida: "settimana", partenza: "2027-01-10" };
+  const r = calcola(dallEsempio(OGGI, { obiettivo: migrato }));
+  controllaContratto(r, "migrato");
+  testiPuliti(r, "migrato");
+  assert.equal(r.primoAvvio, true, "nessuno ha mai scelto l'obiettivo di prima con le domande");
+  // Intanto semaforo e piano vanno avanti con l'obiettivo di prima.
+  assert.equal(r.obiettivo.daSfida, "settimana");
+  assert.ok(r.piano && r.stima, "piano e giornata ci sono anche al primo avvio");
+  // L'obiettivo delle risposte non porta la sfida, e il primo avvio finisce.
+  const nuovo = senzaSfida(migrato);
+  assert.deepEqual(nuovo, { tipo: "libero", libero: "giorni", giorni: 3, ore: 8, partenza: "2027-01-10" });
+  assert.equal(migrato.daSfida, "settimana", "l'obiettivo di partenza non cambia");
+  assert.equal(calcola(dallEsempio(OGGI, { obiettivo: nuovo })).primoAvvio, false);
+  assert.deepEqual([senzaSfida(null), senzaSfida("evento")], [null, null]);
+  // Un evento e il solo semaforo non sono mai un primo avvio.
+  assert.equal(calcola(dallEsempio()).primoAvvio, false);
+  assert.equal(calcola(dallEsempio(OGGI, { obiettivo: { tipo: "semaforo" } })).primoAvvio, false);
+});
+
+test("«Più giorni di fila» va da 2 a 14 giorni, a ore o a km, e classe e piano seguono i giorni scelti", () => {
+  // Cinque giorni da 100 km e 2.000 m di salita su strada, senza borse, come una settimana in un'isola.
+  const cinque = { tipo: "libero", libero: "giorni", giorni: 5, misura: "km", km: 100, metri: 2000, fondo: "strada", conBorse: false, partenza: aggiungiGiorni(OGGI, 70) };
+  const ob = leggiObiettivo(cinque);
+  assert.deepEqual(ob.libero, { tipo: "giorni", giorni: 5, misura: "km", km: 100, metri: 2000, fondo: "strada", conBorse: false });
+  assert.deepEqual([ob.giorni, ob.percorso.km, ob.percorso.dislivello, ob.percorso.modello.borseKg], [5, 500, 10000, 0]);
+  const r = calcola(dallEsempio(OGGI, { obiettivo: cinque }));
+  controllaContratto(r, "cinque giorni a km");
+  testiPuliti(r, "cinque giorni a km");
+  assert.equal(r.primoAvvio, false);
+  assert.deepEqual([r.stima.giorni, r.stima.kmGiorno, r.stima.metriGiorno], [5, 100, 2000]);
+  assert.deepEqual([r.prontezza.classe, r.piano.obiettivo.classe, r.piano.obiettivo.giorni], ["2-5", "2-5", 5]);
+  // Quattordici giorni a ore sono un viaggio lungo, con le borse.
+  const lungo = calcola(dallEsempio(OGGI, { obiettivo: { tipo: "libero", libero: "giorni", giorni: 14, misura: "ore", ore: 6, conBorse: true, partenza: aggiungiGiorni(OGGI, 140) } }));
+  controllaContratto(lungo, "quattordici giorni");
+  assert.deepEqual([lungo.obiettivo.giorni, lungo.stima.H, lungo.prontezza.classe, lungo.piano.obiettivo.classe], [14, 6, "11+", "11+"]);
+  assert.equal(lungo.obiettivo.percorso.borseKg, 8);
+  assert.equal(giorniEventoDi(lungo.obiettivo), 14);
+  // Senza km non vale, e i giorni fuori dalle scelte tornano ai 3 di prima.
+  assert.equal(leggiObiettivo({ ...cinque, km: null }), null);
+  assert.equal(leggiObiettivo({ tipo: "libero", libero: "giorni", giorni: 20, ore: 6 }).giorni, 3);
+  // I giorni a ore con le borse restano nella forma di prima, così l'impronta del piano salvato non cambia.
+  assert.deepEqual(leggiObiettivo({ tipo: "libero", libero: "giorni", giorni: 3, ore: 7, misura: "ore", conBorse: true }).libero, { tipo: "giorni", giorni: 3, ore: 7 });
+  assert.deepEqual(leggiObiettivo({ tipo: "libero", libero: "giorni", giorni: 3, ore: 7, conBorse: false }).libero, { tipo: "giorni", giorni: 3, ore: 7, conBorse: false });
 });
 
 test("dal link degli iscritti arrivano percorso, giorni e partenza, dopo il cancelletto o con la query", () => {

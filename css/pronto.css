@@ -55,3 +55,5 @@
 
 .pronto-dove h2 { font-size: 16px; }
 .pronto-dove .sezione-testo { font-size: 15px; }
+.pronto-fonti { font-size: 15px; }
+.pronto-fonti a { display: inline-flex; align-items: center; min-height: 32px; }

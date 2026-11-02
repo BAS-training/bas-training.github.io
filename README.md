@@ -8,13 +8,13 @@ L'app si apre da **https://bas-training.github.io/** e senza account si può gua
 
 La barra in basso ha cinque voci. Dal piede della pagina si aprono Impostazioni e Privacy.
 
-- **Oggi.** Una carta sola con il semaforo del mattino e la seduta di oggi del piano, aggiustata dal semaforo. Sotto, le tre domande del mattino, il tasto «Sto male», la riga «Ieri sera…» con le cause note, al massimo una carta in più (due quando una è sulle borse) e il «Perché» voce per voce con quanto fidarsi. Con «Sono in viaggio» la mattina cambia, con le domande dei giorni di fila e tre promemoria.
+- **Oggi.** Una carta sola con il semaforo del mattino e la seduta di oggi del piano, aggiustata dal semaforo. Subito sotto, la barra «Arrivi pronto?» con i quattro pilastri, che porta a Pronto?, e il collegamento alla tua avventura. Poi le tre domande del mattino, il tasto «Sto male», la riga «Ieri sera…» con le cause note, al massimo una carta in più (due quando una è sulle borse) e il «Perché» voce per voce con quanto fidarsi. Con «Sono in viaggio» la mattina cambia, con le domande dei giorni di fila e tre promemoria.
 - **Settimana.** I sette giorni del piano, con bici e palestra, «Questo weekend non posso» e «Aggiungi un giro». La palestra si apre da qui e dalla carta di oggi, con la scheda completa, «Segna i pesi» e «Fatta».
-- **Pronto?** Le ore in sella al giorno della tua avventura con la bici carica, il verdetto a quattro pilastri (ore a settimana, uscita lunga, prove con le borse, continuità) e cosa cambia se aggiungi un giorno o passi al percorso corto.
+- **Pronto?** In cima la barra «Arrivi pronto?», un segmento per pilastro, pieno, a metà o vuoto come i segni delle righe. Le ore in sella al giorno della tua avventura con la bici carica, il verdetto a quattro pilastri (ore a settimana, uscita lunga, prove con le borse, continuità) e cosa cambia se aggiungi un giorno o passi al percorso corto.
 - **Numeri.** I sei numeri del giorno (HRV, battito a riposo, sonno, Freschezza, Fitness e carico recente) con le loro spiegazioni, le domande ancora aperte, la Fitness di Come sto accanto a quella di intervals.icu, i numeri che accompagnano il verdetto senza deciderlo, i grafici nel tempo e le uscite degli ultimi due mesi, ognuna con la sua scheda.
-- **Guida.** Il semaforo a punti, come si stimano le ore in sella, come si decide se sei pronto, come nasce il piano, i test con le borse, la palestra, quando mancano i dati, cosa vuol dire ogni numero e quando non fidarsi dei numeri.
+- **Guida.** Il semaforo a punti, come si stimano le ore in sella, come si decide se sei pronto, come nasce il piano, i test con le borse, la palestra, quando mancano i dati, cosa vuol dire ogni numero, quando non fidarsi dei numeri e le fonti scientifiche principali, per tema, con il collegamento a ogni studio.
 - **Impostazioni.** La mia avventura, giorni e tempo, borse e bici, palestra, età, notte, fascia cardio in bici, casella del ciclo, la settimana leggera da 50 anni, dove stanno i dati, la copia di sicurezza, Esci ed «Esci e cancella tutto da questo dispositivo». Ogni voce dice dove sta il dato.
-- **Il primo avvio.** Una domanda per schermata, con la risposta già scelta e «Salta». Dal link dell'iscrizione a un evento, evento, giorni e data arrivano già scelti.
+- **Il primo avvio.** Una domanda per schermata, con la risposta già scelta e «Salta». Dal link dell'iscrizione a un evento, evento, giorni e data arrivano già scelti. Chi arriva dalla versione di prima, con la sfida della vecchia pagina Obiettivo, rivede le domande finché non sceglie. «Un'avventura mia» è un giro lungo di qualche ora, un giro con i tuoi km e la tua salita, oppure da 2 a 14 giorni di fila, ogni giorno a ore o con km, salita e fondo, con le borse o senza.
 
 ## Come funziona, in breve
 
@@ -172,6 +172,7 @@ Le regole di intervals.icu stanno nella guida ufficiale, https://forum.intervals
 index.html                 la pagina, con la Content Security Policy
 css/app.css                lo stile comune, tema chiaro e scuro
 css/<pagina>.css           le regole di ogni pagina (inizio, oggi, settimana, palestra, pronto, numeri)
+css/barra.css              la barra «Arrivi pronto?» di Oggi e di Pronto? (js/viste/barra-pronto.js)
 js/app.js                  regia (stato, pagine, memoria, consenso, letture, collegamento a intervals.icu)
 js/motore.js               da letture e telefono a tutto quello che le pagine mostrano, con il contratto (puro, testato)
 js/api.js                  chiamate a intervals.icu e letture dei soli giorni nuovi, con la chiave o con l'accesso OAuth

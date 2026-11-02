@@ -84,6 +84,9 @@ globalThis.document = {
 };
 
 const { vistaPronto } = await import("../js/viste/pronto.js");
+const { sottoLaCarta } = await import("../js/viste/oggi.js");
+const { segmentiPronto, PILASTRI_BARRA } = await import("../js/viste/barra-pronto.js");
+const { AVVENTURA_OGGI } = await import("../js/testi-oggi.js");
 const { calcola } = await import("../js/motore.js");
 const { generaDemo } = await import("../js/demo.js");
 const { aggiungiGiorni } = await import("../js/modello.js");
@@ -505,4 +508,81 @@ test("nell'esempio c'è la striscia dell'esempio, e la pagina regge con tutti i 
       assert.ok(tutto(q.radice).includes(percorso.evento), percorso.id);
     }
   }
+});
+
+// --- la barra «Arrivi pronto?», in cima a Pronto? e sotto la carta di Oggi ---
+
+const conClasse = (radice, classe) => elementi(radice).filter((e) => (e.getAttribute("class") || "").split(" ").includes(classe));
+
+test("in cima a Pronto? la barra «Arrivi pronto?» ha un segmento per pilastro, con lo stato dei segni delle righe", () => {
+  for (const [dove, stato] of [["dieci settimane prima", dallEsempio()], ["alla vigilia", dallEsempio({ obiettivo: evento("tt-originale", 5, 10) })]]) {
+    const p = apri(stato);
+    controlla(p.radice, dove);
+    const header = elementi(p.radice).find((e) => e.nodeName === "header");
+    const barra = perId(p.radice, "pronto-barra");
+    assert.ok(barra, `${dove}, manca la barra`);
+    // Nell'intestazione, fra l'occhiello e il titolo, che è la frase del verdetto o di dove arrivi.
+    const figli = header.childNodes.filter((c) => c.nodeType === 1);
+    assert.deepEqual([figli.indexOf(barra), figli.findIndex((e) => e.nodeName === "h1")], [1, 2], dove);
+    assert.equal(figli[2].textContent.replace(/\.?$/, "."), T.fraseBarra(p.ctx.prontezza), dove);
+    assert.equal(conClasse(barra, "barra-pronto-frase").length, 0, `${dove}, la frase è già il titolo`);
+    // Quattro segmenti nell'ordine dei pilastri, con il nome a parole per i lettori di schermo.
+    const segmenti = segmentiPronto(p.ctx.prontezza);
+    assert.deepEqual(segmenti.map((x) => x.pilastro), PILASTRI_BARRA);
+    const immagine = elementi(barra).find((e) => e.getAttribute("role") === "img");
+    assert.equal(immagine.getAttribute("aria-label"), T.nomeBarra(segmenti));
+    assert.match(immagine.getAttribute("aria-label"), /^Ore a settimana, .+\. Uscita lunga, .+\. Prove con le borse, .+\. Costanza, .+\.$/);
+    assert.deepEqual(conClasse(barra, "barra-segmento").map((e) => e.getAttribute("class")), segmenti.map((x) => `barra-segmento barra-segmento-${x.riempimento}`));
+    // Lo stesso segno della riga del suo pilastro, spunta piena, cerchio a metà, croce vuota.
+    const righe = elementi(perId(p.radice, "pronto-preparazione")).filter((e) => e.nodeName === "li");
+    p.ctx.prontezza.righe.forEach((r, i) => {
+      const x = segmenti.find((s) => s.pilastro === r.pilastro);
+      if (x) assert.match(righe[i].getAttribute("class"), new RegExp(`pronto-riga-${x.forma}$`), `${dove}, ${r.pilastro}`);
+    });
+    // Niente numeri e niente percentuali a schermo.
+    assert.ok(!/\d|%/.test(barra.textContent), `${dove}, «${barra.textContent}»`);
+  }
+});
+
+test("senza i pilastri la barra non c'è, e in fondo a «Da dove vengono questi numeri» ci sono le fonti", () => {
+  const corta = dallEsempio();
+  const dal = aggiungiGiorni(OGGI, -15);
+  corta.letture.benessere = corta.letture.benessere.filter((w) => w.id >= dal);
+  corta.letture.attivita = corta.letture.attivita.filter((a) => a.start_date_local.slice(0, 10) >= dal);
+  for (const [dove, stato] of [["storia corta", corta], ["senza data", dallEsempio({ obiettivo: evento("tt-originale", 5, null) })]]) {
+    const p = apri(stato);
+    controlla(p.radice, dove);
+    assert.equal(perId(p.radice, "pronto-barra"), null, dove);
+    assert.equal(segmentiPronto(p.ctx.prontezza), null, dove);
+  }
+  assert.equal(perId(apri(dallEsempio({ obiettivo: { tipo: "semaforo" } })).radice, "pronto-barra"), null, "solo semaforo");
+  const p = apri(dallEsempio());
+  const fonti = perId(p.radice, "pronto-fonti");
+  assert.deepEqual([fonti.nodeName, fonti.getAttribute("href"), fonti.textContent], ["a", "#fonti", T.PRONTO_PAGINA.fonti]);
+  assert.ok(elementi(perId(p.radice, "pronto-dove")).includes(fonti));
+});
+
+test("sotto la carta di Oggi la barra porta a Pronto? con la sua frase, e il collegamento all'avventura c'è sempre", () => {
+  const p = apri(dallEsempio());
+  const sotto = sottoLaCarta(p.ctx);
+  globalThis.__radice = sotto;
+  const barra = perId(sotto, "oggi-pronto");
+  assert.deepEqual([barra.nodeName, barra.getAttribute("href")], ["a", "#pronto"]);
+  const frase = conClasse(barra, "barra-pronto-frase")[0];
+  assert.equal(frase.textContent, T.fraseBarra(p.ctx.prontezza));
+  assert.equal(frase.textContent, "Se segui il piano, ci arrivi quasi pronto.");
+  assert.match(barra.textContent, /^Arrivi pronto\?/);
+  assert.ok(!/\d|%/.test(barra.textContent), barra.textContent);
+  assert.equal(elementi(barra).find((e) => e.getAttribute("role") === "img").getAttribute("aria-label"), T.nomeBarra(segmentiPronto(p.ctx.prontezza)));
+  const avventura = perId(sotto, "oggi-avventura");
+  assert.deepEqual([avventura.getAttribute("href"), avventura.textContent], ["#inizio", AVVENTURA_OGGI.cambia]);
+  // In viaggio, dopo la partenza e senza avventura la barra non c'è. Con il solo semaforo l'avventura si sceglie.
+  const inViaggio = sottoLaCarta({ ...p.ctx, giorno: { ...p.ctx.giorno, evento: { tipo: "evento", giorno: 1, giorni: 5 } } });
+  assert.equal(perId(inViaggio, "oggi-pronto"), null);
+  assert.equal(perId(sottoLaCarta({ ...p.ctx, giorno: { ...p.ctx.giorno, giorniPartenza: null } }), "oggi-pronto"), null);
+  const solo = apri(dallEsempio({ obiettivo: { tipo: "semaforo" } }));
+  const sottoSolo = sottoLaCarta(solo.ctx);
+  assert.equal(perId(sottoSolo, "oggi-pronto"), null);
+  assert.equal(perId(sottoSolo, "oggi-avventura").textContent, AVVENTURA_OGGI.scegli);
+  assert.equal(perId(sottoLaCarta({ ...solo.ctx, obiettivo: null }), "oggi-avventura").textContent, AVVENTURA_OGGI.scegli);
 });

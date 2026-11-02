@@ -18,8 +18,8 @@
 //   cambiamento in millisecondi. Lo mette scrivi e lo toglie leggi, così gli altri moduli non lo
 //   vedono mai. Serve a riprendi, perché per ogni giorno e ogni uscita resti il dato più recente.
 
-import { MEMORIA } from "./parametri.js?v=202611021705";
-import { CHIAVE, ACCESSO } from "./credenziali.js?v=202611021705";
+import { MEMORIA } from "./parametri.js?v=202611021803";
+import { CHIAVE, ACCESSO } from "./credenziali.js?v=202611021803";
 
 export const PREFISSO = "comesto.";
 export const GUASTO = ".guasto";

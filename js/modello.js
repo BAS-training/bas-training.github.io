@@ -2,7 +2,7 @@
 // un calendario di giorni, il "normale" di ogni persona e lo stato del mattino.
 // Niente DOM qui dentro, così tutto si prova con node (cartella test/).
 
-import { SEMAFORO, CARICO, CHIAMATE, DATI } from "./parametri.js?v=202611021705";
+import { SEMAFORO, CARICO, CHIAMATE, DATI } from "./parametri.js?v=202611021803";
 
 export const GIORNI_STORICO = CHIAMATE.primaLetturaGiorni;   // giorni di benessere letti da intervals.icu, 6.7
 export const GIORNI_USCITE = CHIAMATE.primaLetturaGiorni;    // giorni di attività letti da intervals.icu, 6.7

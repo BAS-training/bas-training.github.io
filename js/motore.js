@@ -43,7 +43,8 @@
 //   obiettivo      null al primo avvio, oppure
 //                  { tipo «evento» | «libero» | «semaforo», percorso (la voce di js/catalogo.js o il percorso
 //                  libero di js/stima.js, null con il solo semaforo), percorsoId, giorni, partenza (o null),
-//                  iscritto (arrivato dal link), libero (le scelte dell'avventura propria), daSfida }.
+//                  iscritto (arrivato dal link), libero (le scelte dell'avventura propria), daSfida (la sfida
+//                  della pagina Obiettivo di prima, solo nell'obiettivo che la migrazione ne ha fatto) }.
 //   stima          stimaH di js/stima.js, oppure null. Per lo schermo valgono stima.mezzore.
 //   prontezza      valutaProntezza di js/prontezza.js, oppure null. fase «verdetto» «proiezione»
 //                  «nonValutabile» «senzaData».
@@ -67,7 +68,9 @@
 //   messaggi       { soloStrava, notteNonArriva, copia, iphone }, vero quando la pagina deve mostrare quel
 //                  messaggio, una volta sola. L'app segna da sé che è stato mostrato.
 //   invito         { percorso, giorni, partenza } arrivato dal link degli iscritti, oppure null.
-//   primoAvvio     vero quando manca l'obiettivo. La rotta di Oggi porta allora a #inizio.
+//   primoAvvio     vero quando manca l'obiettivo, e anche con l'obiettivo che la migrazione ha fatto dalla
+//                  sfida di prima (daSfida), che nessuno ha mai scelto con le domande. La rotta di Oggi porta
+//                  allora a #inizio, che parte dalle domande.
 //   disponibilita  quella salvata (comesto.disponibilita.v1), oppure null. Per i valori già scelti si usa
 //                  leggiDisponibilita di js/piano.js.
 //   coda           { attiva, quante }. attiva è falso finché le scritture sulle attività sono spente.
@@ -81,10 +84,12 @@
 //   vai(rotta)                       cambia pagina, per esempio vai("settimana").
 //   salvaObiettivo(obiettivo)        { tipo: "evento", percorso, giorni, partenza, iscritto } oppure
 //                                    { tipo: "libero", libero: "ore"|"giorni"|"giro", ore, giorni, km,
-//                                    metri, fondo, conBorse, partenza } oppure { tipo: "semaforo" }, null
-//                                    lo toglie. Il piano si rifà da solo.
+//                                    metri, fondo, conBorse, misura, partenza } oppure { tipo: "semaforo" },
+//                                    null lo toglie. Con «giorni» misura vale «ore» (ore al giorno) o «km»
+//                                    (km, metri e fondo di ogni giorno). Il piano si rifà da solo.
 //   salvaDisponibilita(d)            { giorni [0-6], stella, ore, tetti [7 minuti o null], dueCose }.
 //   fineInizio({ obiettivo, disponibilita, profilo })   le risposte del primo avvio in una volta.
+//                                    L'obiettivo salvato non ha mai daSfida, così il primo avvio finisce.
 //   rispondiCarta(carta, campi)      la risposta a una carta in più. Per lunga, prova, stub, sforzo e
 //                                    palestra campi va sulla voce dell'attività in comesto.uscite.v1
 //                                    (sforzo, borse, kg, notteFuori, tipo, secondi, metri, dislivello,
@@ -112,25 +117,25 @@
 //
 // ========================================================================================
 
-import { costruisciModello, aggiungiGiorni, giorniTra, giornoSettimana } from "./modello.js?v=202611021705";
+import { costruisciModello, aggiungiGiorni, giorniTra, giornoSettimana } from "./modello.js?v=202611021803";
 import {
   valuta, eventoDiOggi, inizioProposta, giorniDiGuardia, statoMalattia, statoCuore, viaggiDelDiario,
-} from "./semaforo.js?v=202611021705";
+} from "./semaforo.js?v=202611021803";
 import {
   preparaAttivita, normalizzaGiorno, carteDelMattino, soloStrava, notteNonArrivaPiu, doloriCheTornano, leggiInvito,
   inBici, inPalestra, PREFISSI,
-} from "./dati.js?v=202611021705";
-import { serieCarico, puntiOra, differenzaFitness } from "./carico.js?v=202611021705";
-import { stimaH, percorsoLibero } from "./stima.js?v=202611021705";
-import { valutaProntezza } from "./prontezza.js?v=202611021705";
+} from "./dati.js?v=202611021803";
+import { serieCarico, puntiOra, differenzaFitness } from "./carico.js?v=202611021803";
+import { stimaH, percorsoLibero } from "./stima.js?v=202611021803";
+import { valutaProntezza } from "./prontezza.js?v=202611021803";
 import {
   pianoLungo, oggiCosaFaccio, controlloDomenica, fatichePiano, modoEventoPiano, crescitaRapida, giorniPersi, sposta,
   leggiDisponibilita, PIU_GIORNI_DEL_PIANO,
-} from "./piano.js?v=202611021705";
-import { contoSedute, caricoPalestra } from "./palestra.js?v=202611021705";
-import { testoSpostiamo, testoSalta } from "./testi-piano.js?v=202611021705";
-import { trovaPercorso } from "./catalogo.js?v=202611021705";
-import { SEMAFORO, PIANO, MEMORIA, CHIAMATE, DOMANDE, DATI, BORSE } from "./parametri.js?v=202611021705";
+} from "./piano.js?v=202611021803";
+import { contoSedute, caricoPalestra } from "./palestra.js?v=202611021803";
+import { testoSpostiamo, testoSalta } from "./testi-piano.js?v=202611021803";
+import { trovaPercorso } from "./catalogo.js?v=202611021803";
+import { SEMAFORO, PIANO, MEMORIA, CHIAMATE, DOMANDE, DATI, BORSE, STIMA } from "./parametri.js?v=202611021803";
 
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 const ORA = 3600;
@@ -154,13 +159,25 @@ export function etaDi(profilo = {}) {
   return k >= 0 ? PIANO.limiteFacile.etaCentri[k] : SEMAFORO.etaPredefinita;
 }
 
-// Le scelte dell'avventura propria (1.9), nella forma di percorsoLibero di js/stima.js.
+// Le scelte dell'avventura propria (1.9), nella forma di percorsoLibero di js/stima.js. «Più giorni di
+// fila» va da 2 a 14 giorni, ognuno con le ore oppure con km, metri di salita e fondo (misura «km»), e
+// con le borse se la persona non le toglie. I giorni a ore con le borse restano nella forma di prima,
+// così l'impronta del piano di chi li aveva già non cambia.
 function sceltaLibera(o) {
   const tipo = o.libero === "giro" || o.libero === "giorni" ? o.libero : "ore";
   if (tipo === "giro") return { tipo, km: num(o.km) ? o.km : null, metri: num(o.metri) ? o.metri : 0, fondo: o.fondo || "strada", conBorse: o.conBorse === true };
-  if (tipo === "giorni") return { tipo, giorni: o.giorni === 2 ? 2 : 3, ore: num(o.ore) ? o.ore : null };
+  if (tipo === "giorni") {
+    const giorni = STIMA.obiettivoLibero.giorniDiFila.includes(o.giorni) ? o.giorni : 3;
+    if (o.misura === "km") {
+      return { tipo, giorni, misura: "km", km: num(o.km) ? o.km : null, metri: num(o.metri) ? o.metri : 0, fondo: o.fondo || "strada", conBorse: o.conBorse !== false };
+    }
+    return { tipo, giorni, ore: num(o.ore) ? o.ore : null, ...(o.conBorse === false ? { conBorse: false } : {}) };
+  }
   return { tipo, ore: num(o.ore) ? o.ore : null };
 }
+
+// Con i km, il giro e i giorni a km, oppure con le ore, gli altri.
+const conKm = (libero) => libero.tipo === "giro" || libero.misura === "km";
 
 // L'obiettivo salvato (comesto.obiettivo.v1) nella forma che usano le pagine, oppure null, cioè il
 // primo avvio. Un percorso che il catalogo non conosce più vale come nessun obiettivo, così si sceglie
@@ -182,11 +199,21 @@ export function leggiObiettivo(salvato) {
   }
   if (o.tipo === "libero") {
     const libero = sceltaLibera(o);
-    if (libero.tipo === "giro" ? !(libero.km > 0) : !(libero.ore > 0)) return null;
+    if (conKm(libero) ? !(libero.km > 0) : !(libero.ore > 0)) return null;
     const percorso = percorsoLibero(libero);
     return { tipo: "libero", percorso, percorsoId: percorso.id, giorni: percorso.giorniMin, partenza, iscritto: false, libero, daSfida: o.daSfida || null };
   }
   return null;
+}
+
+// L'obiettivo nato dalle domande del primo avvio, da salvare così com'è ma senza la sfida di prima.
+// È quello che chiude il primo avvio di chi arrivava dalla versione di prima (primoAvvio).
+export function senzaSfida(obiettivo) {
+  const o = oggetto(obiettivo);
+  if (!o) return null;
+  const copia = { ...o };
+  delete copia.daSfida;
+  return copia;
 }
 
 // I giorni dell'evento, per la riga del medico (4.9) e la modalità evento. Le sfide della pagina
@@ -823,7 +850,7 @@ export function calcola(stato = {}) {
     carteAperte: tutte,
     messaggi,
     invito,
-    primoAvvio: ob === null,
+    primoAvvio: ob === null || Boolean(ob.daSfida),
     disponibilita: oggetto(tel.disponibilita),
     daSalvare: {
       piano: pianoDaSalvare,

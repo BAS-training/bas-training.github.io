@@ -547,3 +547,151 @@ export const GUIDA = {
   leggi: "Come leggerlo.",
   legato: "A cosa è legato.",
 };
+
+// «Le fonti» della Guida (7.11). Le fonti scientifiche principali dietro le regole dell'app, prese tutte e
+// solo dalla ricerca «Allenamento di endurance in bici e in palestra» del 31 ottobre 2026 (BAS Training,
+// 01_Scienza), dalle 17 regole in testa e dalle prime citazioni dei capitoli, che hanno autore, anno,
+// rivista e collegamento. Per ognuna il primo autore, con «e altri» quando sono di più, l'anno, la
+// rivista con il nome corto del documento e cosa sostiene nell'app, mai il titolo originale. Il DOI è
+// senza «https», il collegamento a doi.org lo fa js/viste/pagine.js.
+export const GUIDA_FONTI = {
+  titolo: "Le fonti",
+  paragrafi: [
+    "Le regole di Come sto vengono da una ricerca sugli studi di allenamento in bici e in palestra, fatta per la Bike Adventure Series alla fine di ottobre 2026. Qui trovi le fonti principali, divise per tema.",
+    "Per ognuna c'è il primo autore, l'anno, la rivista e cosa sostiene nell'app. Il codice sotto apre la pagina dello studio, fuori da Come sto.",
+    "Quasi tutti gli studi riguardano giovani uomini allenati. Per chi ha più di 40 anni danno la direzione, non il numero esatto. Sui viaggi di più giorni con la bici carica gli studi quasi non ci sono, quindi dove non danno un numero la scelta è nostra, e prudente.",
+  ],
+  temi: [
+    {
+      titolo: "Ore in bici e uscita lunga",
+      fonti: [
+        { autore: "Valenti e altri", anno: "2022", rivista: "J Transl Med", doi: "10.1186/s12967-022-03591-5",
+          testo: "Le ore a settimana che ti consiglio non vanno oltre le 12, perché otto partecipanti della NorthCape4000 2021, nei tre mesi prima, ne pedalavano in media circa 11." },
+        { autore: "Knechtle e altri", anno: "2011", rivista: "J Strength Cond Res", doi: "10.1519/JSC.0b013e31821606b3",
+          testo: "Il verdetto guarda prima le ore a settimana e l'uscita lunga, perché su 720 km chi arrivava in fondo si allenava di più e aveva fatto uscite più lunghe." },
+        { autore: "Frandsen e altri", anno: "2025", rivista: "Br J Sports Med", doi: "10.1136/bjsports-2024-109380",
+          testo: "L'uscita lunga cresce un passo alla volta, perché in più di 5.000 corridori una corsa molto più lunga della più lunga del mese prima alzava il rischio di farsi male." },
+        { autore: "Rosenblat e altri", anno: "2025", rivista: "Sports Med", doi: "10.1007/s40279-024-02149-3",
+          testo: "Il piano è quasi tutto facile, con un po' di ritmo medio e poco duro, perché su 348 atleti chi non fa agonismo sembra rispondere meglio così." },
+        { autore: "Quinn e Coons", anno: "2011", rivista: "J Sports Sci", doi: "10.1080/02640414.2011.585165",
+          testo: "Con il battito nei giri la carta ti dà anche il limite del facile, perché parlando si può superare la soglia senza accorgersene." },
+        { autore: "Stevenson e altri", anno: "2022", rivista: "Eur J Appl Physiol", doi: "10.1007/s00421-022-05036-9",
+          testo: "Le uscite di almeno 4 ore si contano a parte, perché dopo due ore di bici il limite del facile si abbassa e il battito, a quel limite, sale." },
+        { autore: "Burke e altri", anno: "2011", rivista: "J Sports Sci", doi: "10.1080/02640414.2011.585473",
+          testo: "Quanto mangiare all'ora nelle uscite lunghe viene dal consenso del Comitato olimpico internazionale sulla nutrizione." },
+      ],
+    },
+    {
+      titolo: "Lo scarico finale",
+      fonti: [
+        { autore: "Bosquet e altri", anno: "2007", rivista: "Med Sci Sports Exerc", doi: "10.1249/mss.0b013e31806010e0",
+          testo: "Lo scarico finale dura circa due settimane e toglie ore poco alla volta, tenendo le uscite e qualche accelerazione, come indicano 27 studi." },
+        { autore: "Wang e altri", anno: "2023", rivista: "PLoS One", doi: "10.1371/journal.pone.0282838",
+          testo: "Con poche ore a settimana lo scarico finale è più corto, perché su 14 studi funziona già da una settimana, purché resti un po' di ritmo." },
+        { autore: "Mujika e Padilla", anno: "2003", rivista: "Med Sci Sports Exerc", doi: "10.1249/01.MSS.0000074448.73931.11",
+          testo: "Nello scarico finale le uscite restano quasi tutte, perché negli scarichi che funzionano il numero delle sedute cala di poco." },
+        { autore: "Coyle e altri", anno: "1984", rivista: "J Appl Physiol", doi: "10.1152/jappl.1984.57.6.1857",
+          testo: "Una Fitness che scende nello scarico finale non vuol dire forma persa, perché anche fermi del tutto si perde poco nelle prime settimane." },
+      ],
+    },
+    {
+      titolo: "Forza e palestra",
+      fonti: [
+        { autore: "Llanos-Lagos e altri", anno: "2026", rivista: "Eur J Appl Physiol", doi: "10.1007/s00421-025-05883-2",
+          testo: "La palestra è consigliata e non decide il verdetto, perché su 17 studi la forza rende la pedalata più economica, con un beneficio moderato e una certezza bassa." },
+        { autore: "Rønnestad e altri", anno: "2011", rivista: "Scand J Med Sci Sports", doi: "10.1111/j.1600-0838.2009.01035.x",
+          testo: "La palestra serve alle giornate lunghe, perché dopo 12 settimane di pesi 20 ciclisti arrivavano in fondo a tre ore di bici con più forza e meno fatica." },
+        { autore: "Rønnestad e altri", anno: "2010", rivista: "Eur J Appl Physiol", doi: "10.1007/s00421-010-1622-4",
+          testo: "Dopo qualche mese la palestra passa a una seduta a settimana, perché una bastava a tenere la forza costruita con due." },
+        { autore: "Devantier-Thomas e altri", anno: "2024", rivista: "J Strength Cond Res", doi: "10.1519/JSC.0000000000004629",
+          testo: "Le gambe pesanti stanno lontane dalle uscite lunghe, perché nelle 24-48 ore dopo una seduta che lascia i muscoli indolenziti la bici costa più fatica." },
+        { autore: "Currier e altri", anno: "2026", rivista: "Med Sci Sports Exerc", doi: "10.1249/MSS.0000000000003897",
+          testo: "Nelle schede non si arriva mai a non farcela più, perché per l'American College of Sports Medicine bastano 2 o 3 ripetizioni di riserva." },
+      ],
+    },
+    {
+      titolo: "La variabilità del battito",
+      fonti: [
+        { autore: "Manresa-Rocamora e altri", anno: "2021", rivista: "Int J Environ Res Public Health", doi: "10.3390/ijerph181910299",
+          testo: "Con la variabilità del battito bassa il semaforo toglie lo sforzo e non lo aggiunge, come negli studi in cui la seduta dura diventava un giorno facile." },
+        { autore: "Plews e altri", anno: "2013", rivista: "Int J Sports Physiol Perform", doi: "10.1123/ijspp.8.6.688",
+          testo: "Il semaforo guarda soprattutto la media di sette notti, perché il miglioramento seguiva poco la notte singola e molto la media della settimana." },
+        { autore: "Vesterinen e altri", anno: "2016", rivista: "Med Sci Sports Exerc", doi: "10.1249/MSS.0000000000000910",
+          testo: "Le soglie della variabilità del battito vengono da questo studio su 40 corridori, che confrontava la media di sette giorni con il proprio normale." },
+        { autore: "Le Meur e altri", anno: "2013", rivista: "Med Sci Sports Exerc", doi: "10.1249/MSS.0b013e3182980125",
+          testo: "Una variabilità del battito sopra il solito non è mai un premio, perché in 21 triatleti stanchi per il troppo carico saliva invece di scendere." },
+        { autore: "Dial e altri", anno: "2025", rivista: "Physiol Rep", doi: "10.14814/phy2.70527",
+          testo: "Una notte sola conta poco e ogni dispositivo ha il suo normale, perché gli orologi sbagliano la variabilità della notte singola, alcuni più di altri." },
+      ],
+    },
+    {
+      titolo: "Sonno e recupero",
+      fonti: [
+        { autore: "Chinoy e altri", anno: "2021", rivista: "Sleep", doi: "10.1093/sleep/zsaa291",
+          testo: "Il sonno da solo non dà mai il rosso, perché due orologi contavano circa 45 minuti di sonno in più, di più nelle notti disturbate." },
+        { autore: "Craven e altri", anno: "2022", rivista: "Sports Med", doi: "10.1007/s40279-022-01706-y",
+          testo: "Sotto le 6 ore il sonno pesa nel semaforo, perché una notte di 6 ore o meno toglie un po' di resistenza." },
+        { autore: "Saw e altri", anno: "2016", rivista: "Br J Sports Med", doi: "10.1136/bjsports-2015-094758",
+          testo: "Le tre domande del mattino contano sempre per intero, perché le risposte di chi si allena seguono il carico meglio dei numeri misurati." },
+        { autore: "Meeusen e altri", anno: "2013", rivista: "Med Sci Sports Exerc", doi: "10.1249/MSS.0b013e318279a10a",
+          testo: "Il rosso dei numeri viene da più segnali che vanno d'accordo, perché per il consenso europeo e americano sul troppo allenamento nessun numero basta da solo." },
+        { autore: "Borges e altri", anno: "2018", rivista: "Exp Aging Res", doi: "10.1080/0361073X.2018.1477361",
+          testo: "Da 50 anni la settimana leggera arriva ogni tre, perché ciclisti di circa 56 anni recuperavano come quelli di 26 ma si sentivano più stanchi." },
+      ],
+    },
+    {
+      titolo: "Carico e Fitness",
+      fonti: [
+        { autore: "Impellizzeri e altri", anno: "2021", rivista: "Sports Med", doi: "10.1007/s40279-020-01378-6",
+          testo: "Il carico recente da solo pesa poco nel semaforo, perché il rapporto fra carico recente e carico di fondo non prevedeva gli infortuni meglio del caso." },
+        { autore: "Vermeire e altri", anno: "2023", rivista: "Int J Sports Physiol Perform", doi: "10.1123/ijspp.2022-0157",
+          testo: "Dopo i giri ti chiedo com'è stata, perché in 11 ciclisti solo il carico calcolato dallo sforzo percepito seguiva la fatica vera." },
+        { autore: "Foster e altri", anno: "2001", rivista: "J Strength Cond Res", doi: "10.1519/00124278-200102000-00019",
+          testo: "Per un giro senza sensori il carico è lo sforzo che mi dici per i suoi minuti, il metodo nato con questo studio." },
+        { autore: "Lea e altri", anno: "2022", rivista: "Sports Med Open", doi: "10.1186/s40798-021-00386-8",
+          testo: "Anche il carico della palestra viene dallo sforzo che mi dici, perché su 118 studi lo sforzo percepito misura bene le sedute di forza." },
+      ],
+    },
+    {
+      titolo: "Bici carica e borse",
+      fonti: [
+        { autore: "Martin e altri", anno: "1998", rivista: "J Appl Biomech", doi: "10.1123/jab.14.3.276",
+          testo: "Le ore in sella vengono dal modello fisico della bici, che su strada prevede bene quanto si spinge sui pedali, anche se con le borse nessuno l'ha mai provato." },
+        { autore: "Knapik e altri", anno: "2012", rivista: "J Strength Cond Res", doi: "10.1519/JSC.0b013e3182429853",
+          testo: "Le prove con le borse crescono dal test corto alla prova generale, perché nei militari portare peso si impara con marce cariche che crescono poco alla volta." },
+        { autore: "Ashe e altri", anno: "2003", rivista: "Br J Sports Med", doi: "10.1136/bjsm.37.5.441",
+          testo: "Dopo la prova generale la posizione in bici non si cambia più, perché una posizione mai provata fa spingere meno." },
+        { autore: "Patterson e altri", anno: "2003", rivista: "Am J Sports Med", doi: "10.1177/03635465030310041801",
+          testo: "Dopo una prova con le borse ti chiedo di mani, sedere e collo, perché dopo 600 km quasi tutti avevano disturbi alle mani, esperti compresi." },
+      ],
+    },
+    {
+      titolo: "Cuore e medico",
+      fonti: [
+        { autore: "Pelliccia e altri", anno: "2021", rivista: "Eur Heart J", doi: "10.1093/eurheartj/ehaa605",
+          testo: "Un sintomo di cuore ferma sempre la giornata e porta dal medico, come chiedono le linee guida europee di cardiologia dello sport." },
+        { autore: "Schwellnus e altri", anno: "2016", rivista: "Br J Sports Med", doi: "10.1136/bjsports-2016-096572",
+          testo: "Con la febbre o i dolori in tutto il corpo niente bici, e dopo 24 ore senza febbre si riparte piano, come dice un consenso di esperti." },
+        { autore: "Snyders e altri", anno: "2022", rivista: "Br J Sports Med", doi: "10.1136/bjsports-2021-104719",
+          testo: "Dopo una malattia di più di una settimana serve il medico prima di riprendere, perché i disturbi delle vie respiratorie durano in media circa una settimana." },
+        { autore: "Wundersitz e altri", anno: "2019", rivista: "Int J Cardiol", doi: "10.1016/j.ijcard.2019.03.016",
+          testo: "Da 40 anni, prima di un viaggio di 11 giorni e più, ti ricordo di sentire il medico, perché dopo 21 giorni in bici adulti e anziani avevano molte più aritmie di prima." },
+        { autore: "Peltola", anno: "2012", rivista: "Front Physiol", doi: "10.3389/fphys.2012.00148",
+          testo: "Con un'aritmia nota una variabilità del battito alta non vale mai come verde, perché i battiti fuori tempo la fanno salire." },
+      ],
+    },
+  ],
+};
+
+// «Valenti e altri, 2022.», la riga di una fonte prima della rivista.
+export function chiFonte(fonte) {
+  const f = fonte && typeof fonte === "object" ? fonte : null;
+  if (!f || typeof f.autore !== "string" || !f.autore || !/^\d{4}$/.test(String(f.anno ?? ""))) return null;
+  return `${f.autore}, ${f.anno}.`;
+}
+
+// Gli ingressi di esempio dei modelli che vogliono un oggetto, che la prova della scrittura (9.8) non sa
+// costruire da sola. Ogni voce è una lista di argomenti.
+export const ESEMPI = {
+  chiFonte: [[{ autore: "Valenti e altri", anno: "2022" }], [{ autore: "Peltola", anno: 2012 }]],
+};

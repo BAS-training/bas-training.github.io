@@ -4,10 +4,10 @@
 // finale al posto della parola inglese, nessuna pagella e nessuna promessa.
 // Niente DOM, così le prove le compongono con node.
 
-import { dataLunga } from "./formato.js?v=202611021705";
-import { PASSO, PRONTEZZA, STIMA } from "./parametri.js?v=202611021705";
-import { arrotondaMezzora } from "./stima.js?v=202611021705";
-import { oreInParole, durataInParole, migliaia, PASSO_GIRI } from "./testi-stima.js?v=202611021705";
+import { dataLunga } from "./formato.js?v=202611021803";
+import { PASSO, PRONTEZZA, STIMA } from "./parametri.js?v=202611021803";
+import { arrotondaMezzora } from "./stima.js?v=202611021803";
+import { oreInParole, durataInParole, migliaia, PASSO_GIRI } from "./testi-stima.js?v=202611021803";
 
 const MINUTI = STIMA.arrotondaMinuti;
 const IN_LETTERE = ["zero", "una", "due", "tre", "quattro", "cinque", "sei", "sette", "otto", "nove", "dieci"];
@@ -436,12 +436,23 @@ export const ESEMPI = congela({
   nomeAvventura: [
     [{ percorso: { evento: "Tuscany Trail", nome: "Originale" }, giorni: 5 }], [{ libero: { tipo: "ore", ore: 5 } }],
     [{ libero: { tipo: "giro", km: 140 } }], [{ libero: { tipo: "giorni", giorni: 2 } }],
+    [{ libero: { tipo: "giorni", giorni: 14, misura: "km", km: 90, conBorse: false } }],
   ],
   rigaPercorso: [
     [{ evento: "Tuscany Trail", nome: "Originale", km: 460, dislivello: 5900 }],
     [{ evento: "NorthCape4000", nome: "Da Berlino (partenza intermedia)", km: 2960, dislivello: null }],
     [null, { tipo: "giro", km: 140, metri: 2200, fondo: "gravel", conBorse: true }], [null, { tipo: "giorni", giorni: 3 }],
-    [null, { tipo: "ore", ore: 5 }],
+    [null, { tipo: "ore", ore: 5 }], [null, { tipo: "giorni", giorni: 12, conBorse: false }],
+    [null, { tipo: "giorni", giorni: 5, misura: "km", km: 100, metri: 2000, fondo: "strada", conBorse: false }],
+    [null, { tipo: "giorni", giorni: 7, misura: "km", km: 80, metri: 0, fondo: "gravel", conBorse: true }],
+  ],
+  nomeBarra: [
+    [[{ pilastro: "volume", stato: "fatto" }, { pilastro: "lunga", stato: "quasi" }, { pilastro: "borse", stato: "inProgramma" }, { pilastro: "continuita", stato: "manca" }]],
+    [[{ pilastro: "volume", stato: "manca" }, { pilastro: "lunga", stato: "fatto" }, { pilastro: "borse", stato: "nonServe" }, { pilastro: "continuita", stato: "fatto" }]],
+  ],
+  fraseBarra: [
+    [{ fase: "verdetto", verdetto: { titolo: "Pronto, con margine" } }], [{ fase: "verdetto", verdetto: { titolo: "Quasi pronto" } }],
+    [{ fase: "proiezione", esito: "quasiPronto" }], [{ fase: "proiezione", esito: "pocoPronto" }],
   ],
   rigaGiorni: [
     [{ giorni: 5, partenza: "2027-05-19", mancano: 70 }], [{ giorni: 1, partenza: "2027-05-19", mancano: 0 }],
@@ -476,7 +487,49 @@ export const PRONTO_PAGINA = congela({
   senzaData: "Manca la data",
   senzaDataTesto: "Quando sai quando parti, qui vedi se ci arrivi pronto. Intanto ecco la tua giornata e una settimana tipo.",
   rispondi: "Rispondi adesso",
+  // In fondo a «Da dove vengono questi numeri», il collegamento a «Le fonti» della Guida (7.11).
+  fonti: "Gli studi dietro queste regole, nella Guida",
 });
+
+// --- La barra «Arrivi pronto?» (2.3 e 2.9), in Oggi sotto la carta e in cima a Pronto? ---
+
+// Un segmento per pilastro, pieno, a metà o vuoto come il segno della sua riga in Pronto?. A schermo
+// sotto ogni segmento c'è solo il nome breve, chi usa un lettore di schermo sente il nome intero e lo
+// stato a parole. Niente numeri e niente percentuali, perché la barra non è un voto.
+export const BARRA_PRONTO = congela({
+  titolo: "Arrivi pronto?",
+  brevi: { volume: "Ore", lunga: "Lunga", borse: "Borse", continuita: "Costanza" },
+  nomi: { volume: "Ore a settimana", lunga: "Uscita lunga", borse: "Prove con le borse", continuita: "Costanza" },
+  stati: {
+    fatto: "a posto", fatta: "a posto", inProgramma: "in programma", quasi: "quasi a posto", consiglio: "quasi a posto",
+    daFare: "quasi a posto", manca: "non ancora", nonServe: "non servono",
+  },
+});
+
+// Il nome della barra per i lettori di schermo, con lo stato di ogni pilastro a parole. segmenti sono
+// quelli di segmentiPronto in js/viste/barra-pronto.js. «Ore a settimana, a posto. Uscita lunga, quasi a
+// posto. Prove con le borse, in programma. Costanza, non ancora.»
+export function nomeBarra(segmenti) {
+  if (!Array.isArray(segmenti) || !segmenti.length) return null;
+  const righe = segmenti.map((x) => (x && Object.hasOwn(BARRA_PRONTO.nomi, x.pilastro) && Object.hasOwn(BARRA_PRONTO.stati, x.stato)
+    ? `${BARRA_PRONTO.nomi[x.pilastro]}, ${BARRA_PRONTO.stati[x.stato]}.`
+    : null));
+  return righe.every(Boolean) ? righe.join(" ") : null;
+}
+
+// La frase sotto la barra, la stessa del titolo di Pronto?. Alla vigilia il titolo del verdetto, prima la
+// frase di dove arrivi con il piano (2.7). Senza i pilastri non c'è barra, e nemmeno la frase.
+export function fraseBarra(prontezza) {
+  const p = prontezza && typeof prontezza === "object" ? prontezza : null;
+  if (!p) return null;
+  if (p.fase === "verdetto") {
+    const titolo = p.verdetto && typeof p.verdetto.titolo === "string" ? p.verdetto.titolo.trim() : "";
+    if (!titolo) return null;
+    return /[.!?]$/.test(titolo) ? titolo : `${titolo}.`;
+  }
+  if (p.fase === "proiezione") return fraseProiezione(p.esito);
+  return null;
+}
 
 // Le scritte nascoste davanti a ogni riga, per chi usa un lettore di schermo. A schermo lo stato lo
 // dice il segno, una spunta, un cerchio o una croce (2.9).
@@ -491,10 +544,11 @@ export const STATI_RIGA = congela({
 });
 
 // Il nome dell'avventura sopra il titolo. «Tuscany Trail, Originale, in 5 giorni», «Il tuo giro di 5 ore».
+// I giorni di fila sono con le borse, salvo quando la persona le ha tolte.
 export function nomeAvventura({ percorso = null, libero = null, giorni = null } = {}) {
   if (libero && typeof libero === "object") {
     if (libero.tipo === "giro" && num(libero.km)) return `Il tuo giro di ${migliaia(libero.km)} km`;
-    if (libero.tipo === "giorni" && num(libero.giorni)) return `I tuoi ${lettere(libero.giorni)} giorni con le borse`;
+    if (libero.tipo === "giorni" && num(libero.giorni)) return `I tuoi ${lettere(libero.giorni)} giorni ${libero.conBorse === false ? "di fila" : "con le borse"}`;
     if (num(libero.ore)) return `Il tuo giro di ${oreAlGiorno(libero.ore)}`;
     return PRONTO_PAGINA.avventura;
   }
@@ -507,7 +561,8 @@ export function nomeAvventura({ percorso = null, libero = null, giorni = null } 
 const FONDI = congela({ strada: "su strada", gravel: "su gravel", misto: "su fondo misto", mountainBike: "in mountain bike" });
 
 // La strada dell'avventura, solo i totali pubblici e mai la traccia (7.7). «Tuscany Trail, Originale,
-// 460 km e 5.900 m di salita.» Per l'avventura propria le scelte di 1.9.
+// 460 km e 5.900 m di salita.» Per l'avventura propria le scelte di 1.9, e per i giorni di fila a km la
+// strada di ogni giorno. «Cinque giorni di fila, 100 km e 2.000 m di salita al giorno, su strada.»
 export function rigaPercorso(percorso, libero = null) {
   if (libero && typeof libero === "object") {
     if (libero.tipo === "giro" && num(libero.km)) {
@@ -515,7 +570,15 @@ export function rigaPercorso(percorso, libero = null) {
       const fondo = Object.hasOwn(FONDI, libero.fondo) ? `, ${FONDI[libero.fondo]}` : "";
       return `Un giro di ${migliaia(libero.km)} km${salita}${fondo}${libero.conBorse ? ", con le borse" : ""}.`;
     }
-    if (libero.tipo === "giorni" && num(libero.giorni)) return `${maiuscola(lettere(libero.giorni))} giorni di fila con le borse.`;
+    if (libero.tipo === "giorni" && num(libero.giorni)) {
+      const quanti = `${maiuscola(lettere(libero.giorni))} giorni di fila`;
+      if (libero.misura === "km" && num(libero.km)) {
+        const salita = num(libero.metri) && libero.metri > 0 ? ` e ${migliaia(libero.metri)} m di salita` : "";
+        const fondo = Object.hasOwn(FONDI, libero.fondo) ? `, ${FONDI[libero.fondo]}` : "";
+        return `${quanti}, ${migliaia(libero.km)} km${salita} al giorno${fondo}${libero.conBorse === false ? "" : ", con le borse"}.`;
+      }
+      return `${quanti}${libero.conBorse === false ? "" : " con le borse"}.`;
+    }
     return num(libero.ore) ? `Un giro di ${oreAlGiorno(libero.ore)}.` : null;
   }
   if (!percorso || typeof percorso.evento !== "string") return null;

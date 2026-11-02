@@ -89,3 +89,13 @@
 .indice-guida ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; }
 .indice-guida .collegamento { display: inline-flex; align-items: center; min-height: 32px; text-align: left; }
 .guida-riga { font-weight: 650; }
+
+/* «Le fonti», una lista per tema, con il collegamento allo studio che va a capo dove serve */
+#guida-fonti, #guida-titolo-fonti { scroll-margin-top: 76px; }
+.fonti-tema { display: flex; flex-direction: column; gap: 10px; min-width: 0; margin-top: 10px; }
+.fonti { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.fonte { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding-left: 12px; border-left: 2px solid var(--linea-forte); }
+.fonte-chi cite { color: var(--inchiostro-2); }
+.fonte-testo { color: var(--inchiostro-2); font-size: 15px; max-width: 68ch; }
+.fonte-doi { font-size: 13.5px; }
+.fonte-doi a { overflow-wrap: anywhere; }
