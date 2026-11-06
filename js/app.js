@@ -3,7 +3,7 @@
 // Le pagine stanno in js/viste/ e ricevono sempre lo stesso ctx, descritto in cima a js/motore.js.
 
 import { creaClient, ErroreApi, leggiNuovi } from "./api.js?v=202611022140";
-import { OAUTH_ATTIVO, SCRITTURE } from "./config.js?v=202611022140";
+import { OAUTH_ATTIVO, SCRITTURE, NUVOLA, NUVOLA_ATTIVA } from "./config.js?v=202611022140";
 import { preparaAccesso, completaAccesso, leggiRitorno } from "./oauth.js?v=202611022140";
 import {
   CHIAVE, ACCESSO, leggi, scrivi, togli, leggiCredenziale, stessaCredenziale, salvaCredenziale,
@@ -11,6 +11,7 @@ import {
 } from "./credenziali.js?v=202611022140";
 import { normalizzaGiorno, oggiLocale, oggiNelFuso, aggiungiGiorni, p2 } from "./modello.js?v=202611022140";
 import { creaMemoria, CHIAVI, nomeCopia } from "./memoria.js?v=202611022140";
+import { creaNuvola, ErroreNuvola, IN_NUVOLA, SESSIONE, STATO as STATO_NUVOLA } from "./nuvola.js?v=202611022140";
 import {
   calcola, giorniDelViaggioDi, giroDelTelefono, spostaGiorno, spostaWeekend, confrontaAtleta, codaPuoPartire, senzaSfida,
 } from "./motore.js?v=202611022140";
@@ -19,7 +20,7 @@ import {
   inCoda, inviaCoda, leggiCoda, scriviSforzo, scriviBorse, aggiungiEtichette, etichettaPalestra, codiceCasuale,
 } from "./scritture.js?v=202611022140";
 import { sedutaFatta } from "./palestra.js?v=202611022140";
-import { CONSENSO, ESCI, AVVISI } from "./testi-app.js?v=202611022140";
+import { CONSENSO, ESCI, AVVISI, ACCOUNT } from "./testi-app.js?v=202611022140";
 import { generaDemo } from "./demo.js?v=202611022140";
 import { vistaOggi } from "./viste/oggi.js?v=202611022140";
 import { vistaSettimana } from "./viste/settimana.js?v=202611022140";
@@ -53,6 +54,14 @@ const locale = memoriaDelBrowser("localStorage");
 const sessione = memoriaDelBrowser("sessionStorage");
 const memoria = creaMemoria(locale, { sessione });
 
+// L'account di Come sto e il salvataggio online (js/nuvola.js). Spento, la pagina è quella di prima.
+function blocchiDelBrowser() {
+  try { return navigator.locks || null; } catch { return null; }
+}
+const nuvola = NUVOLA_ATTIVA
+  ? creaNuvola({ url: NUVOLA.url, chiave: NUVOLA.chiave, memoria, locale, blocchi: blocchiDelBrowser() })
+  : null;
+
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 const oggetto = (v) => (v && typeof v === "object" && !Array.isArray(v) ? v : null);
 const num = (v) => typeof v === "number" && Number.isFinite(v);
@@ -71,6 +80,11 @@ function telefonoVuoto() {
   t.preferenze = {};
   t.profilo = {};
   return t;
+}
+
+// A che punto è l'ingresso con l'email, e com'è andato l'ultimo salvataggio online.
+function accountIniziale() {
+  return { passo: "email", email: "", nota: null, salvataggio: null };
 }
 
 function uiIniziale() {
@@ -119,6 +133,7 @@ const stato = {
   impronta: null,            // l'impronta dell'atleta della credenziale in uso, quando si sa
   atletaDiverso: false,      // i dati del telefono sono di un altro atleta, e si aspetta la scelta (R21)
   tel: telefonoVuoto(),      // le chiavi comesto.* del telefono
+  account: accountIniziale(),
   ui: uiIniziale(),
 };
 let giro = 0;                // ogni caricamento ha il suo numero: vince solo l'ultimo
@@ -171,7 +186,88 @@ function salvaSulTelefono(chiave, fn, inPagina) {
     stato.avvisatoMemoria = true;
     stato.messaggio = AVVISI.soloPagina;
   }
+  if (IN_NUVOLA.includes(chiave)) programmaSalvataggio();
   return esito.valore;
+}
+
+// --- il salvataggio online ---
+
+const ATTESA_SALVATAGGIO = 1500;              // millisecondi, così più scelte di fila fanno un giro solo
+const OGNI_QUANTO_RIPRENDERE = 10 * 60000;    // tornando sulla pagina, per trovare quello che arriva da un altro telefono
+let timerSalvataggio = null;
+let ultimoGiroOnline = 0;
+let chiestoAltroAccount = false;
+
+function programmaSalvataggio() {
+  if (!nuvola || !nuvola.utente()) return;
+  clearTimeout(timerSalvataggio);
+  timerSalvataggio = setTimeout(salvaOnline, ATTESA_SALVATAGGIO);
+}
+
+// Non ridisegna la pagina solo per dire com'è andata, così non si perde quello che si sta scrivendo.
+function diciSalvataggio() {
+  const riga = document.getElementById("account-salvataggio");
+  if (riga) riga.textContent = ACCOUNT.salvataggio[stato.account.salvataggio] || ACCOUNT.salvataggio.ok;
+}
+
+// Salva e riprende, in sottofondo. Non lancia mai errori. Se non riesce l'app va avanti con il telefono,
+// e riprova la prossima volta.
+async function salvaOnline() {
+  if (!nuvola || !nuvola.utente() || !memoria.tiene()) return;
+  ultimoGiroOnline = Date.now();
+  try {
+    const esito = await nuvola.sincronizza(oggiLocale());
+    if (esito.fermo) {
+      if (!chiestoAltroAccount) chiediAltroAccount();
+      return;
+    }
+    stato.account.salvataggio = "ok";
+    if (esito.ripreso.length) {
+      leggiMemoria();
+      if (esito.prima) stato.messaggio = ACCOUNT.ripreso;
+      aggiorna();
+    } else {
+      diciSalvataggio();
+    }
+  } catch (e) {
+    if (e instanceof ErroreNuvola && e.tipo === "sessione") {
+      stato.account = accountIniziale();
+      stato.messaggio = ACCOUNT.scaduta;
+      mostra();
+      return;
+    }
+    stato.account.salvataggio = "errore";
+    diciSalvataggio();
+  }
+}
+
+// Sul telefono ci sono i dati di un altro account. Finché non si sceglie non si legge e non si scrive
+// niente online, così i dati di una persona non finiscono mai nell'account di un'altra.
+function chiediAltroAccount() {
+  chiestoAltroAccount = true;
+  const A = ACCOUNT.altro;
+  const cancella = () => {
+    memoria.cancellaDati();
+    nuvola.accettaTelefono();
+    chiestoAltroAccount = false;
+    stato.cache = null;
+    stato.daVerificare = Boolean(stato.client);
+    stato.tel = telefonoVuoto();
+    leggiMemoria();
+    if (stato.client) carica();
+    else mostra();
+    salvaOnline();
+  };
+  const esci = async () => {
+    await nuvola.esci();
+    chiestoAltroAccount = false;
+    stato.account = accountIniziale();
+    mostra();
+  };
+  const aperta = apri({ titolo: A.titolo, testi: [A.testo], scelte: [{ testo: A.cancella, azione: cancella }, { testo: A.esci, azione: esci, secondario: true }] });
+  if (aperta) return;
+  if (window.confirm(`${A.titolo} ${A.testo}`)) cancella();
+  else esci();
 }
 
 // Cambia una chiave del telefono, o quella dell'esempio, che resta nella pagina. fn riceve una copia
@@ -436,6 +532,14 @@ function contesto() {
     appenaSalvato: stato.appenaSalvato,
     consensoPrima: stato.serveConsenso ? oggetto(memoria.leggi(CHIAVI.consenso)) : null,
     datiSulDispositivo: datiSulDispositivo(),
+    account: {
+      attivo: Boolean(nuvola),
+      utente: nuvola ? nuvola.utente() : null,
+      passo: stato.account.passo,
+      email: stato.account.email,
+      nota: stato.account.nota,
+      salvataggio: stato.account.salvataggio,
+    },
     oggi: r ? r.oggi : stato.oggi || oggiLocale(),
     adesso: r ? r.adesso : oraLocale(),
     attivita: r ? r.attivita : [],
@@ -754,6 +858,11 @@ async function carica({ aggiorna = false } = {}) {
     ricalcola();
     stato.avviso = null;
     if (r.letto) inviaLaCoda(r.uscite);
+    // A chi era già dentro prima dell'account, una volta sola.
+    if (nuvola && !nuvola.utente() && !telefono().preferenze.vistoAccount) {
+      salvaPreferenze({ vistoAccount: oggiLocale() });
+      stato.messaggio = ACCOUNT.novita;
+    }
   } catch (e) {
     if (questo !== giro || client !== stato.client) return;
     const errore = e instanceof ErroreApi ? e : new ErroreApi("server", "Qualcosa è andato storto leggendo i dati. Riprova fra poco.");
@@ -811,6 +920,8 @@ function apri(def) {
 // da mandare. Con «Entra con intervals.icu» toglie anche il permesso. Restano le risposte e le
 // scelte, e l'impronta dell'atleta, così chi entra dopo con un altro account se ne accorge (6.6).
 async function esciSolo(dopo, client, conIntervals, senzaRete) {
+  if (nuvola) nuvola.esci();
+  stato.account = accountIniziale();
   cancellaCredenziali(locale, sessione);
   memoria.esci();
   togli(sessione, PONTE);
@@ -822,6 +933,8 @@ async function esciSolo(dopo, client, conIntervals, senzaRete) {
 
 // «Esci e cancella tutto da questo dispositivo». Tutte le chiavi comesto., credenziali comprese (6.6).
 async function esciCancellaTutto(client, conIntervals, senzaRete) {
+  if (nuvola) nuvola.esci();
+  stato.account = accountIniziale();
   memoria.esciCancellaTutto();
   cancellaCredenziali(locale, sessione);
   lasciaQui();
@@ -866,6 +979,11 @@ async function testoDelFile(file) {
   if (typeof file === "string") return file;
   if (file && typeof file.text === "function") return file.text();
   return "";
+}
+
+function erroreAccount(e) {
+  const tipo = e instanceof ErroreNuvola ? e.tipo : "servizio";
+  return ACCOUNT.errori[tipo] || ACCOUNT.errori.servizio;
 }
 
 const azioni = {
@@ -942,7 +1060,7 @@ const azioni = {
     else testo = ESCI.chiave;
     const aperta = apri({
       titolo: ESCI.titolo,
-      testi: [testo, ESCI.restano],
+      testi: [testo, ESCI.restano, nuvola && nuvola.utente() ? ESCI.account : null].filter(Boolean),
       piccolo: ESCI.intervals,
       scelte: [
         { testo: ESCI.esci, azione: () => esciSolo(dopo, client, conIntervals, senzaRete) },
@@ -960,7 +1078,7 @@ const azioni = {
     const senzaRete = navigator.onLine === false;
     const aperta = apri({
       titolo: ESCI.cancellaTitolo,
-      testi: [ESCI.cancellaDomanda],
+      testi: [ESCI.cancellaDomanda, nuvola && nuvola.utente() ? ESCI.cancellaOnline : null].filter(Boolean),
       piccolo: ESCI.intervals,
       scelte: [
         { testo: ESCI.cancellaSi, azione: () => esciCancellaTutto(client, conIntervals, senzaRete) },
@@ -982,6 +1100,9 @@ const azioni = {
   atletaDiverso(scelta) {
     if (!stato.atletaDiverso) return;
     if (scelta === "cancella") {
+      // I dati del telefono erano di un'altra persona, e il suo account resta a lei.
+      if (nuvola) nuvola.dimentica();
+      stato.account = accountIniziale();
       memoria.cancellaDati();
       if (stato.impronta) memoria.scrivi(CHIAVI.atleta, { impronta: stato.impronta, dal: oggiLocale() });
       stato.atletaDiverso = false;
@@ -997,6 +1118,73 @@ const azioni = {
     memoria.togli(CHIAVI.consenso);
     lasciaQui();
     vai("benvenuto", true);
+  },
+
+  // L'email. Restituisce il testo dell'errore da mostrare, oppure null.
+  async accountEmail(email) {
+    if (!nuvola) return ACCOUNT.errori.servizio;
+    const altroCodice = stato.account.passo === "codice";
+    try {
+      const pulita = await nuvola.chiediCodice(email);
+      stato.account = { ...stato.account, passo: "codice", email: pulita, nota: altroCodice ? ACCOUNT.altroMandato : null };
+      mostra();
+      const campo = document.getElementById("account-codice");
+      if (campo) campo.focus();
+      return null;
+    } catch (e) {
+      return erroreAccount(e);
+    }
+  },
+
+  // Il codice. Da qui in poi l'account è aperto su questo telefono.
+  async accountCodice(codice) {
+    if (!nuvola) return ACCOUNT.errori.servizio;
+    try {
+      const { altroAccount } = await nuvola.verificaCodice(stato.account.email, codice);
+      stato.account = accountIniziale();
+      mostra();
+      if (altroAccount) chiediAltroAccount();
+      else salvaOnline();
+      return null;
+    } catch (e) {
+      return erroreAccount(e);
+    }
+  },
+
+  accountCambiaEmail() {
+    stato.account = { ...stato.account, passo: "email", nota: null };
+    mostra();
+  },
+
+  async accountEsci() {
+    if (!nuvola) return;
+    clearTimeout(timerSalvataggio);
+    await nuvola.esci();
+    stato.account = accountIniziale();
+    mostra();
+  },
+
+  // «Cancella il mio account», con la sua conferma.
+  cancellaAccount() {
+    if (!nuvola) return;
+    const A = ACCOUNT;
+    const via = async () => {
+      clearTimeout(timerSalvataggio);
+      try {
+        await nuvola.cancellaAccount();
+        stato.account = accountIniziale();
+        stato.messaggio = A.cancellato;
+      } catch {
+        stato.messaggio = A.cancellaFallita;
+      }
+      mostra();
+    };
+    const aperta = apri({
+      titolo: A.cancellaTitolo,
+      testi: [A.cancellaDomanda],
+      scelte: [{ testo: A.cancellaSi, azione: via }, { testo: A.cancellaNo, secondario: true }],
+    });
+    if (!aperta && window.confirm(`${A.cancellaTitolo} ${A.cancellaDomanda}`)) via();
   },
 
   demo() {
@@ -1274,6 +1462,7 @@ const azioni = {
     const esito = memoria.riprendi(await testoDelFile(file));
     leggiMemoria();
     aggiorna();
+    programmaSalvataggio();
     return esito;
   },
 
@@ -1352,6 +1541,9 @@ window.addEventListener("hashchange", () => {
   mostra({ fuoco: true });
 });
 document.addEventListener("visibilitychange", controllaGiorno);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && Date.now() - ultimoGiroOnline > OGNI_QUANTO_RIPRENDERE) salvaOnline();
+});
 window.addEventListener("pageshow", controllaGiorno);
 window.addEventListener("focus", controllaGiorno);
 setInterval(controllaGiorno, 60000);
@@ -1382,6 +1574,11 @@ window.addEventListener("pageshow", (e) => {
 window.addEventListener("storage", (e) => {
   if (e.key !== null && e.key !== CHIAVE && e.key !== ACCESSO) {
     if (!e.key.startsWith("comesto.") || e.key === DEMO || e.key === PONTE || e.key === GIRO_OAUTH) return;
+    // Un'altra scheda è entrata o uscita dall'account. I dati veri seguono con le loro chiavi.
+    if (e.key === SESSIONE || e.key === STATO_NUVOLA) {
+      if (VISTE[rotta()].libera) mostra();
+      return;
+    }
     if (e.key === CHIAVI.cache) { stato.cache = null; return; }
     leggiMemoria();
     if (stato.client && !stato.demo && stato.serveConsenso && consensoValido()) { azioni.accettaConsenso(); return; }
@@ -1516,5 +1713,6 @@ async function avvia() {
     const riquadro = document.getElementById("errore-accesso");
     if (riquadro) riquadro.focus();
   }
+  salvaOnline();
 }
 avvia();

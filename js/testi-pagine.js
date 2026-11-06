@@ -102,7 +102,11 @@ export const DOMANDE_FREQUENTI = [
   },
   {
     d: "Chi vede i miei dati?",
-    r: "Solo tu. La pagina li legge direttamente da intervals.icu, sul tuo telefono o computer. Non passano da nessun server nostro e nessuno, nemmeno chi ha fatto l'app, li può vedere.",
+    r: "I tuoi numeri e le tue risposte li vedi solo tu. La pagina li legge direttamente da intervals.icu, sul tuo telefono o computer, e non passano da nessun server nostro. Se entri con la tua email, nel nostro database stanno solo l'email, l'avventura, i giorni per la bici e poche impostazioni su bici, borse e palestra, e questi li può vedere anche chi amministra l'app.",
+  },
+  {
+    d: "A cosa serve entrare con l'email?",
+    r: "A non ripartire da capo. Se cambi telefono o il browser cancella la sua memoria, rientri con un codice via email e ritrovi avventura, giorni e bici. I numeri e le risposte del mattino tornano da intervals.icu, e il piano si rifà da solo. Età, peso, aritmia, ciclo, sintomi, sforzo e palestra restano solo sul telefono dove li hai scritti, per quelli c'è la copia di sicurezza.",
   },
   {
     d: "E se non ho un orologio?",
@@ -234,6 +238,7 @@ export const BENVENUTO = {
   inizia: "Inizia",
   esempio: "Guarda un esempio",
   nota: "Gratis e senza pubblicità. Serve solo un account gratuito su intervals.icu, e i tuoi dati restano tra te e intervals.icu.",
+  account: "Hai già un account? Entra con la tua email",
   punti: [
     { titolo: "Un semaforo ogni mattina", testo: "Verde, giallo o rosso, con il perché in poche righe. Guarda come hai dormito, il cuore a riposo, quanto ti sei allenato e come ti senti." },
     { titolo: "Pronto per la tua avventura?", testo: "Scegli l'evento e in quanti giorni. Ti dico quante ore starai in sella con la bici carica, se ci arrivi pronto e come allenarti ogni settimana, con bici e palestra." },
@@ -274,7 +279,9 @@ export const PRIVACY = {
       titolo: "In breve",
       punti: [
         "Come sto ti dà ogni mattina un semaforo, per capire se oggi puoi spingere o se è meglio andare piano, e ti aiuta ad arrivare pronto alla tua avventura.",
-        "La pagina legge i tuoi dati da intervals.icu direttamente sul tuo telefono o computer. Le tue risposte restano lì e nel tuo account intervals.icu. Noi non riceviamo niente.",
+        "La pagina legge i tuoi dati da intervals.icu direttamente sul tuo telefono o computer. Le tue risposte restano lì e nel tuo account intervals.icu. Noi non riceviamo i tuoi numeri e le tue risposte.",
+        "Se vuoi, puoi entrare anche con la tua email. Allora salviamo online solo l'email, l'avventura, i giorni per la bici e poche impostazioni, mai i dati sulla salute.",
+        "Per ora Come sto è in prova, con poche persone.",
         "Niente pubblicità, niente vendita di dati e niente intelligenza artificiale sui tuoi dati.",
         "Come sto non è un dispositivo medico e non fa diagnosi.",
       ],
@@ -290,7 +297,7 @@ export const PRIVACY = {
         "Il tuo browser chiede a intervals.icu i dati che servono e li mette insieme sul tuo dispositivo per calcolare il semaforo, le ore in sella della tua avventura, se ci arrivi pronto, il piano della settimana e i numeri.",
         "Le risposte alle tre domande del mattino il tuo browser le scrive nel tuo account intervals.icu, nel giorno di oggi. In viaggio fa lo stesso con la risposta sull'energia.",
         "Le altre risposte che dai nella pagina, per esempio «Sto male», lo sforzo e le borse delle uscite o la palestra, restano sul tuo dispositivo.",
-        "Niente passa da un server nostro. Non vediamo e non conserviamo i dati dell'app.",
+        "I tuoi numeri e le tue risposte non passano da un server nostro. Non li vediamo e non li conserviamo.",
       ],
     },
     {
@@ -333,6 +340,21 @@ export const PRIVACY = {
       dopo: "Per ricordare chiave, risposte e scelte la pagina usa una piccola memoria del browser. Serve solo a farti usare l'app. Niente cookie e niente statistiche sulle visite. Se apri la pagina in navigazione privata, o su iPhone da Safari e non dall'icona nella schermata Home, il browser può cancellare questa memoria da solo. Per non perdere le risposte puoi salvarne una copia.",
     },
     {
+      titolo: "Se entri con la tua email",
+      punti: [
+        "È facoltativo. L'app funziona anche senza, con le tue scelte solo sul tuo dispositivo.",
+        "Entri con un codice che ti arriva per email, senza password. Il codice vale 10 minuti e una volta sola. L'accesso resta su questo dispositivo finché esci.",
+        "Salviamo la tua email, l'avventura con i suoi giorni e la data, i giorni e il tempo per la bici, la bici, le borse, la scelta sulla palestra, gli altri sport e i viaggi che hai già fatto. Servono a farti ritrovare le tue scelte su ogni telefono.",
+        "Non salviamo mai battito, HRV, sonno, semaforo, risposte del mattino, sintomi, sforzo, sedute di palestra, età, peso, aritmia, ciclo, la risposta sulla sicurezza in palestra o la chiave di intervals.icu. Il database li rifiuta anche se per errore gli arrivassero.",
+        "Il piano non si salva online. Su un telefono nuovo si rifà da avventura, giorni e numeri di intervals.icu.",
+        "Li custodisce Supabase, il fornitore del nostro database, a Francoforte in Germania. Ogni persona può leggere e cambiare solo i suoi. Chi amministra l'app può vederli, e il personale di Supabase solo per assistenza o per un incidente di sicurezza, anche da Singapore e dagli Stati Uniti.",
+        "Il codice te lo manda Brevo, il nostro fornitore di email, che vede il tuo indirizzo e il messaggio. Questa email non la usiamo per scriverti d'altro.",
+        "Restano finché non cancelli l'account. L'avventura si cancella anche online 3 mesi dopo l'evento, alla prima apertura dell'app.",
+        "Con «Cancella il mio account», in Impostazioni, togli subito dal database la tua email e i tuoi dati. Con «Esci dall'account» esci solo da questo dispositivo, e i dati online restano.",
+        "Su un telefono nuovo serve anche collegare di nuovo intervals.icu, perché la chiave non la salviamo mai online.",
+      ],
+    },
+    {
       titolo: "Cosa scrive l'app nel tuo intervals.icu",
       punti: [
         "Le tre risposte del mattino, nel giorno di oggi, e in viaggio la risposta sull'energia.",
@@ -356,7 +378,8 @@ export const PRIVACY = {
       punti: [
         "intervals.icu custodisce i tuoi dati nel tuo account, con la sua informativa sulla privacy.",
         "GitHub pubblica la pagina, e come per ogni sito tiene i registri tecnici delle visite.",
-        "Nessun altro. La pagina non carica niente da altri siti e parla solo con intervals.icu.",
+        "Solo se entri con la tua email, Supabase custodisce quello che salviamo online e Brevo ti manda il codice.",
+        "Nessun altro. La pagina non carica niente da altri siti. Parla solo con intervals.icu e, se entri con la tua email, con il nostro database.",
       ],
     },
     {
@@ -370,6 +393,7 @@ export const PRIVACY = {
           chiave: "Per togliere l'accesso ovunque, su intervals.icu crea una chiave nuova. Quella vecchia smette subito di funzionare.",
           intervals: "Se sei entrato con «Entra con intervals.icu», Esci toglie a Come sto anche il permesso su intervals.icu, e lo puoi togliere anche dalle impostazioni di intervals.icu. Se hai incollato la chiave, per togliere l'accesso ovunque creane una nuova su intervals.icu, e la vecchia smette subito di funzionare.",
         },
+        "Se sei entrato anche con la tua email, con tutti e due esci anche da lì. Quello che è salvato online resta finché non scegli «Cancella il mio account».",
         "Così ritiri anche il consenso, quando vuoi. Il ritiro vale da quel momento in poi.",
       ],
     },

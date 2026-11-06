@@ -10,6 +10,7 @@ export const IMPOSTAZIONI = {
   salvato: "Salvato.",
   demo: "Con i dati di esempio le scelte restano solo in questa pagina.",
   telefono: "Sta su questo telefono.",
+  online: "Sta su questo telefono e nel tuo account.",
   avventura: {
     titolo: "La mia avventura",
     nessuna: "Non hai ancora scelto un'avventura. Senza, il piano e il verdetto non ci sono, il semaforo sì.",
@@ -83,6 +84,7 @@ export const IMPOSTAZIONI = {
     pesoAiuto: "Serve solo alle ore in salita. Senza risposta conto 75 kg. Il peso non lo prendo mai da intervals.icu.",
     ebike: "Vado con la e-bike",
     ebikeAiuto: "Con la e-bike le ore in sella al giorno le dici tu nella pagina Pronto?, e i giri in e-bike contano a metà nelle ore a settimana.",
+    online: "Bici e borse stanno su questo telefono e nel tuo account. La fascia di peso solo qui.",
   },
   palestra: {
     titolo: "Palestra",
@@ -90,6 +92,7 @@ export const IMPOSTAZIONI = {
     altri: "Oltre alla bici fai altri sport?",
     altriScelte: [{ id: "si", testo: "Sì" }, { id: "no", testo: "No" }],
     altriAiuto: "Chi comincia la palestra senza altri sport oltre alla bici si abitua per 4 settimane invece di 3.",
+    online: "La scelta e gli altri sport stanno su questo telefono e nel tuo account. La risposta sulla sicurezza solo qui.",
   },
   scarico: {
     titolo: "Settimana leggera",
@@ -161,7 +164,7 @@ export const IMPOSTAZIONI = {
         : `Sforzo, borse e notti fuori delle uscite e le sedute di palestra stanno su questo telefono per ${giorni} giorni. Per ora non vanno su intervals.icu.`,
       `L'avventura, il piano, i giorni per la bici e queste impostazioni stanno su questo telefono. Avventura e piano si cancellano da soli ${mesi} mesi dopo l'evento.`,
       `Una copia dei dati presi da intervals.icu, al massimo ${copia} giorni e senza i nomi delle uscite, sta su questo telefono finché premi Esci, così la pagina chiede solo i giorni nuovi.`,
-      "Noi non riceviamo niente.",
+      "Se entri con la tua email, avventura, giorni e poche impostazioni su bici, borse e palestra stanno anche nel tuo account online. Tutto il resto noi non lo riceviamo.",
     ],
     privacy: "Come trattiamo i tuoi dati",
   },

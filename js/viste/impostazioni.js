@@ -12,9 +12,19 @@ import { DOMANDE_PALESTRA, TESTI_PALESTRA } from "../palestra.js?v=202611022140"
 import { SEMAFORO, MEMORIA, PIANO, STIMA } from "../parametri.js?v=202611022140";
 import { IMPOSTAZIONI } from "../testi-impostazioni.js?v=202611022140";
 import { TESTI_DATI } from "../testi-dati.js?v=202611022140";
+import { ACCOUNT } from "../testi-app.js?v=202611022140";
 import { intestazione } from "./comuni.js?v=202611022140";
+import { moduloAccount } from "./accesso.js?v=202611022140";
 
 const I = IMPOSTAZIONI;
+// Dove sta una scelta che segue la persona, quando è entrata con la sua email.
+const conAccount = (ctx) => Boolean(ctx.account && ctx.account.utente);
+const doveOnline = (ctx, testo = I.online) => dove(conAccount(ctx) ? testo : I.telefono);
+
+function sezioneAccount(ctx) {
+  if (ctx.demo || !ctx.account || !ctx.account.attivo) return null;
+  return sezione("account", ACCOUNT.titolo, moduloAccount(ctx));
+}
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 const DA_50 = new Set(["50-54", "55-59", "60+"]);
 // Le chiavi della copia fatte di voci, per giorno, uscita, seduta o settimana (js/memoria.js).
@@ -75,16 +85,16 @@ function sezioneAvventura(ctx) {
       h("p", { class: "piccolo" }, A.soloSemaforoAiuto))
     : null;
 
-  if (!ob) return sezione("avventura", A.titolo, h("p", {}, A.nessuna), h("div", { class: "riga-bottoni" }, vai), dove(I.telefono));
+  if (!ob) return sezione("avventura", A.titolo, h("p", {}, A.nessuna), h("div", { class: "riga-bottoni" }, vai), doveOnline(ctx));
   if (ob.tipo === "semaforo") {
-    return sezione("avventura", A.titolo, h("p", {}, A.semaforo), h("div", { class: "riga-bottoni" }, vai), dove(I.telefono), salvato(ctx, "avventura"));
+    return sezione("avventura", A.titolo, h("p", {}, A.semaforo), h("div", { class: "riga-bottoni" }, vai), doveOnline(ctx), salvato(ctx, "avventura"));
   }
   if (ob.tipo === "libero") {
     return sezione("avventura", A.titolo,
       h("p", {}, h("strong", {}, A.libero), " ", descriviLibero(ob), ob.partenza ? ` ${A.liberoData(dataLunga(ob.partenza))}` : null),
       h("div", { class: "riga-bottoni" }, vai),
       solo,
-      dove(I.telefono),
+      doveOnline(ctx),
       salvato(ctx, "avventura"));
   }
 
@@ -109,7 +119,7 @@ function sezioneAvventura(ctx) {
     salvato(ctx, "avventura"),
     h("div", { class: "riga-bottoni" }, vai),
     solo,
-    dove(I.telefono));
+    doveOnline(ctx));
 }
 
 // --- Giorni e tempo (3.1) ---
@@ -169,7 +179,7 @@ function sezioneGiorni(ctx) {
     h("p", { class: "sezione-testo" }, G.attacco),
     modulo,
     salvato(ctx, "giorni"),
-    dove(I.telefono));
+    doveOnline(ctx));
 }
 
 // --- Borse e bici (1.3) ---
@@ -197,7 +207,7 @@ function sezioneBorse(ctx) {
     casella("ebike", B.ebike, ebike, (acceso) => ctx.azioni.profilo({ ebike: acceso }, "borse")),
     h("p", { class: "piccolo" }, B.ebikeAiuto),
     salvato(ctx, "borse"),
-    dove(I.telefono));
+    doveOnline(ctx, I.borse.online));
 }
 
 // --- Palestra (5.1) ---
@@ -231,7 +241,7 @@ function sezionePalestra(ctx) {
       : null,
     scelta !== "no" ? h("p", { class: "piccolo" }, P.altriAiuto) : null,
     salvato(ctx, "palestra"),
-    dove(I.telefono));
+    doveOnline(ctx, I.palestra.online));
 }
 
 // --- Età, notte, in bici, ciclo (rilascio 1) ---
@@ -440,6 +450,7 @@ function fuori(ctx) {
   return h("div", { class: "vista vista-testo" },
     intestazione(I.titolo, I.sottotitolo, I.fuori.testo),
     ctx.accesso ? null : h("p", {}, h("a", { class: "bottone", href: "#collega" }, I.fuori.entra)),
+    sezioneAccount(ctx),
     sezioneDati(),
     ctx.datiSulDispositivo
       ? sezione("cancella", I.esci.cancella,
@@ -457,6 +468,7 @@ export function vistaImpostazioni(ctx) {
   return h("div", { class: "vista vista-testo vista-impostazioni" },
     intestazione(I.titolo, I.sottotitolo, I.attacco),
     ctx.demo ? h("aside", { class: "banner banner-demo" }, h("p", {}, I.demo)) : null,
+    sezioneAccount(ctx),
     sezioneAvventura(ctx),
     sezioneGiorni(ctx),
     sezioneBorse(ctx),
