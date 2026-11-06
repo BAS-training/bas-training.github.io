@@ -32,6 +32,17 @@ export const SCRITTURE = Object.freeze({
   attivita: false,
 });
 
+// L'account di Come sto e il salvataggio online (js/nuvola.js, database in supabase/migrations). Con url
+// null è tutto spento e la pagina è quella di prima. Indirizzo e chiave pubblicabile si possono leggere
+// da tutti, come il resto della pagina, e non aprono niente da soli. A proteggere i dati sono le regole
+// del database. La chiave segreta di Supabase non va MAI qui né altrove nella pagina o nel repository.
+export const NUVOLA = Object.freeze({
+  url: "https://phtnugayropnspnrzdwk.supabase.co",
+  chiave: "sb_publishable_XrA3D809QS-Xg2c5H4CcBg_0YSJEknO",
+});
+
+export const NUVOLA_ATTIVA = Boolean(NUVOLA.url && NUVOLA.chiave);
+
 // L'indirizzo a cui intervals.icu riporta chi ha dato il permesso. È l'origine più il percorso
 // della pagina, senza query né hash, e deve essere identico a uno di quelli registrati
 // nella pagina Manage App (intervals.icu non accetta asterischi).

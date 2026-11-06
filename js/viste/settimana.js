@@ -5,20 +5,20 @@
 // quello che è stato fatto davvero da ctx.attivita, e gli spostamenti da ctx.piano.spostamenti.
 // righeSettimana è pura, così le prove la guardano con node (test/settimana.test.mjs).
 
-import { h, icona } from "../dom.js?v=202611022140";
-import { nomeTipo } from "../modello.js?v=202611022140";
-import { inBici, inPalestra } from "../dati.js?v=202611022140";
-import { leggiDisponibilita, TIPI_SEDUTA } from "../piano.js?v=202611022140";
-import { sedutaPalestra } from "../palestra.js?v=202611022140";
+import { h, icona } from "../dom.js?v=202611061254";
+import { nomeTipo } from "../modello.js?v=202611061254";
+import { inBici, inPalestra } from "../dati.js?v=202611061254";
+import { leggiDisponibilita, TIPI_SEDUTA } from "../piano.js?v=202611061254";
+import { sedutaPalestra } from "../palestra.js?v=202611061254";
 import {
   inBreve, titoloSeduta, comeSeduta, contoAllaPartenza, fraseSettimana, testoSposta, testoSpostiamo, testoSalta,
   NOTE, TASTI, AVVISI,
-} from "../testi-piano.js?v=202611022140";
+} from "../testi-piano.js?v=202611061254";
 import {
   SETTIMANA, SEGNI, PERCHE, GIRO, SFORZO_PAROLE, giornoRiga, intervallo, nelPiano, percheSeduta, fattoDescritto, sedutaAnche,
   arrivaDa, fraseCrescita, liberaAiuto, giroAggiunto,
-} from "../testi-settimana.js?v=202611022140";
-import { intestazione, bannerDemo } from "./comuni.js?v=202611022140";
+} from "../testi-settimana.js?v=202611061254";
+import { intestazione, bannerDemo } from "./comuni.js?v=202611061254";
 
 const GIORNO_MS = 86400000;
 const lista = (v) => (Array.isArray(v) ? v : []);

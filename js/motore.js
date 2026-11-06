@@ -117,25 +117,25 @@
 //
 // ========================================================================================
 
-import { costruisciModello, aggiungiGiorni, giorniTra, giornoSettimana } from "./modello.js?v=202611022140";
+import { costruisciModello, aggiungiGiorni, giorniTra, giornoSettimana } from "./modello.js?v=202611061254";
 import {
   valuta, eventoDiOggi, inizioProposta, giorniDiGuardia, statoMalattia, statoCuore, viaggiDelDiario,
-} from "./semaforo.js?v=202611022140";
+} from "./semaforo.js?v=202611061254";
 import {
   preparaAttivita, normalizzaGiorno, carteDelMattino, soloStrava, notteNonArrivaPiu, doloriCheTornano, leggiInvito,
   inBici, inPalestra, PREFISSI,
-} from "./dati.js?v=202611022140";
-import { serieCarico, puntiOra, differenzaFitness } from "./carico.js?v=202611022140";
-import { stimaH, percorsoLibero } from "./stima.js?v=202611022140";
-import { valutaProntezza } from "./prontezza.js?v=202611022140";
+} from "./dati.js?v=202611061254";
+import { serieCarico, puntiOra, differenzaFitness } from "./carico.js?v=202611061254";
+import { stimaH, percorsoLibero } from "./stima.js?v=202611061254";
+import { valutaProntezza } from "./prontezza.js?v=202611061254";
 import {
   pianoLungo, oggiCosaFaccio, controlloDomenica, fatichePiano, modoEventoPiano, crescitaRapida, giorniPersi, sposta,
   leggiDisponibilita, PIU_GIORNI_DEL_PIANO,
-} from "./piano.js?v=202611022140";
-import { contoSedute, caricoPalestra } from "./palestra.js?v=202611022140";
-import { testoSpostiamo, testoSalta } from "./testi-piano.js?v=202611022140";
-import { trovaPercorso } from "./catalogo.js?v=202611022140";
-import { SEMAFORO, PIANO, MEMORIA, CHIAMATE, DOMANDE, DATI, BORSE, STIMA } from "./parametri.js?v=202611022140";
+} from "./piano.js?v=202611061254";
+import { contoSedute, caricoPalestra } from "./palestra.js?v=202611061254";
+import { testoSpostiamo, testoSalta } from "./testi-piano.js?v=202611061254";
+import { trovaPercorso } from "./catalogo.js?v=202611061254";
+import { SEMAFORO, PIANO, MEMORIA, CHIAMATE, DOMANDE, DATI, BORSE, STIMA } from "./parametri.js?v=202611061254";
 
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 const ORA = 3600;

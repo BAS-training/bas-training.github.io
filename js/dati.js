@@ -5,9 +5,9 @@
 // Niente DOM e niente window, così si prova con node (test/dati.test.mjs).
 // I numeri stanno in js/parametri.js, nel gruppo DATI.
 
-import { DATI, PASSO, CHIAMATE, PIANO, DOMANDE } from "./parametri.js?v=202611022140";
-import { QUALITA, fonteCarico, divisoreSforzo, puntiOra, inBici, inPalestra, mediana } from "./carico.js?v=202611022140";
-import { CATALOGO } from "./catalogo.js?v=202611022140";
+import { DATI, PASSO, CHIAMATE, PIANO, DOMANDE } from "./parametri.js?v=202611061254";
+import { QUALITA, fonteCarico, divisoreSforzo, puntiOra, inBici, inPalestra, mediana } from "./carico.js?v=202611061254";
+import { CATALOGO } from "./catalogo.js?v=202611061254";
 
 export { QUALITA, inBici, inPalestra };
 

@@ -18,7 +18,7 @@ La barra in basso ha cinque voci. Dal piede della pagina si aprono Impostazioni 
 
 ## Come funziona, in breve
 
-- È una pagina statica pubblicata con GitHub Pages. **Non ha server e non ha database.**
+- È una pagina statica pubblicata con GitHub Pages. **Non ha server. I dati su salute e allenamento non passano da un database nostro.** Un database c'è solo per chi sceglie di entrare con la sua email, e tiene poche scelte, vedi «L'account».
 - Chi la usa crea un account gratuito su intervals.icu, ci collega il proprio dispositivo (Garmin, Wahoo, Polar, Suunto, Coros, Oura, Whoop…) e incolla nella pagina la propria chiave API di intervals.icu. Quando sarà acceso «Entra con intervals.icu» (vedi sotto) basterà un pulsante, e la chiave resterà come alternativa.
 - La pagina chiama le API pubbliche di intervals.icu direttamente dal browser (`/api/v1/athlete/0/...`, dove `0` vuol dire «il proprietario della chiave»). I dati non passano da nessun altro.
 - Prima di entrare la persona conferma di avere almeno 18 anni e dà il consenso per i dati sulla salute, nel riquadro «Prima di entrare» della pagina Collega. Il consenso si salva sul telefono in `comesto.consenso`, con la versione del testo (`C0-1.0`) e la data. Senza il consenso non si entra con i propri dati e la pagina non legge niente da intervals.icu. Quando il testo cambia, chi è già dentro lo rivede una volta. L'esempio resta libero.
@@ -64,7 +64,25 @@ Ogni lettura e scrittura passa da `js/memoria.js`, dentro un try e catch.
 - **La copia di sicurezza.** «Salva una copia», in Impostazioni, scarica `come-sto-dati-AAAA-MM-GG.json` con tutte le chiavi tranne consenso, cache, coda, impronta e credenziali. «Riprendi da una copia» mostra cosa cambia e chiede conferma, e per ogni giorno e ogni uscita tiene il dato più recente.
 - **Il link dell'iscrizione** porta solo percorso, giorni e data, dopo il cancelletto (`#percorso=…&giorni=…&partenza=…`), così non arriva a nessun server. Vale ancora il vecchio `?percorso=`. La pagina li salva in `comesto.invito.v1` e li toglie dall'indirizzo.
 - Se la memoria del browser manca o è piena, le risposte restano nella pagina finché è aperta, e la pagina lo dice una volta.
-- Nessun dato arriva ad AdventureLab. I sintomi di «Sto male», le cause, il sonno e «Qualcosa non va?» in viaggio, l'aritmia e la casella del ciclo non vanno nemmeno su intervals.icu.
+- Nessun dato sulla salute arriva ad AdventureLab. I sintomi di «Sto male», le cause, il sonno e «Qualcosa non va?» in viaggio, l'aritmia e la casella del ciclo non vanno nemmeno su intervals.icu.
+
+## L'account
+
+Chi vuole entra con la sua email e un codice, senza password, e ritrova le sue scelte su ogni telefono. È facoltativo, e l'app funziona anche senza. Il codice sta in `js/nuvola.js`, il database in `supabase/migrations`, e con `url` vuoto in `js/config.js` è tutto spento.
+
+- **Dove.** Supabase, progetto `come-sto-prova`, a Francoforte, separato dal Marketing Hub. È un progetto di prova, sul piano gratis, che non ha backup automatici e si ferma dopo una settimana di poca attività. Per i dati veri serve il piano a pagamento e un progetto di produzione a parte.
+- **Cosa c'è online.** L'email, `comesto.obiettivo.v1`, `comesto.disponibilita.v1` e di `comesto.profilo.v1` solo i campi di `CAMPI_PROFILO` (bici, borse, e-bike, scelta sulla palestra, altri sport, viaggi già fatti). Il piano non si salva, su un telefono nuovo si rifà da solo.
+- **Cosa non c'è mai.** Numeri di salute, semaforo, risposte, sintomi, sforzo, sedute di palestra, età, peso, aritmia, ciclo, la risposta sulla sicurezza in palestra e la chiave di intervals.icu.
+- **Chi protegge i dati.** Il database, non la pagina. Ogni persona vede solo le sue righe (row level security), chi non è entrato non ha nessun permesso, le chiavi ammesse sono tre, ognuna accetta solo i suoi campi e solo valori semplici, e nessuna riga può contenere i nomi dei campi sulla salute. L'indirizzo e la chiave pubblicabile in `js/config.js` possono essere pubblici. **La chiave segreta di Supabase non va mai nella pagina né nel repository.**
+- **Se si cambia la lista dei dati.** Vanno cambiati insieme `CAMPI` in `js/nuvola.js`, il database con una migrazione nuova, i testi di `ACCOUNT` e la Privacy, e prima va deciso se serve un consenso nuovo.
+- **Il salvataggio.** Il telefono viene prima. Per ogni chiave si tiene l'ultimo stato su cui telefono e database erano d'accordo. Se è cambiato uno solo dei due vale quello, se sono cambiati tutti e due vale la scelta fatta dopo. Senza rete non si perde niente e si riprova dopo.
+- **Niente cancellazioni da sole.** Una cosa che manca sul telefono può essere un guasto della memoria, quindi si riprende da online e non si toglie mai niente online. L'unica eccezione è l'avventura finita da 3 mesi.
+- **La prima volta su un telefono.** Se il telefono ha già delle scelte non si manda e non si sostituisce niente, e si chiede se sono della persona e, se ce ne sono di diverse online, quali tenere.
+- **Due persone sullo stesso telefono.** Il telefono si lega all'account appena si entra, e resta legato anche dopo l'uscita. Se entra un'altra email non si legge e non si scrive niente online finché la persona non sceglie se cancellare i dati di prima o uscire. La stessa email con un account rifatto non conta come un'altra persona.
+- **Le email del codice.** Partono da Brevo via SMTP, con il mittente della Bike Adventure Series. Il servizio di base di Supabase scrive solo ai membri del team e non lascia cambiare il testo.
+- **Su un telefono nuovo** serve anche collegare di nuovo intervals.icu, perché la chiave non si salva mai online.
+
+Per rifare il database su un progetto nuovo si lancia il file di `supabase/migrations` nel SQL Editor. Prima di ogni cambiamento alle regole vanno rifatte le prove con due utenti inventati, e fra quelle c'è che uno non legga, non cambi e non cancelli le righe dell'altro.
 
 ## Il semaforo
 
@@ -178,6 +196,7 @@ js/motore.js               da letture e telefono a tutto quello che le pagine mo
 js/api.js                  chiamate a intervals.icu e letture dei soli giorni nuovi, con la chiave o con l'accesso OAuth
 js/config.js               «Entra con intervals.icu» e le scritture sulle attività, tutti e due spenti
 js/oauth.js                «Entra con intervals.icu», OAuth con PKCE senza segreto (funzioni pure, testate)
+js/nuvola.js               l'account con l'email e il salvataggio online di poche scelte (puro, testato)
 js/credenziali.js          chiave e accesso salvati, e come le schede aperte li seguono (puro, testato)
 js/memoria.js              le chiavi comesto. sul telefono, migrazione, pulizia, Esci e copia (puro, testato)
 js/parametri.js            tutti i numeri delle regole, con la loro fonte (testato)
@@ -199,9 +218,10 @@ js/viste/                  le pagine
 strumenti/                 versione dei file, catalogo, taratura sui dati privati
 test/                      prove automatiche
 dev/server.py              server di sviluppo con ponte verso intervals.icu
+supabase/migrations/       il database dell'account, con le sue regole
 ```
 
-Nessuna libreria esterna e nessuna risorsa da altri siti. La pagina carica solo file suoi e parla solo con intervals.icu. È una scelta di sicurezza, perché nel browser c'è la chiave di chi la usa.
+Nessuna libreria esterna e nessuna risorsa da altri siti. La pagina carica solo file suoi e parla solo con intervals.icu e con il suo database. È una scelta di sicurezza, perché nel browser c'è la chiave di chi la usa.
 
 ## Sviluppo
 
@@ -215,6 +235,7 @@ node --test test/dati.test.mjs
 node --test test/inizio.test.mjs
 node --test test/memoria.test.mjs
 node --test test/motore.test.mjs
+node --test test/nuvola.test.mjs
 node --test test/oauth.test.mjs
 node --test test/oggi.test.mjs
 node --test test/palestra.test.mjs

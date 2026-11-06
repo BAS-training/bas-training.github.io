@@ -4,7 +4,7 @@
 // Funzioni pure, senza DOM e senza window, provate con node (test/stima.test.mjs).
 // Tutti i numeri stanno in js/parametri.js, nei gruppi STIMA, PASSO e BORSE.
 
-import { STIMA, PASSO, BORSE, DATI } from "./parametri.js?v=202611022140";
+import { STIMA, PASSO, BORSE, DATI } from "./parametri.js?v=202611061254";
 
 const ORA = 3600;                 // secondi in un'ora
 const KMH = 3.6;                  // da m/s a km/h

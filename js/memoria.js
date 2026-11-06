@@ -18,8 +18,8 @@
 //   cambiamento in millisecondi. Lo mette scrivi e lo toglie leggi, così gli altri moduli non lo
 //   vedono mai. Serve a riprendi, perché per ogni giorno e ogni uscita resti il dato più recente.
 
-import { MEMORIA } from "./parametri.js?v=202611022140";
-import { CHIAVE, ACCESSO } from "./credenziali.js?v=202611022140";
+import { MEMORIA } from "./parametri.js?v=202611061254";
+import { CHIAVE, ACCESSO } from "./credenziali.js?v=202611061254";
 
 export const PREFISSO = "comesto.";
 export const GUASTO = ".guasto";
@@ -201,6 +201,9 @@ function finito(valore, oggi) {
   const fine = fineEvento(valore);
   return fine !== null && oggi > aggiungiMesi(fine, MEMORIA.mesiDopoEvento);
 }
+
+// Per js/nuvola.js, così l'avventura finita da 3 mesi si toglie anche online.
+export const eventoFinito = (valore, oggi) => finito(valore, oggi);
 
 // L'invito è entrato nell'obiettivo quando l'obiettivo ha lo stesso percorso e la stessa partenza,
 // anche se poi la persona ha cambiato i giorni.

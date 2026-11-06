@@ -8,7 +8,7 @@
 // bikepacking cinque settimane fa, due prove con le borse, qualche giro arrivato da Strava senza
 // dettagli, la palestra segnata nell'app e dall'orologio, e il controllo dell'ultima domenica.
 
-import { aggiungiGiorni, giornoSettimana, calendario, baseHrv, baseFc, GIORNI_STORICO } from "./modello.js?v=202611022140";
+import { aggiungiGiorni, giornoSettimana, calendario, baseHrv, baseFc, GIORNI_STORICO } from "./modello.js?v=202611061254";
 
 function generatore(seme) {
   let a = seme >>> 0;

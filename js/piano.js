@@ -7,12 +7,12 @@
 // Funzioni pure, senza DOM e senza window, provate con node (test/piano.test.mjs).
 // I numeri stanno in js/parametri.js, nei gruppi PIANO e DOMENICA, i testi in js/testi-piano.js.
 
-import { CARICO, DOMANDE, DOMENICA, PIANO, PRONTEZZA, SEMAFORO, STIMA } from "./parametri.js?v=202611022140";
-import { QUALITA, contoOre, doloriCheTornano, giriUniti, inBici, mediana } from "./dati.js?v=202611022140";
-import { borseDellObiettivo, classeEvento, giorniDiBici, haEsperienza, obiettivi, pilastroBorse, pilastroLunga, pilastroVolume } from "./prontezza.js?v=202611022140";
-import { SCHEDE, contoSedute, fasePalestra, sedutaPalestra } from "./palestra.js?v=202611022140";
-import { trovaPercorso } from "./catalogo.js?v=202611022140";
-import * as T from "./testi-piano.js?v=202611022140";
+import { CARICO, DOMANDE, DOMENICA, PIANO, PRONTEZZA, SEMAFORO, STIMA } from "./parametri.js?v=202611061254";
+import { QUALITA, contoOre, doloriCheTornano, giriUniti, inBici, mediana } from "./dati.js?v=202611061254";
+import { borseDellObiettivo, classeEvento, giorniDiBici, haEsperienza, obiettivi, pilastroBorse, pilastroLunga, pilastroVolume } from "./prontezza.js?v=202611061254";
+import { SCHEDE, contoSedute, fasePalestra, sedutaPalestra } from "./palestra.js?v=202611061254";
+import { trovaPercorso } from "./catalogo.js?v=202611061254";
+import * as T from "./testi-piano.js?v=202611061254";
 
 const GIORNO_MS = 86400000;
 const EPS = 1e-9;

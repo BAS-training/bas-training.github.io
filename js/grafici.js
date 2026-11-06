@@ -3,8 +3,8 @@
 // Regole: un solo asse verticale per grafico, linee sottili, griglia leggera,
 // un tooltip che segue il dito o il mouse, e la tabella con i numeri per chi non vede i colori.
 
-import { h, s } from "./dom.js?v=202611022140";
-import { numero, giornoMese, mese, dataLunga, valido } from "./formato.js?v=202611022140";
+import { h, s } from "./dom.js?v=202611061254";
+import { numero, giornoMese, mese, dataLunga, valido } from "./formato.js?v=202611061254";
 
 const ALTEZZA = 200;
 let contatore = 0;

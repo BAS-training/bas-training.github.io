@@ -5,15 +5,15 @@
 // come la scrive il piano, e la si segna il giorno stesso. sceltaPalestra è pura, così le prove la
 // guardano con node (test/settimana.test.mjs).
 
-import { h } from "../dom.js?v=202611022140";
-import { PIANO } from "../parametri.js?v=202611022140";
-import { ESERCIZI, SCHEDE, TESTI_PALESTRA, DOMANDE_PALESTRA, sedutaPalestra } from "../palestra.js?v=202611022140";
-import { fraseSettimana, testoPalestraSposta } from "../testi-piano.js?v=202611022140";
+import { h } from "../dom.js?v=202611061254";
+import { PIANO } from "../parametri.js?v=202611061254";
+import { ESERCIZI, SCHEDE, TESTI_PALESTRA, DOMANDE_PALESTRA, sedutaPalestra } from "../palestra.js?v=202611061254";
+import { fraseSettimana, testoPalestraSposta } from "../testi-piano.js?v=202611061254";
 import {
   PALESTRA_PAGINA, REGISTRA, SETTIMANA, SFORZO_PAROLE, giornoScheda, giornoRiga, prossimaSeduta, alPostoDi, nomeScheda,
   settimanaFase, troncoAttacco, segnataAlle,
-} from "../testi-settimana.js?v=202611022140";
-import { intestazione, bannerDemo } from "./comuni.js?v=202611022140";
+} from "../testi-settimana.js?v=202611061254";
+import { intestazione, bannerDemo } from "./comuni.js?v=202611061254";
 
 const lista = (v) => (Array.isArray(v) ? v : []);
 const num = (v) => typeof v === "number" && Number.isFinite(v);
