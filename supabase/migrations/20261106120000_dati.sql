@@ -3,14 +3,15 @@
 -- ma dalle regole qui sotto, che il database applica a ogni richiesta.
 --
 -- Quello che sta qui. L'avventura, i giorni per la bici e poche impostazioni su bici e borse.
--- Quello che qui non entra mai. Numeri di salute, semaforo, sintomi, risposte, sforzo, palestra e la
--- chiave di intervals.icu. Restano in intervals.icu e sul telefono della persona.
+-- Quello che qui non entra mai. Numeri di salute, semaforo, sintomi, risposte, sforzo, sedute di palestra
+-- e la chiave di intervals.icu. Restano in intervals.icu e sul telefono della persona.
 --
 -- Tre muri, uno dentro l'altro.
 -- 1. Ogni persona vede e cambia solo le sue righe (row level security), chi non è entrato nessuna.
 -- 2. Le chiavi ammesse sono tre, scritte qui. Tutto il resto il database lo rifiuta.
--- 3. Il profilo può contenere solo i campi di privato.campi_ammessi, e nessuna riga può contenere i
---    nomi dei campi sulla salute. Così un errore nel codice della pagina non porta dati qui dentro.
+-- 3. Ogni chiave può contenere solo i campi di privato.campi_ammessi, con valori semplici e senza oggetti
+--    dentro, e nessuna riga può contenere i nomi dei campi sulla salute. Così un errore nel codice della
+--    pagina non porta dati qui dentro.
 
 create schema if not exists privato;
 revoke all on schema privato from public;
@@ -22,13 +23,23 @@ language sql
 immutable
 set search_path = ''
 as $$
-  select case
-    when c = 'comesto.profilo.v1' then not exists (
+  select not exists (
       select 1 from jsonb_object_keys(v) as campo
-      where campo not in ('bici', 'borseKg', 'borseTipo', 'ebike', 'oreEbike', 'palestra', 'altriSport', 'esperienza')
+      where campo <> all (case c
+        when 'comesto.obiettivo.v1' then array['tipo', 'percorso', 'giorni', 'partenza', 'iscritto', 'libero', 'km', 'metri', 'fondo', 'conBorse', 'misura', 'ore', 'daSfida']
+        when 'comesto.disponibilita.v1' then array['giorni', 'stella', 'ore', 'tetti', 'dueCose']
+        when 'comesto.profilo.v1' then array['bici', 'borseKg', 'borseTipo', 'ebike', 'oreEbike', 'palestra', 'altriSport', 'esperienza']
+        else array[]::text[]
+      end)
     )
-    else true
-  end;
+    and not exists (
+      select 1 from jsonb_each(v) as campo(nome, valore)
+      where jsonb_typeof(campo.valore) = 'object'
+        or (jsonb_typeof(campo.valore) = 'array' and exists (
+          select 1 from jsonb_array_elements(campo.valore) as elemento(valore)
+          where jsonb_typeof(elemento.valore) in ('object', 'array')
+        ))
+    );
 $$;
 revoke all on function privato.campi_ammessi(text, jsonb) from public;
 grant execute on function privato.campi_ammessi(text, jsonb) to authenticated;
@@ -38,6 +49,7 @@ create table public.dati (
   chiave text not null,
   valore jsonb not null,
   agg timestamptz not null default now(),
+  scelto bigint,   -- l'ora della scelta sul telefono che l'ha fatta, per decidere fra due telefoni
   primary key (utente, chiave),
   constraint chiave_ammessa check (chiave in ('comesto.obiettivo.v1', 'comesto.disponibilita.v1', 'comesto.profilo.v1')),
   constraint valore_oggetto check (jsonb_typeof(valore) = 'object'),
@@ -92,3 +104,13 @@ as $$
 $$;
 revoke all on function public.cancella_account() from public, anon, authenticated;
 grant execute on function public.cancella_account() to authenticated;
+
+-- La funzione che Supabase crea con «Enable automatic RLS» parte da sola quando si crea una tabella, e
+-- nessuno ha bisogno di poterla chiamare.
+do $$
+begin
+  if to_regprocedure('public.rls_auto_enable()') is not null then
+    revoke all on function public.rls_auto_enable() from public, anon, authenticated;
+  end if;
+end
+$$;

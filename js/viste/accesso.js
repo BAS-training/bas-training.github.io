@@ -2,9 +2,9 @@
 // un account diverso da quello dei dati che stanno sul telefono (R21). Finché la persona non sceglie,
 // i dati dell'altra non si mostrano, non si usano e le sue scritture non partono.
 
-import { h } from "../dom.js?v=202611022140";
-import { ATLETA_DIVERSO, ACCOUNT } from "../testi-app.js?v=202611022140";
-import { intestazione } from "./comuni.js?v=202611022140";
+import { h } from "../dom.js?v=202611061254";
+import { ATLETA_DIVERSO, ACCOUNT } from "../testi-app.js?v=202611061254";
+import { intestazione } from "./comuni.js?v=202611061254";
 
 // L'account di Come sto, in Impostazioni e nella pagina Collega. Senza account si chiede l'email, poi il
 // codice che arriva per email. Con compatto, nella pagina Collega, chi è già entrato vede solo una riga.

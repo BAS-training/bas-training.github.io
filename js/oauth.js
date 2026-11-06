@@ -10,8 +10,8 @@
 // memoria e fetch passati da fuori così si provano anche senza browser.
 // Le regole di intervals.icu stanno in https://forum.intervals.icu/t/intervals-icu-oauth-support/2759
 
-import { OAUTH, indirizzoRitorno } from "./config.js?v=202611022140";
-import { ErroreApi, tokenValido, scadenza } from "./api.js?v=202611022140";
+import { OAUTH, indirizzoRitorno } from "./config.js?v=202611061254";
+import { ErroreApi, tokenValido, scadenza } from "./api.js?v=202611061254";
 
 export const RICHIESTA = "comesto.oauth";          // in sessionStorage, solo per il tempo del giro
 export const VALIDITA_RICHIESTA = 30 * 60 * 1000;  // mezz'ora per entrare su intervals.icu e dare il permesso

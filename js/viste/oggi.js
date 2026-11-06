@@ -7,23 +7,23 @@
 // quelle di 4.5 e 7.10. Tutto arriva già calcolato da js/app.js e js/motore.js, il contratto è in cima a
 // js/motore.js.
 
-import { h, icona } from "../dom.js?v=202611022140";
-import { dataLunga, formatoDurata, formatoOra, numero } from "../formato.js?v=202611022140";
-import { inBici } from "../dati.js?v=202611022140";
-import { DOMANDE } from "../parametri.js?v=202611022140";
+import { h, icona } from "../dom.js?v=202611061254";
+import { dataLunga, formatoDurata, formatoOra, numero } from "../formato.js?v=202611061254";
+import { inBici } from "../dati.js?v=202611061254";
+import { DOMANDE } from "../parametri.js?v=202611061254";
 import {
   LIVELLI, ESITO_VOCE, DOMANDE_MATTINO, OGGI, MATTINO, STO_MALE, CAUSE, CONTROLLO, VIAGGIO, MESSAGGI, FIDUCIA, TETTI,
   CAMBIO_DISPOSITIVO,
-} from "../testi.js?v=202611022140";
+} from "../testi.js?v=202611061254";
 import {
   saluto, AL_EVENTO, contoPartenza, CARTA, CARTE, titoloUscita, titoloPalestra, titoloStub, arrivaDa, sedutaDiIeri,
   lHaiFatto, DOMENICA_OGGI, UNA_VOLTA, AVVENTURA_OGGI,
-} from "../testi-oggi.js?v=202611022140";
-import { TASTI, STOMACO, testoSposta, testoSalta, testoPalestraSposta } from "../testi-piano.js?v=202611022140";
-import { TESTI_DATI } from "../testi-dati.js?v=202611022140";
-import { PROMEMORIA } from "../testi-app.js?v=202611022140";
-import { bannerDemo, luceSemaforo } from "./comuni.js?v=202611022140";
-import { barraPronto } from "./barra-pronto.js?v=202611022140";
+} from "../testi-oggi.js?v=202611061254";
+import { TASTI, STOMACO, testoSposta, testoSalta, testoPalestraSposta } from "../testi-piano.js?v=202611061254";
+import { TESTI_DATI } from "../testi-dati.js?v=202611061254";
+import { PROMEMORIA } from "../testi-app.js?v=202611061254";
+import { bannerDemo, luceSemaforo } from "./comuni.js?v=202611061254";
+import { barraPronto } from "./barra-pronto.js?v=202611061254";
 
 // La sera, per «Ce l'hai fatta» dell'ultimo giorno di viaggio, dalla stessa ora del saluto.
 const ORA_SERA = 18;

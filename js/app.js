@@ -2,37 +2,37 @@
 // conti a js/motore.js, salva quello che il motore dice di salvare e decide quale pagina mostrare.
 // Le pagine stanno in js/viste/ e ricevono sempre lo stesso ctx, descritto in cima a js/motore.js.
 
-import { creaClient, ErroreApi, leggiNuovi } from "./api.js?v=202611022140";
-import { OAUTH_ATTIVO, SCRITTURE, NUVOLA, NUVOLA_ATTIVA } from "./config.js?v=202611022140";
-import { preparaAccesso, completaAccesso, leggiRitorno } from "./oauth.js?v=202611022140";
+import { creaClient, ErroreApi, leggiNuovi } from "./api.js?v=202611061254";
+import { OAUTH_ATTIVO, SCRITTURE, NUVOLA, NUVOLA_ATTIVA } from "./config.js?v=202611061254";
+import { preparaAccesso, completaAccesso, leggiRitorno } from "./oauth.js?v=202611061254";
 import {
   CHIAVE, ACCESSO, leggi, scrivi, togli, leggiCredenziale, stessaCredenziale, salvaCredenziale,
   cancellaCredenziali, togliCredenziale, dopoUnCambio,
-} from "./credenziali.js?v=202611022140";
-import { normalizzaGiorno, oggiLocale, oggiNelFuso, aggiungiGiorni, p2 } from "./modello.js?v=202611022140";
-import { creaMemoria, CHIAVI, nomeCopia } from "./memoria.js?v=202611022140";
-import { creaNuvola, ErroreNuvola, IN_NUVOLA, SESSIONE, STATO as STATO_NUVOLA } from "./nuvola.js?v=202611022140";
+} from "./credenziali.js?v=202611061254";
+import { normalizzaGiorno, oggiLocale, oggiNelFuso, aggiungiGiorni, p2 } from "./modello.js?v=202611061254";
+import { creaMemoria, CHIAVI, nomeCopia } from "./memoria.js?v=202611061254";
+import { creaNuvola, ErroreNuvola, IN_NUVOLA, SESSIONE, STATO as STATO_NUVOLA } from "./nuvola.js?v=202611061254";
 import {
   calcola, giorniDelViaggioDi, giroDelTelefono, spostaGiorno, spostaWeekend, confrontaAtleta, codaPuoPartire, senzaSfida,
-} from "./motore.js?v=202611022140";
-import { leggiInvito, palestraAbbinata } from "./dati.js?v=202611022140";
+} from "./motore.js?v=202611061254";
+import { leggiInvito, palestraAbbinata } from "./dati.js?v=202611061254";
 import {
   inCoda, inviaCoda, leggiCoda, scriviSforzo, scriviBorse, aggiungiEtichette, etichettaPalestra, codiceCasuale,
-} from "./scritture.js?v=202611022140";
-import { sedutaFatta } from "./palestra.js?v=202611022140";
-import { CONSENSO, ESCI, AVVISI, ACCOUNT } from "./testi-app.js?v=202611022140";
-import { generaDemo } from "./demo.js?v=202611022140";
-import { vistaOggi } from "./viste/oggi.js?v=202611022140";
-import { vistaSettimana } from "./viste/settimana.js?v=202611022140";
-import { vistaPronto } from "./viste/pronto.js?v=202611022140";
-import { vistaPalestra } from "./viste/palestra.js?v=202611022140";
-import { vistaNumeri } from "./viste/numeri.js?v=202611022140";
-import { vistaInizio } from "./viste/inizio.js?v=202611022140";
-import { vistaImpostazioni } from "./viste/impostazioni.js?v=202611022140";
-import { vistaAtletaDiverso } from "./viste/accesso.js?v=202611022140";
+} from "./scritture.js?v=202611061254";
+import { sedutaFatta } from "./palestra.js?v=202611061254";
+import { CONSENSO, ESCI, AVVISI, ACCOUNT } from "./testi-app.js?v=202611061254";
+import { generaDemo } from "./demo.js?v=202611061254";
+import { vistaOggi } from "./viste/oggi.js?v=202611061254";
+import { vistaSettimana } from "./viste/settimana.js?v=202611061254";
+import { vistaPronto } from "./viste/pronto.js?v=202611061254";
+import { vistaPalestra } from "./viste/palestra.js?v=202611061254";
+import { vistaNumeri } from "./viste/numeri.js?v=202611061254";
+import { vistaInizio } from "./viste/inizio.js?v=202611061254";
+import { vistaImpostazioni } from "./viste/impostazioni.js?v=202611061254";
+import { vistaAtletaDiverso } from "./viste/accesso.js?v=202611061254";
 import {
   vistaBenvenuto, vistaCollega, vistaGuida, vistaPrivacy, vistaCaricamento, vistaErrore, vistaConsenso, dialogo,
-} from "./viste/pagine.js?v=202611022140";
+} from "./viste/pagine.js?v=202611061254";
 
 // Dentro un riquadro di un altro sito la pagina non si apre: nessuno deve poterla "travestire".
 if (window.top !== window.self) {
@@ -196,7 +196,6 @@ const ATTESA_SALVATAGGIO = 1500;              // millisecondi, così più scelte
 const OGNI_QUANTO_RIPRENDERE = 10 * 60000;    // tornando sulla pagina, per trovare quello che arriva da un altro telefono
 let timerSalvataggio = null;
 let ultimoGiroOnline = 0;
-let chiestoAltroAccount = false;
 
 function programmaSalvataggio() {
   if (!nuvola || !nuvola.utente()) return;
@@ -211,14 +210,19 @@ function diciSalvataggio() {
 }
 
 // Salva e riprende, in sottofondo. Non lancia mai errori. Se non riesce l'app va avanti con il telefono,
-// e riprova la prossima volta.
-async function salvaOnline() {
+// e riprova la prossima volta. opzioni porta la scelta della persona, la prima volta su questo telefono.
+async function salvaOnline(opzioni = {}) {
   if (!nuvola || !nuvola.utente() || !memoria.tiene()) return;
   ultimoGiroOnline = Date.now();
   try {
-    const esito = await nuvola.sincronizza(oggiLocale());
-    if (esito.fermo) {
-      if (!chiestoAltroAccount) chiediAltroAccount();
+    const esito = await nuvola.sincronizza(oggiLocale(), opzioni);
+    if (esito.fermo || esito.chiedi) {
+      stato.account.salvataggio = "attesa";
+      diciSalvataggio();
+      if (!document.querySelector("dialog[open]")) {
+        if (esito.fermo) chiediAltroAccount();
+        else chiediPrimaScelta(esito.chiedi);
+      }
       return;
     }
     stato.account.salvataggio = "ok";
@@ -230,7 +234,9 @@ async function salvaOnline() {
       diciSalvataggio();
     }
   } catch (e) {
-    if (e instanceof ErroreNuvola && e.tipo === "sessione") {
+    const tipo = e instanceof ErroreNuvola ? e.tipo : "servizio";
+    if (tipo === "uscito") return;
+    if (tipo === "sessione") {
       stato.account = accountIniziale();
       stato.messaggio = ACCOUNT.scaduta;
       mostra();
@@ -241,15 +247,35 @@ async function salvaOnline() {
   }
 }
 
-// Sul telefono ci sono i dati di un altro account. Finché non si sceglie non si legge e non si scrive
-// niente online, così i dati di una persona non finiscono mai nell'account di un'altra.
-function chiediAltroAccount() {
-  chiestoAltroAccount = true;
+// La prima volta di un account su un telefono che ha già delle scelte. Prima di mandare o sostituire
+// qualcosa si chiede se sono sue e, se anche online ce ne sono di diverse, quali tenere.
+function chiediPrimaScelta({ online = false } = {}) {
+  const P = ACCOUNT.primaScelta;
+  const nonMie = () => chiediAltroAccount({ primoContatto: true });
+  const scelte = online
+    ? [
+      { testo: P.online, azione: () => salvaOnline({ scelta: "online" }) },
+      { testo: P.telefono, azione: () => salvaOnline({ scelta: "telefono" }) },
+      { testo: P.nonMie, azione: nonMie, secondario: true },
+    ]
+    : [
+      { testo: P.si, azione: () => salvaOnline({ scelta: "telefono" }) },
+      { testo: P.nonMie, azione: nonMie, secondario: true },
+    ];
+  const aperta = apri({ titolo: online ? P.titoloDiverse : P.titoloMie, testi: [online ? P.testoDiverse : P.testoMie], scelte }, { obbligatoria: true });
+  if (aperta) return;
+  if (window.confirm(`${P.titoloMie} ${P.testoMie}`)) salvaOnline({ scelta: "telefono" });
+  else nonMie();
+}
+
+// I dati del telefono non sono di chi è entrato. Finché non si sceglie non si legge e non si scrive
+// niente online, così i dati di una persona non finiscono mai nell'account di un'altra. primoContatto
+// vuol dire che il telefono era libero, e uscendo torna libero per chi lo usava.
+function chiediAltroAccount({ primoContatto = false } = {}) {
   const A = ACCOUNT.altro;
   const cancella = () => {
     memoria.cancellaDati();
     nuvola.accettaTelefono();
-    chiestoAltroAccount = false;
     stato.cache = null;
     stato.daVerificare = Boolean(stato.client);
     stato.tel = telefonoVuoto();
@@ -259,14 +285,17 @@ function chiediAltroAccount() {
     salvaOnline();
   };
   const esci = async () => {
-    await nuvola.esci();
-    chiestoAltroAccount = false;
+    await (primoContatto ? nuvola.dimentica() : nuvola.esci());
     stato.account = accountIniziale();
     mostra();
   };
-  const aperta = apri({ titolo: A.titolo, testi: [A.testo], scelte: [{ testo: A.cancella, azione: cancella }, { testo: A.esci, azione: esci, secondario: true }] });
+  const aperta = apri({
+    titolo: A.titolo,
+    testi: [A.testo, A.cancellaTesto],
+    scelte: [{ testo: A.cancella, azione: cancella }, { testo: A.esci, azione: esci, secondario: true }],
+  }, { obbligatoria: true });
   if (aperta) return;
-  if (window.confirm(`${A.titolo} ${A.testo}`)) cancella();
+  if (window.confirm(`${A.titolo} ${A.testo} ${A.cancellaTesto}`)) cancella();
   else esci();
 }
 
@@ -907,9 +936,11 @@ function controllaGiorno() {
 
 // --- le finestre di conferma, con un <dialog> e i tasti dello stesso peso ---
 
-function apri(def) {
+// obbligatoria vuol dire che il tasto Esc non la chiude, perché senza una risposta non si salva niente.
+function apri(def, { obbligatoria = false } = {}) {
   const finestra = dialogo(def);
   if (typeof finestra.showModal !== "function") return false;
+  if (obbligatoria) finestra.addEventListener("cancel", (e) => e.preventDefault());
   document.body.append(finestra);
   finestra.addEventListener("close", () => finestra.remove());
   finestra.showModal();
@@ -1114,6 +1145,9 @@ const azioni = {
       carica();
       return;
     }
+    // Chi è entrato se ne va del tutto, così quello che fa dopo chi usa il telefono non va nel suo account.
+    if (nuvola) nuvola.esci();
+    stato.account = accountIniziale();
     cancellaCredenziali(locale, sessione);
     memoria.togli(CHIAVI.consenso);
     lasciaQui();

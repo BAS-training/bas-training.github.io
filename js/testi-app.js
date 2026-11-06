@@ -74,6 +74,7 @@ export const ACCOUNT = {
   salvataggio: {
     ok: "Avventura, giorni e bici si salvano anche online, da soli.",
     errore: "Adesso non riesco a salvare online. Sul telefono è tutto a posto, e riprovo da solo.",
+    attesa: "Non salvo online finché non scegli cosa tenere.",
   },
   esci: "Esci dall'account",
   esciAiuto: "Esci da questo dispositivo. Quello che è salvato online resta, e lo ritrovi rientrando con la tua email.",
@@ -88,9 +89,21 @@ export const ACCOUNT = {
   ripreso: "Bentornato. Ho ripreso avventura, giorni e bici. Età, peso, aritmia e ciclo non si salvano online, controllali in Impostazioni.",
   novita: "Novità. Ora puoi salvare avventura, giorni e bici con la tua email, così non riparti da capo se cambi telefono. Lo trovi in Impostazioni.",
   scaduta: "Il tuo accesso con l'email è scaduto. Rientra da Impostazioni, sul telefono non si è perso niente.",
+  // La prima volta di un account su un telefono che ha già delle scelte.
+  primaScelta: {
+    titoloMie: "Su questo telefono ci sono già delle scelte",
+    testoMie: "Avventura, giorni e bici che stanno qui andranno nel tuo account. Sono tue?",
+    si: "Sì, sono mie",
+    titoloDiverse: "Online e su questo telefono ci sono scelte diverse",
+    testoDiverse: "Riguardano avventura, giorni e bici. Quali tieni? Quelle che non tieni si perdono. Il resto che sta su questo telefono non cambia.",
+    online: "Tieni quelle online",
+    telefono: "Tieni quelle di questo telefono",
+    nonMie: "Non sono mie",
+  },
   altro: {
-    titolo: "Su questo telefono ci sono i dati di un altro account",
-    testo: "Sei entrato con un'email diversa da quella dei dati che stanno qui. Finché non scegli non salvo niente online.",
+    titolo: "Su questo telefono ci sono i dati di un'altra persona",
+    testo: "Questi dati non sono del tuo account. Finché non scegli non salvo niente online.",
+    cancellaTesto: "Se li cancelli, tolgo da questo telefono tutte le risposte e le scelte di prima, compresi sintomi, uscite e palestra, e non si possono recuperare. Se sono di chi usa questo telefono, esci dall'account.",
     cancella: "Cancella quei dati e continua",
     esci: "Esci dall'account",
   },
